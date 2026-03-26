@@ -2,18 +2,8 @@ name: Frontend
 
 on:
   push:
-    branches:
-      - main
-      - master
     tags:
       - "frontend-v*"
-    paths:
-      - "xladmin-frontend/**"
-      - ".github/workflows/frontend.yml"
-  pull_request:
-    paths:
-      - "xladmin-frontend/**"
-      - ".github/workflows/frontend.yml"
   workflow_dispatch:
 
 permissions:

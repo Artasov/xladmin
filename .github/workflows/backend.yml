@@ -2,18 +2,8 @@ name: Backend
 
 on:
   push:
-    branches:
-      - main
-      - master
     tags:
       - "backend-v*"
-    paths:
-      - "xladmin-backend/**"
-      - ".github/workflows/backend.yml"
-  pull_request:
-    paths:
-      - "xladmin-backend/**"
-      - ".github/workflows/backend.yml"
   workflow_dispatch:
 
 permissions:
