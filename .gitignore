@@ -1,0 +1,17 @@
+.idea/
+xladmin-frontend/node_modules/
+xladmin-frontend/dist/
+xladmin-frontend/.tmp-types/
+xladmin-frontend/tmp-types/
+xladmin-frontend/*.tgz
+
+xladmin-backend/.venv/
+xladmin-backend/build/
+xladmin-backend/dist/
+xladmin-backend/.pytest_cache/
+xladmin-backend/.mypy_cache/
+xladmin-backend/.ruff_cache/
+xladmin-backend/src/*.egg-info/
+
+__pycache__/
+*.pyc

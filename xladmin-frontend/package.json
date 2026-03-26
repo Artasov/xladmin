@@ -1,0 +1,70 @@
+{
+  "name": "xladmin",
+  "version": "0.1.0",
+  "description": "Generic React + MUI admin frontend for xladmin.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Artasov/xladmin.git",
+    "directory": "xladmin-frontend"
+  },
+  "homepage": "https://github.com/Artasov/xladmin/tree/main/xladmin-frontend",
+  "bugs": {
+    "url": "https://github.com/Artasov/xladmin/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm && tsc --emitDeclarationOnly --declaration --outDir .tmp-types -p tsconfig.json && node ./scripts/postbuild.mjs",
+    "check": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@emotion/react": ">=11.14.0 <12.0.0",
+    "@emotion/styled": ">=11.14.0 <12.0.0",
+    "@mui/icons-material": ">=7.0.0 <8.0.0",
+    "@mui/material": ">=7.0.0 <8.0.0",
+    "@mui/x-date-pickers": ">=8.0.0 <9.0.0",
+    "axios": ">=1.0.0 <2.0.0",
+    "dayjs": ">=1.11.0 <2.0.0",
+    "next": ">=15.0.0 <17.0.0",
+    "react": ">=19.0.0 <20.0.0",
+    "react-dom": ">=19.0.0 <20.0.0"
+  },
+  "peerDependenciesMeta": {
+    "axios": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^7.0.0",
+    "@mui/material": "^7.0.0",
+    "@mui/x-date-pickers": "^8.27.0",
+    "@types/node": "^24.5.2",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "axios": "^1.12.2",
+    "dayjs": "^1.11.19",
+    "next": "^15.5.4",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  }
+}

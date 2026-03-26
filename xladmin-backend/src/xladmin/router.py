@@ -1,0 +1,428 @@
+from __future__ import annotations
+
+import inspect
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.inspection import inspect as sa_inspect
+from sqlalchemy.orm import selectinload
+
+from xladmin.config import AdminHTTPConfig, AdminModelConfig
+from xladmin.introspection import (
+    convert_value_for_column,
+    get_column_names,
+    get_create_fields,
+    get_model_meta,
+    get_sort_column_name,
+    get_update_fields,
+)
+from xladmin.serializer import serialize_model_instance
+
+
+def create_admin_router(config: AdminHTTPConfig) -> APIRouter:
+    """Создаёт готовый FastAPI router для зарегистрированных admin-моделей."""
+
+    router = APIRouter(prefix="/xladmin", tags=["XLAdmin"])
+
+    def _check_access(user: Any) -> None:
+        if not config.is_allowed(user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden.")
+
+    async def _get_model_config(slug: str) -> AdminModelConfig:
+        try:
+            return config.registry.get(slug)
+        except KeyError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Admin model not found.") from exc
+
+    @router.get("/models/")
+    async def list_models(user: Any = Depends(config.get_current_user_dependency)) -> dict[str, Any]:
+        _check_access(user)
+        return {"items": [get_model_meta(model_config) for model_config in config.registry.list()]}
+
+    @router.get("/models/{slug}/")
+    async def get_model(
+            slug: str,
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> dict[str, Any]:
+        _check_access(user)
+        return get_model_meta(await _get_model_config(slug))
+
+    @router.get("/models/{slug}/items/")
+    async def list_items(
+            slug: str,
+            limit: int = Query(default=50, ge=1, le=500),
+            offset: int = Query(default=0, ge=0),
+            q: str | None = None,
+            sort: str | None = None,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> dict[str, Any]:
+        _check_access(user)
+        model_config = await _get_model_config(slug)
+        query = select(model_config.model)
+        query = _apply_eager_loads(model_config, query)
+        query = _apply_search(model_config, query, q, session)
+        query = _apply_ordering(model_config, query, sort)
+        total_query = select(func.count()).select_from(query.subquery())
+        total = int((await session.execute(total_query)).scalar_one())
+        items = list((await session.execute(query.limit(limit).offset(offset))).scalars())
+        return {
+            "meta": get_model_meta(model_config),
+            "pagination": {"limit": limit, "offset": offset, "total": total},
+            "items": [serialize_model_instance(model_config, item, mode="list") for item in items],
+        }
+
+    @router.get("/models/{slug}/items/{item_id}/")
+    async def get_item(
+            slug: str,
+            item_id: str,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> dict[str, Any]:
+        _check_access(user)
+        model_config = await _get_model_config(slug)
+        item = await _get_item_by_pk(session, model_config, item_id)
+        if item is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found.")
+        return {
+            "meta": get_model_meta(model_config),
+            "item": serialize_model_instance(model_config, item, mode="detail"),
+        }
+
+    @router.post("/models/{slug}/items/", status_code=status.HTTP_201_CREATED)
+    async def create_item(
+            slug: str,
+            payload: dict[str, Any],
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> dict[str, Any]:
+        _check_access(user)
+        model_config = await _get_model_config(slug)
+        item = model_config.model()
+        await _apply_payload_to_item(session, model_config, item, payload, mode="create")
+        session.add(item)
+        await session.commit()
+        await session.refresh(item)
+        return {"item": serialize_model_instance(model_config, item, mode="detail")}
+
+    @router.patch("/models/{slug}/items/{item_id}/")
+    async def patch_item(
+            slug: str,
+            item_id: str,
+            payload: dict[str, Any],
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> dict[str, Any]:
+        _check_access(user)
+        model_config = await _get_model_config(slug)
+        item = await _get_item_by_pk(session, model_config, item_id)
+        if item is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found.")
+        await _apply_payload_to_item(session, model_config, item, payload, mode="update")
+        await session.commit()
+        await session.refresh(item)
+        return {"item": serialize_model_instance(model_config, item, mode="detail")}
+
+    @router.delete("/models/{slug}/items/{item_id}/", status_code=status.HTTP_204_NO_CONTENT)
+    async def delete_item(
+            slug: str,
+            item_id: str,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> Response:
+        _check_access(user)
+        model_config = await _get_model_config(slug)
+        item = await _get_item_by_pk(session, model_config, item_id)
+        if item is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found.")
+        await session.delete(item)
+        await session.commit()
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @router.post("/models/{slug}/items/{item_id}/actions/{action_slug}/")
+    async def object_action(
+            slug: str,
+            item_id: str,
+            action_slug: str,
+            payload: dict[str, Any] | None = None,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> dict[str, Any]:
+        _check_access(user)
+        model_config = await _get_model_config(slug)
+        item = await _get_item_by_pk(session, model_config, item_id)
+        if item is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found.")
+
+        action = next((item for item in model_config.object_actions if item.slug == action_slug), None)
+        if action is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object action not found.")
+
+        result = action.handler(session, model_config, item, payload or {}, user)
+        if inspect.isawaitable(result):
+            result = await result
+        await session.commit()
+        await session.refresh(item)
+        item = await _get_item_by_pk(session, model_config, item_id)
+        return {
+            "item": serialize_model_instance(model_config, item, mode="detail"),
+            "result": result or {},
+        }
+
+    @router.post("/models/{slug}/bulk-delete/")
+    async def bulk_delete(
+            slug: str,
+            payload: dict[str, list[Any]],
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> dict[str, int]:
+        _check_access(user)
+        model_config = await _get_model_config(slug)
+        ids = payload.get("ids", [])
+        if not ids:
+            return {"deleted": 0}
+        pk_attr = getattr(model_config.model, model_config.pk_field)
+        query = select(model_config.model).where(pk_attr.in_([_convert_pk(item_id) for item_id in ids]))
+        items = list((await session.execute(query)).scalars())
+        for item in items:
+            await session.delete(item)
+        await session.commit()
+        return {"deleted": len(items)}
+
+    @router.post("/models/{slug}/bulk-actions/{action_slug}/")
+    async def bulk_action(
+            slug: str,
+            action_slug: str,
+            payload: dict[str, Any],
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> dict[str, Any]:
+        _check_access(user)
+        model_config = await _get_model_config(slug)
+        ids = payload.get("ids", [])
+        if not ids:
+            return {"processed": 0}
+        if action_slug == "delete":
+            deleted_response = await bulk_delete(slug, {"ids": ids}, session, user)
+            return {"processed": deleted_response["deleted"]}
+
+        action = next((item for item in model_config.bulk_actions if item.slug == action_slug), None)
+        if action is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bulk action not found.")
+
+        pk_attr = getattr(model_config.model, model_config.pk_field)
+        query = select(model_config.model).where(pk_attr.in_([_convert_pk(item_id) for item_id in ids]))
+        items = list((await session.execute(_apply_eager_loads(model_config, query))).scalars())
+        result = action.handler(session, model_config, items, payload, user)
+        if inspect.isawaitable(result):
+            result = await result
+        await session.commit()
+        return {"processed": len(items), **(result or {})}
+
+    @router.get("/models/{slug}/fields/{field_name}/choices/")
+    async def field_choices(
+            slug: str,
+            field_name: str,
+            q: str | None = None,
+            ids: str | None = None,
+            limit: int = Query(default=25, ge=1, le=100),
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> dict[str, Any]:
+        _check_access(user)
+        model_config = await _get_model_config(slug)
+        relation_model = _resolve_relation_model(model_config, field_name)
+        relation_config = config.registry.find_by_model(relation_model)
+        label_field = (
+            model_config.get_field_config(field_name).relation_label_field
+            or _resolve_label_field(relation_model)
+        )
+        query = select(relation_model)
+        relation_pk_name = sa_inspect(relation_model).primary_key[0].key
+        selected_ids = [_convert_pk(item_id) for item_id in ids.split(",") if item_id] if ids else []
+
+        if selected_ids:
+            query = query.where(getattr(relation_model, relation_pk_name).in_(selected_ids))
+
+        if q:
+            if relation_config is not None:
+                query = _apply_search(relation_config, query, q, session)
+            elif hasattr(relation_model, label_field):
+                query = query.where(getattr(relation_model, label_field).ilike(f"%{q}%"))
+
+        items = list((await session.execute(query.limit(limit))).scalars())
+        return {
+            "items": [
+                {
+                    "id": getattr(item, relation_pk_name),
+                    "label": str(getattr(item, label_field, None) or getattr(item, relation_pk_name)),
+                }
+                for item in items
+            ],
+        }
+
+    return router
+
+
+async def _apply_payload_to_item(
+        session: AsyncSession,
+        model_config: AdminModelConfig,
+        item: Any,
+        payload: dict[str, Any],
+        *,
+        mode: str,
+) -> None:
+    mapper = sa_inspect(model_config.model)
+    column_names = set(get_column_names(model_config))
+    relationship_names = set(mapper.relationships.keys())
+    allowed_fields = set(get_create_fields(model_config) if mode == "create" else get_update_fields(model_config))
+    for field_name, raw_value in payload.items():
+        if field_name not in allowed_fields:
+            continue
+        field_config = model_config.get_field_config(field_name)
+        value = field_config.value_parser(raw_value) if field_config.value_parser is not None else raw_value
+
+        if field_config.value_setter is not None:
+            field_config.value_setter(item, value, payload, mode)
+            continue
+
+        if field_name in relationship_names:
+            await _assign_relationship_value(session, model_config, item, field_name, value)
+            continue
+
+        if field_name not in column_names:
+            continue
+
+        column = mapper.columns[field_name]
+        setattr(item, field_name, convert_value_for_column(column, value))
+
+
+def _apply_ordering(model_config: AdminModelConfig, query, sort: str | None = None):
+    ordering_items = (
+        [item.strip() for item in (sort or "").split(",") if item.strip()]
+        if sort
+        else list(model_config.ordering)
+    )
+    if not ordering_items:
+        return query
+
+    for item in ordering_items:
+        descending = item.startswith("-")
+        field_name = item[1:] if descending else item
+        sort_column_name = get_sort_column_name(model_config, field_name)
+        if sort_column_name is None:
+            continue
+        column = getattr(model_config.model, sort_column_name)
+        query = query.order_by(column.desc() if descending else column.asc())
+    return query
+
+
+def _apply_search(model_config: AdminModelConfig, query, q: str | None, session: AsyncSession):
+    if not q:
+        return query
+    if model_config.search_query_builder is not None:
+        return model_config.search_query_builder(query, q, session)
+    search_fields = model_config.search_fields or tuple(
+        column_name
+        for column_name, column in sa_inspect(model_config.model).columns.items()
+        if getattr(column.type, "python_type", None) is str
+    )
+    conditions = [getattr(model_config.model, field_name).ilike(f"%{q}%") for field_name in search_fields]
+    if not conditions:
+        return query
+    return query.where(or_(*conditions))
+
+
+def _apply_eager_loads(model_config: AdminModelConfig, query):
+    mapper = sa_inspect(model_config.model)
+    relation_names = set(mapper.relationships.keys())
+    relation_fields = [
+        field_name
+        for field_name in (
+            *(model_config.list_display or ()),
+            *(model_config.detail_fields or ()),
+            *model_config.fields.keys(),
+        )
+        if field_name in relation_names
+    ]
+    for field_name in dict.fromkeys(relation_fields):
+        query = query.options(selectinload(getattr(model_config.model, field_name)))
+    return query
+
+
+def _resolve_relation_model(model_config: AdminModelConfig, field_name: str) -> type[Any]:
+    configured_model = model_config.get_field_config(field_name).relation_model
+    if configured_model is not None:
+        return configured_model
+
+    mapper = sa_inspect(model_config.model)
+    if field_name in mapper.relationships:
+        return mapper.relationships[field_name].mapper.class_
+    column = mapper.columns[field_name]
+    foreign_key = next(iter(column.foreign_keys), None)
+    if foreign_key is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Field has no relation choices.")
+    remote_table = foreign_key.column.table
+    for model in mapper.registry._class_registry.values():
+        if isinstance(model, type) and getattr(model, "__table__", None) is remote_table:
+            return model
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Related model was not found.")
+
+
+def _resolve_label_field(model: type[Any]) -> str:
+    for candidate in ("name", "title", "username", "slug", "email", "code_name"):
+        if hasattr(model, candidate):
+            return candidate
+    return sa_inspect(model).primary_key[0].key
+
+
+def _convert_pk(value: Any) -> Any:
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.isdigit():
+        return int(value)
+    return value
+
+
+async def _assign_relationship_value(
+        session: AsyncSession,
+        model_config: AdminModelConfig,
+        item: Any,
+        field_name: str,
+        value: Any,
+) -> None:
+    mapper = sa_inspect(model_config.model)
+    relationship = mapper.relationships[field_name]
+    relation_model = _resolve_relation_model(model_config, field_name)
+    relation_pk_name = sa_inspect(relation_model).primary_key[0].key
+
+    if relationship.uselist:
+        raw_ids = list(value or [])
+        if not raw_ids:
+            setattr(item, field_name, [])
+            return
+        normalized_ids = [_convert_pk(str(item_id)) for item_id in raw_ids]
+        query = select(relation_model).where(getattr(relation_model, relation_pk_name).in_(normalized_ids))
+        related_items = list((await session.execute(query)).scalars())
+        setattr(item, field_name, related_items)
+        return
+
+    if value in (None, ""):
+        setattr(item, field_name, None)
+        return
+
+    related_item = await session.get(relation_model, _convert_pk(str(value)))
+    setattr(item, field_name, related_item)
+
+
+async def _get_item_by_pk(
+        session: AsyncSession,
+        model_config: AdminModelConfig,
+        item_id: str,
+) -> Any:
+    pk_attr = getattr(model_config.model, model_config.pk_field)
+    query = select(model_config.model).where(pk_attr == _convert_pk(item_id))
+    query = _apply_eager_loads(model_config, query)
+    return (await session.execute(query)).scalar_one_or_none()
