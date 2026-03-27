@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import re
 from typing import Any
 
@@ -27,9 +28,12 @@ class Registry:
 
     def register(self, config: ModelConfig) -> None:
         normalized_config = normalize_config(config)
-        if normalized_config.slug in self._configs_by_slug:
-            raise ValueError(f"Model slug '{normalized_config.slug}' is already registered.")
-        self._configs_by_slug[normalized_config.slug] = normalized_config
+        slug = normalized_config.slug
+        if slug is None:
+            raise ValueError("Model slug must be resolved before registration.")
+        if slug in self._configs_by_slug:
+            raise ValueError(f"Model slug '{slug}' is already registered.")
+        self._configs_by_slug[slug] = normalized_config
 
     def get(self, slug: str) -> ModelConfig:
         try:
@@ -43,16 +47,16 @@ class Registry:
                 return config
         return None
 
-    def list(self) -> list[ModelConfig]:
+    def list(self) -> builtins.list[ModelConfig]:
         return list(self._configs_by_slug.values())
 
-    def list_model_blocks(self) -> list[ModelsBlockConfig]:
+    def list_model_blocks(self) -> builtins.list[ModelsBlockConfig]:
         return list(self._model_blocks)
 
-    def resolve_model_blocks(self) -> list[tuple[ModelsBlockConfig, list[ModelConfig]]]:
-        resolved_blocks: list[tuple[ModelsBlockConfig, list[ModelConfig]]] = []
+    def resolve_model_blocks(self) -> builtins.list[tuple[ModelsBlockConfig, builtins.list[ModelConfig]]]:
+        resolved_blocks: builtins.list[tuple[ModelsBlockConfig, builtins.list[ModelConfig]]] = []
         for block in self._model_blocks:
-            block_models: list[ModelConfig] = []
+            block_models: builtins.list[ModelConfig] = []
             references = block.models or block.model_slugs
             for item in references:
                 if isinstance(item, str):
