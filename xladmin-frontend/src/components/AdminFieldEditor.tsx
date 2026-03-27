@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect, useMemo, useState} from 'react';
+import {memo, useEffect, useMemo, useState} from 'react';
 import {
     Autocomplete,
     CircularProgress,
@@ -33,7 +33,7 @@ type RelationOption = {
  * Здесь библиотека сама подбирает виджет под тип поля, а проект при необходимости
  * может переопределить это через `input_kind` на backend.
  */
-export function AdminFieldEditor({
+export const AdminFieldEditor = memo(function AdminFieldEditor({
     field,
     value,
     onChange,
@@ -187,7 +187,7 @@ export function AdminFieldEditor({
             minRows={field.input_kind === 'textarea' || field.type.toLowerCase().includes('text') ? 3 : undefined}
         />
     );
-}
+});
 
 
 function renderChoiceEditor({

@@ -3,9 +3,11 @@
 import type {ReactNode} from 'react';
 import {Alert, Paper, Skeleton, Stack, Typography} from '@mui/material';
 
-const MAIN_HEADER_PADDING = 2.5;
-const MAIN_HEADER_TITLE_HEIGHT = 42;
-const MAIN_HEADER_SUBTITLE_HEIGHT = 24;
+const MAIN_HEADER_PADDING_X = 2.5;
+const MAIN_HEADER_PADDING_T = 1.2;
+const MAIN_HEADER_PADDING_B = 1.8;
+const MAIN_HEADER_TITLE_HEIGHT = 34;
+const MAIN_HEADER_SUBTITLE_HEIGHT = 16;
 
 type MainHeaderProps = {
     title: ReactNode;
@@ -16,14 +18,16 @@ type MainHeaderProps = {
 /**
  * Основной заголовок правой панели админки.
  *
- * Это именованный компонент, чтобы в DevTools было видно не анонимный `Paper`,
+ * Это именованный компонент, чтобы в DevTools был виден не анонимный `Paper`,
  * а понятный `MainHeader`.
  */
 export function MainHeader({title, subtitle, error}: MainHeaderProps) {
     return (
         <Paper
             sx={{
-                p: MAIN_HEADER_PADDING,
+                px: MAIN_HEADER_PADDING_X,
+                pt: MAIN_HEADER_PADDING_T,
+                pb: MAIN_HEADER_PADDING_B,
                 borderRadius: '10px',
                 flexShrink: 0,
                 position: 'sticky',
@@ -31,14 +35,16 @@ export function MainHeader({title, subtitle, error}: MainHeaderProps) {
                 zIndex: 3,
             }}
         >
-            <Typography variant="h4" sx={{fontWeight: 800}}>
-                {title}
-            </Typography>
-            {subtitle ? (
-                <Typography color="text.secondary">
-                    {subtitle}
+            <Stack spacing={0.8}>
+                <Typography variant="h4" sx={{fontWeight: 800, lineHeight: '2.125rem'}}>
+                    {title}
                 </Typography>
-            ) : null}
+                {subtitle ? (
+                    <Typography color="text.secondary" sx={{lineHeight: '1rem'}}>
+                        {subtitle}
+                    </Typography>
+                ) : null}
+            </Stack>
             {error ? <Alert severity="error" sx={{mt: 2}}>{error}</Alert> : null}
         </Paper>
     );
@@ -56,7 +62,9 @@ export function MainHeaderSkeleton({
     return (
         <Paper
             sx={{
-                p: MAIN_HEADER_PADDING,
+                px: MAIN_HEADER_PADDING_X,
+                pt: MAIN_HEADER_PADDING_T,
+                pb: MAIN_HEADER_PADDING_B,
                 borderRadius: '10px',
                 flexShrink: 0,
                 position: 'sticky',
@@ -64,7 +72,7 @@ export function MainHeaderSkeleton({
                 zIndex: 3,
             }}
         >
-            <Stack spacing={0}>
+            <Stack spacing={0.8}>
                 <Skeleton
                     variant="rounded"
                     width={titleWidth}

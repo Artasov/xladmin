@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect, useMemo, useState} from 'react';
+import {memo, useCallback, useEffect, useMemo, useState} from 'react';
 import {usePathname, useRouter} from 'next/navigation.js';
 import {
     Alert,
@@ -19,7 +19,7 @@ import {
 import {LocalizationProvider} from '@mui/x-date-pickers';
 import {AdapterDayjs} from '@mui/x-date-pickers/AdapterDayjs';
 import type {XLAdminClient} from '../client';
-import type {AdminDetailResponse} from '../types';
+import type {AdminDetailResponse, AdminFieldMeta} from '../types';
 import {buildAdminPayload, formatAdminValue} from '../utils/adminFields';
 import {AdminFieldEditor} from './AdminFieldEditor';
 import {MainHeader, MainHeaderSkeleton} from './layout/MainHeader';
@@ -126,6 +126,15 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
         [currentPayload, initialPayload],
     );
 
+    const handleFieldChange = useCallback((fieldName: string, nextValue: unknown) => {
+        setValues((current) => {
+            if (Object.is(current[fieldName], nextValue)) {
+                return current;
+            }
+            return {...current, [fieldName]: nextValue};
+        });
+    }, []);
+
     const handleSave = async () => {
         if (!meta || !isDirty) {
             return;
@@ -220,28 +229,22 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
 
                                     if (editableFieldNames.has(fieldName)) {
                                         return (
-                                            <AdminFieldEditor
+                                            <AdminObjectField
                                                 key={field.name}
                                                 field={field}
                                                 value={values[field.name]}
                                                 slug={slug}
                                                 client={client}
-                                                onChange={(nextValue) => {
-                                                    setValues((current) => ({...current, [field.name]: nextValue}));
-                                                }}
+                                                onFieldChange={handleFieldChange}
                                             />
                                         );
                                     }
 
                                     return (
-                                        <TextField
+                                        <ReadonlyAdminObjectField
                                             key={field.name}
-                                            label={field.label}
+                                            field={field}
                                             value={formatAdminValue(values[field.name])}
-                                            size="small"
-                                            fullWidth
-                                            disabled
-                                            helperText={field.help_text ?? undefined}
                                         />
                                     );
                                 })}
@@ -345,3 +348,54 @@ function AdminObjectPageSkeleton() {
         </Stack>
     );
 }
+
+type AdminObjectFieldProps = {
+    field: AdminFieldMeta;
+    value: unknown;
+    slug: string;
+    client: XLAdminClient;
+    onFieldChange: (fieldName: string, nextValue: unknown) => void;
+};
+
+const AdminObjectField = memo(function AdminObjectField({
+    field,
+    value,
+    slug,
+    client,
+    onFieldChange,
+}: AdminObjectFieldProps) {
+    const handleChange = useCallback((nextValue: unknown) => {
+        onFieldChange(field.name, nextValue);
+    }, [field.name, onFieldChange]);
+
+    return (
+        <AdminFieldEditor
+            field={field}
+            value={value}
+            slug={slug}
+            client={client}
+            onChange={handleChange}
+        />
+    );
+});
+
+type ReadonlyAdminObjectFieldProps = {
+    field: AdminFieldMeta;
+    value: string;
+};
+
+const ReadonlyAdminObjectField = memo(function ReadonlyAdminObjectField({
+    field,
+    value,
+}: ReadonlyAdminObjectFieldProps) {
+    return (
+        <TextField
+            label={field.label}
+            value={value}
+            size="small"
+            fullWidth
+            disabled
+            helperText={field.help_text ?? undefined}
+        />
+    );
+});
