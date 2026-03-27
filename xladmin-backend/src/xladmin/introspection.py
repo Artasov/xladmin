@@ -102,14 +102,14 @@ def get_update_fields(config: AdminModelConfig) -> list[str]:
     return [
         name for name in get_all_field_names(config)
         if (
-            name != config.pk_field
-            and not _is_read_only(config, name)
-            and not config.get_field_config(name).hidden_in_form
-            and (
-                name in get_column_names(config)
-                or name in relationship_names
-                or config.get_field_config(name).value_setter is not None
-            )
+                name != config.pk_field
+                and not _is_read_only(config, name)
+                and not config.get_field_config(name).hidden_in_form
+                and (
+                        name in get_column_names(config)
+                        or name in relationship_names
+                        or config.get_field_config(name).value_setter is not None
+                )
         )
     ]
 
@@ -170,10 +170,12 @@ def get_model_meta(config: AdminModelConfig, *, locale: str = "ru") -> dict[str,
         "detail_fields": get_visible_detail_fields(config),
         "create_fields": get_create_fields(config),
         "update_fields": get_update_fields(config),
-        "bulk_actions": [{"slug": "delete", "label": translate(normalized_locale, "delete")}, *[
-            {"slug": action.slug, "label": action.label}
-            for action in config.bulk_actions
-        ]],
+        "bulk_actions": [
+            {"slug": "delete", "label": translate(normalized_locale, "delete")}, *[
+                {"slug": action.slug, "label": action.label}
+                for action in config.bulk_actions
+            ]
+        ],
         "object_actions": [
             {"slug": action.slug, "label": action.label}
             for action in config.object_actions
@@ -343,11 +345,11 @@ def _get_input_kind(config: AdminModelConfig, field_name: str, column: Any | Non
 def _get_configured_field_names(config: AdminModelConfig) -> list[str]:
     names: list[str] = []
     for field_group in (
-        config.list_display,
-        config.list_fields,
-        config.detail_fields,
-        config.create_fields,
-        config.update_fields,
+            config.list_display,
+            config.list_fields,
+            config.detail_fields,
+            config.create_fields,
+            config.update_fields,
     ):
         if field_group is None:
             continue

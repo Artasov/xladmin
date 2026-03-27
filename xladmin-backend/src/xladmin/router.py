@@ -95,7 +95,9 @@ def create_router(config: HttpConfig) -> APIRouter:
         model_config = await _get_model_config(slug)
         item = await _get_item_by_pk(session, model_config, item_id)
         if item is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"))
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"),
+            )
         return {
             "meta": get_model_meta(model_config, locale=registry.locale),
             "item": serialize_model_instance(model_config, item, mode="detail"),
@@ -129,7 +131,9 @@ def create_router(config: HttpConfig) -> APIRouter:
         model_config = await _get_model_config(slug)
         item = await _get_item_by_pk(session, model_config, item_id)
         if item is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"))
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"),
+            )
         await _apply_payload_to_item(session, model_config, item, payload, mode="update")
         await session.commit()
         await session.refresh(item)
@@ -146,7 +150,9 @@ def create_router(config: HttpConfig) -> APIRouter:
         model_config = await _get_model_config(slug)
         item = await _get_item_by_pk(session, model_config, item_id)
         if item is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"))
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"),
+            )
         return await build_delete_preview(session, registry, model_config, [item])
 
     @router.delete("/models/{slug}/items/{item_id}/", status_code=status.HTTP_204_NO_CONTENT)
@@ -160,7 +166,9 @@ def create_router(config: HttpConfig) -> APIRouter:
         model_config = await _get_model_config(slug)
         item = await _get_item_by_pk(session, model_config, item_id)
         if item is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"))
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"),
+            )
         await session.delete(item)
         await session.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -178,7 +186,9 @@ def create_router(config: HttpConfig) -> APIRouter:
         model_config = await _get_model_config(slug)
         item = await _get_item_by_pk(session, model_config, item_id)
         if item is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"))
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"),
+            )
 
         action = next((item for item in model_config.object_actions if item.slug == action_slug), None)
         if action is None:
@@ -283,8 +293,8 @@ def create_router(config: HttpConfig) -> APIRouter:
         relation_model = _resolve_relation_model(model_config, field_name)
         relation_config = registry.find_by_model(relation_model)
         label_field = (
-            model_config.get_field_config(field_name).relation_label_field
-            or _resolve_label_field(relation_model)
+                model_config.get_field_config(field_name).relation_label_field
+                or _resolve_label_field(relation_model)
         )
         query = select(relation_model)
         relation_pk_name = sa_inspect(relation_model).primary_key[0].key
@@ -374,7 +384,7 @@ def _apply_search(model_config: ModelConfig, query, q: str | None, session: Asyn
     search_fields = model_config.search_fields or tuple(
         column_name
         for column_name, column in sa_inspect(model_config.model).columns.items()
-        if getattr(column.type, "python_type", None) is str
+        if getattr(column.type, "python_type", None) is str,
     )
     conditions = [getattr(model_config.model, field_name).ilike(f"%{q}%") for field_name in search_fields]
     if not conditions:

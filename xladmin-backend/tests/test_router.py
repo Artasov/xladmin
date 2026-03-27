@@ -117,10 +117,10 @@ async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[Fast
         return f"Пользователь {instance.id}: {instance.username}"
 
     def hash_password_setter(
-        instance: DemoUserORM,
-        value: str,
-        payload: dict[str, object],
-        mode: str,
+            instance: DemoUserORM,
+            value: str,
+            payload: dict[str, object],
+            mode: str,
     ) -> None:
         del payload, mode
         instance.password = f"hashed::{value}"
@@ -134,11 +134,11 @@ async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[Fast
         return query.where(DemoRoleORM.name.ilike(f"{q}%"))
 
     async def activate_users(
-        session: AsyncSession,
-        model_config: AdminModelConfig,
-        items: list[DemoUserORM],
-        payload: dict[str, Any],
-        user: Any,
+            session: AsyncSession,
+            model_config: AdminModelConfig,
+            items: list[DemoUserORM],
+            payload: dict[str, Any],
+            user: Any,
     ) -> dict[str, Any]:
         del session, model_config, payload, user
         for item in items:
@@ -146,11 +146,11 @@ async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[Fast
         return {"activated": len(items)}
 
     async def deactivate_user(
-        session: AsyncSession,
-        model_config: AdminModelConfig,
-        item: DemoUserORM,
-        payload: dict[str, Any],
-        user: Any,
+            session: AsyncSession,
+            model_config: AdminModelConfig,
+            item: DemoUserORM,
+            payload: dict[str, Any],
+            user: Any,
     ) -> dict[str, Any]:
         del session, model_config, payload, user
         item.is_active = False

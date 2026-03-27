@@ -12,10 +12,10 @@ from xladmin.serializer import serialize_scalar
 
 
 async def build_delete_preview(
-    session: AsyncSession,
-    registry: Registry,
-    model_config: ModelConfig,
-    items: list[Any],
+        session: AsyncSession,
+        registry: Registry,
+        model_config: ModelConfig,
+        items: list[Any],
 ) -> dict[str, Any]:
     roots = [
         await _build_preview_node(
@@ -41,12 +41,12 @@ async def build_delete_preview(
 
 
 async def _build_preview_node(
-    session: AsyncSession,
-    registry: Registry,
-    model_config: ModelConfig,
-    item: Any,
-    relation_name: str | None,
-    path_seen: set[tuple[type[Any], Any]],
+        session: AsyncSession,
+        registry: Registry,
+        model_config: ModelConfig,
+        item: Any,
+        relation_name: str | None,
+        path_seen: set[tuple[type[Any], Any]],
 ) -> dict[str, Any]:
     item_id = get_pk_value(model_config, item)
     node_key = (type(item), item_id)
@@ -87,7 +87,7 @@ async def _build_preview_node(
                         "id": serialize_scalar(_get_raw_pk_value(related_item)),
                         "label": _get_fallback_label(related_item),
                         "children": [],
-                    }
+                    },
                 )
                 continue
 
@@ -99,7 +99,7 @@ async def _build_preview_node(
                     item=related_item,
                     relation_name=relationship.key,
                     path_seen=next_path_seen,
-                )
+                ),
             )
 
     return {
