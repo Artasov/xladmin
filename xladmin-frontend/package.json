@@ -1,6 +1,6 @@
 {
   "name": "xladmin",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Generic React + MUI admin frontend for xladmin.",
   "license": "MIT",
   "type": "module",
