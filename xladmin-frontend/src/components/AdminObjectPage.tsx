@@ -11,6 +11,7 @@ import {
     DialogContent,
     DialogTitle,
     Paper,
+    Skeleton,
     Stack,
     TextField,
     Typography,
@@ -21,6 +22,7 @@ import type {XLAdminClient} from '../client';
 import type {AdminDetailResponse} from '../types';
 import {buildAdminPayload, formatAdminValue} from '../utils/adminFields';
 import {AdminFieldEditor} from './AdminFieldEditor';
+import {MainHeader, MainHeaderSkeleton} from './layout/MainHeader';
 
 type AdminObjectPageProps = {
     client: XLAdminClient;
@@ -28,14 +30,18 @@ type AdminObjectPageProps = {
     id: string;
 };
 
+const detailResponseCache = new Map<string, AdminDetailResponse>();
+const inFlightDetailRequests = new Map<string, Promise<AdminDetailResponse>>();
+
 export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
     const router = useRouter();
     const pathname = usePathname();
-    const [data, setData] = useState<AdminDetailResponse | null>(null);
-    const [values, setValues] = useState<Record<string, unknown>>({});
-    const [initialValues, setInitialValues] = useState<Record<string, unknown>>({});
+    const cacheKey = `${slug}:${id}`;
+    const [data, setData] = useState<AdminDetailResponse | null>(() => detailResponseCache.get(cacheKey) ?? null);
+    const [values, setValues] = useState<Record<string, unknown>>(() => detailResponseCache.get(cacheKey)?.item ?? {});
+    const [initialValues, setInitialValues] = useState<Record<string, unknown>>(() => detailResponseCache.get(cacheKey)?.item ?? {});
     const [error, setError] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(data === null);
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [activeActionSlug, setActiveActionSlug] = useState<string | null>(null);
@@ -43,11 +49,27 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
 
     useEffect(() => {
         let isMounted = true;
+        const cachedResponse = detailResponseCache.get(cacheKey);
+
+        if (cachedResponse) {
+            setData(cachedResponse);
+            setValues(cachedResponse.item);
+            setInitialValues(cachedResponse.item);
+            setIsLoading(false);
+            return () => {
+                isMounted = false;
+            };
+        }
+
         setIsLoading(true);
         setError(null);
 
-        client.getItem(slug, id)
+        const request = inFlightDetailRequests.get(cacheKey) ?? client.getItem(slug, id);
+        inFlightDetailRequests.set(cacheKey, request);
+
+        request
             .then((response) => {
+                detailResponseCache.set(cacheKey, response);
                 if (!isMounted) {
                     return;
                 }
@@ -62,6 +84,9 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
                 setError(reason instanceof Error ? reason.message : 'Не удалось загрузить объект.');
             })
             .finally(() => {
+                if (inFlightDetailRequests.get(cacheKey) === request) {
+                    inFlightDetailRequests.delete(cacheKey);
+                }
                 if (!isMounted) {
                     return;
                 }
@@ -71,7 +96,7 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
         return () => {
             isMounted = false;
         };
-    }, [client, id, slug]);
+    }, [cacheKey, client, id, slug]);
 
     const meta = data?.meta ?? null;
     const detailFields = meta?.detail_fields ?? [];
@@ -105,11 +130,14 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
         if (!meta || !isDirty) {
             return;
         }
+
         setIsSaving(true);
         setError(null);
         try {
             const response = await client.patchItem(slug, id, currentPayload);
-            setData((current) => current ? {...current, item: response.item} : null);
+            const nextDetail = {meta, item: response.item};
+            detailResponseCache.set(cacheKey, nextDetail);
+            setData(nextDetail);
             setValues(response.item);
             setInitialValues(response.item);
         } catch (reason: unknown) {
@@ -124,6 +152,7 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
         setError(null);
         try {
             await client.deleteItem(slug, id);
+            detailResponseCache.delete(cacheKey);
             router.push(pathname.split('/').slice(0, -1).join('/'));
         } catch (reason: unknown) {
             setError(reason instanceof Error ? reason.message : 'Не удалось удалить объект.');
@@ -137,7 +166,11 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
         setError(null);
         try {
             const response = await client.runObjectAction(slug, id, actionSlug);
-            setData((current) => current ? {...current, item: response.item} : null);
+            const nextDetail = data ? {...data, item: response.item} : null;
+            if (nextDetail) {
+                detailResponseCache.set(cacheKey, nextDetail);
+            }
+            setData(nextDetail);
             setValues(response.item);
             setInitialValues(response.item);
         } catch (reason: unknown) {
@@ -147,35 +180,26 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
         }
     };
 
-    if (isLoading) {
-        return <Typography sx={{p: 3}}>Загрузка объекта...</Typography>;
+    if (isLoading && !data) {
+        return <AdminObjectPageSkeleton />;
     }
+
     if (error && !data) {
         return <Alert severity="error">{error}</Alert>;
     }
+
     if (!data || !meta) {
-        return <Alert severity="error">Не удалось загрузить объект.</Alert>;
+        return <AdminObjectPageSkeleton />;
     }
 
     return (
         <LocalizationProvider dateAdapter={AdapterDayjs}>
             <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
-                <Paper
-                    sx={{
-                        p: 2.5,
-                        borderRadius: '10px',
-                        flexShrink: 0,
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 2,
-                    }}
-                >
-                    <Typography variant="h4" sx={{fontWeight: 800}}>
-                        {String(data.item._display ?? `${meta.title} #${id}`)}
-                    </Typography>
-                    <Typography color="text.secondary">{meta.slug}</Typography>
-                    {error && <Alert severity="error" sx={{mt: 2}}>{error}</Alert>}
-                </Paper>
+                <MainHeader
+                    title={String(data.item._display ?? `${meta.title} #${id}`)}
+                    subtitle={meta.slug}
+                    error={error}
+                />
 
                 <Stack direction={{xs: 'column', lg: 'row'}} spacing={1.5} sx={{flex: 1, minHeight: 0, alignItems: 'stretch'}}>
                     <Paper
@@ -193,6 +217,7 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
                                     if (!field) {
                                         return null;
                                     }
+
                                     if (editableFieldNames.has(fieldName)) {
                                         return (
                                             <AdminFieldEditor
@@ -207,6 +232,7 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
                                             />
                                         );
                                     }
+
                                     return (
                                         <TextField
                                             key={field.name}
@@ -238,11 +264,11 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
                             <Typography variant="subtitle2" color="text.secondary">
                                 Действия
                             </Typography>
-                            {isDirty && (
+                            {isDirty ? (
                                 <Button variant="contained" onClick={handleSave} disabled={isSaving}>
                                     {isSaving ? 'Сохранение...' : 'Сохранить'}
                                 </Button>
-                            )}
+                            ) : null}
                             <Button
                                 variant="outlined"
                                 color="error"
@@ -281,5 +307,41 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
                 </DialogActions>
             </Dialog>
         </LocalizationProvider>
+    );
+}
+
+function AdminObjectPageSkeleton() {
+    return (
+        <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
+            <MainHeaderSkeleton titleWidth={420} subtitleWidth="32%" />
+
+            <Stack direction={{xs: 'column', lg: 'row'}} spacing={1.5} sx={{flex: 1, minHeight: 0, alignItems: 'stretch'}}>
+                <Paper sx={{borderRadius: '10px', flex: 1, minHeight: 0, overflow: 'hidden'}}>
+                    <Box sx={{height: '100%', overflow: 'auto', p: 2.5}}>
+                        <Stack spacing={1.5}>
+                            {Array.from({length: 9}).map((_, index) => (
+                                <Skeleton key={index} variant="rounded" width="100%" height={56} />
+                            ))}
+                        </Stack>
+                    </Box>
+                </Paper>
+
+                <Paper
+                    sx={{
+                        width: {xs: '100%', lg: 280},
+                        flexShrink: 0,
+                        borderRadius: '10px',
+                        p: 1.5,
+                        alignSelf: 'flex-start',
+                    }}
+                >
+                    <Stack spacing={1}>
+                        <Skeleton variant="text" width={90} height={28} />
+                        <Skeleton variant="rounded" width="100%" height={40} />
+                        <Skeleton variant="rounded" width="100%" height={40} />
+                    </Stack>
+                </Paper>
+            </Stack>
+        </Stack>
     );
 }

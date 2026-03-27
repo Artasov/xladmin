@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link.js';
 import {usePathname, useSearchParams} from 'next/navigation.js';
 import {memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import AddIcon from '@mui/icons-material/Add';
@@ -16,6 +15,7 @@ import {
     Menu,
     MenuItem,
     Paper,
+    Skeleton,
     Stack,
     Table,
     TableBody,
@@ -27,9 +27,11 @@ import {
     Typography,
 } from '@mui/material';
 import type {XLAdminClient} from '../client';
-import type {AdminFieldMeta, AdminListResponse, AdminModelMeta} from '../types';
+import type {AdminFieldMeta, AdminListResponse} from '../types';
 import {formatAdminValue} from '../utils/adminFields';
 import {AdminFormDialog} from './AdminFormDialog';
+import {AdminNavLink} from './AdminNavLink';
+import {MainHeader, MainHeaderSkeleton} from './layout/MainHeader';
 
 type AdminModelPageProps = {
     client: XLAdminClient;
@@ -48,33 +50,45 @@ type AdminModelRowProps = {
     onOpenMenu: (event: React.MouseEvent<HTMLElement>, rowId: string | number) => void;
 };
 
+type AdminListRequestParams = {
+    limit?: number;
+    offset?: number;
+    q?: string;
+    sort?: string;
+};
+
 const DEFAULT_PAGE_SIZE = 50;
 const SEARCH_DEBOUNCE_MS = 300;
+const inFlightListRequests = new Map<string, Promise<AdminListResponse>>();
+const listResponseCache = new Map<string, AdminListResponse>();
 
 export function AdminModelPage({client, basePath, slug}: AdminModelPageProps) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const initialQuery = searchParams.get('q') ?? '';
+    const initialSort = searchParams.get('sort') ?? '';
     const [selectedIds, setSelectedIds] = useState<Array<string | number>>([]);
     const [createOpen, setCreateOpen] = useState(false);
-    const [data, setData] = useState<AdminListResponse | null>(null);
-    const [modelMeta, setModelMeta] = useState<AdminModelMeta | null>(null);
+    const [data, setData] = useState<AdminListResponse | null>(() => (
+        findCachedInitialListResponse(slug, initialQuery || undefined, initialSort || undefined)
+    ));
     const [error, setError] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(data === null);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [rowActionMenuAnchor, setRowActionMenuAnchor] = useState<HTMLElement | null>(null);
     const [rowActionMenuId, setRowActionMenuId] = useState<string | number | null>(null);
     const [bulkActionMenuAnchor, setBulkActionMenuAnchor] = useState<HTMLElement | null>(null);
-    const [queryInput, setQueryInput] = useState(searchParams.get('q') ?? '');
-    const [appliedQuery, setAppliedQuery] = useState(searchParams.get('q') ?? '');
-    const [sortValue, setSortValue] = useState(searchParams.get('sort') ?? '');
+    const [queryInput, setQueryInput] = useState(initialQuery);
+    const [appliedQuery, setAppliedQuery] = useState(initialQuery);
+    const [sortValue, setSortValue] = useState(initialSort);
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-    const dataRef = useRef<AdminListResponse | null>(null);
+    const dataRef = useRef<AdminListResponse | null>(data);
     const requestIdRef = useRef(0);
     const appendOffsetsRef = useRef<Set<number>>(new Set());
     const isAppendingRef = useRef(false);
 
     const sortFields = useMemo(() => sortValue.split(',').filter(Boolean), [sortValue]);
-    const meta = data?.meta ?? modelMeta;
+    const meta = data?.meta ?? null;
     const rows = data?.items ?? [];
     const total = data?.pagination.total ?? 0;
     const pageSize = meta?.page_size ?? DEFAULT_PAGE_SIZE;
@@ -94,31 +108,11 @@ export function AdminModelPage({client, basePath, slug}: AdminModelPageProps) {
     }, [data]);
 
     useEffect(() => {
-        let isMounted = true;
-        setModelMeta(null);
-        client.getModel(slug)
-            .then((response) => {
-                if (!isMounted) {
-                    return;
-                }
-                setModelMeta(response);
-            })
-            .catch(() => {
-                if (!isMounted) {
-                    return;
-                }
-                setModelMeta(null);
-            });
-        return () => {
-            isMounted = false;
-        };
-    }, [client, slug]);
-
-    useEffect(() => {
         const timerId = window.setTimeout(() => {
             setAppliedQuery(queryInput);
             replaceUrlParams(pathname, queryInput, sortValue);
         }, SEARCH_DEBOUNCE_MS);
+
         return () => {
             window.clearTimeout(timerId);
         };
@@ -144,6 +138,12 @@ export function AdminModelPage({client, basePath, slug}: AdminModelPageProps) {
         const currentData = dataRef.current;
         const offset = append ? (currentData?.items.length ?? 0) : 0;
         const activeRequestId = append ? requestIdRef.current : requestIdRef.current + 1;
+        const requestParams = {
+            q: appliedQuery || undefined,
+            sort: sortValue || undefined,
+            limit: pageSize,
+            offset,
+        };
 
         if (append) {
             if (isAppendingRef.current || appendOffsetsRef.current.has(offset)) {
@@ -155,27 +155,34 @@ export function AdminModelPage({client, basePath, slug}: AdminModelPageProps) {
         } else {
             requestIdRef.current = activeRequestId;
             appendOffsetsRef.current.clear();
-            setIsLoading(true);
             setError(null);
+
+            const cachedResponse = offset === 0
+                ? findCachedInitialListResponse(slug, requestParams.q, requestParams.sort)
+                : listResponseCache.get(buildListRequestKey(slug, requestParams));
+            if (cachedResponse) {
+                setData(cachedResponse);
+                setIsLoading(false);
+                setSelectedIds([]);
+                return;
+            }
+
+            setIsLoading(true);
         }
 
         try {
-            const response = await client.getItems(slug, {
-                q: appliedQuery || undefined,
-                sort: sortValue || undefined,
-                limit: pageSize,
-                offset,
-            });
+            const response = await requestListItems(client, slug, requestParams);
             if (activeRequestId !== requestIdRef.current) {
                 return;
             }
-            setModelMeta(response.meta);
+
             setData((previousData) => {
                 if (!append || !previousData) {
                     return response;
                 }
                 return mergeListResponse(previousData, response);
             });
+
             if (!append) {
                 setSelectedIds([]);
             }
@@ -220,11 +227,13 @@ export function AdminModelPage({client, basePath, slug}: AdminModelPageProps) {
         if (!actionSlug || selectedIds.length === 0) {
             return;
         }
+
         if (actionSlug === 'delete') {
             await client.bulkDelete(slug, selectedIds);
         } else {
             await client.runBulkAction(slug, actionSlug, selectedIds);
         }
+
         setBulkActionMenuAnchor(null);
         await refresh();
     }, [client, refresh, selectedIds, slug]);
@@ -241,10 +250,12 @@ export function AdminModelPage({client, basePath, slug}: AdminModelPageProps) {
         if (!element || isLoading || isLoadingMore || rows.length >= total) {
             return;
         }
+
         const remainingPixels = element.scrollHeight - element.scrollTop - element.clientHeight;
         if (remainingPixels > 200) {
             return;
         }
+
         await loadItems(true);
     }, [isLoading, isLoadingMore, loadItems, rows.length, total]);
 
@@ -267,32 +278,23 @@ export function AdminModelPage({client, basePath, slug}: AdminModelPageProps) {
     }, []);
 
     if (isLoading && !data) {
-        return <Typography sx={{p: 3}}>Загрузка списка...</Typography>;
+        return <AdminModelPageSkeleton />;
     }
+
     if (!isLoading && error && !data) {
         return <Alert severity="error">{error}</Alert>;
     }
+
     if (!data || !meta) {
-        return <Typography sx={{p: 3}}>Загрузка модели...</Typography>;
+        return <AdminModelPageSkeleton />;
     }
 
     return (
         <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
-            <Paper
-                sx={{
-                    p: 2.5,
-                    borderRadius: '10px',
-                    flexShrink: 0,
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 3,
-                }}
-            >
-                <Typography variant="h4" sx={{fontWeight: 800}}>{meta.title}</Typography>
-                <Typography color="text.secondary">
-                    {meta.slug} · {total} объектов
-                </Typography>
-            </Paper>
+            <MainHeader
+                title={meta.title}
+                subtitle={`${meta.slug} · ${total} объектов`}
+            />
 
             <Paper
                 sx={{
@@ -310,7 +312,7 @@ export function AdminModelPage({client, basePath, slug}: AdminModelPageProps) {
                         sx={{minWidth: {xs: '100%', lg: 360}}}
                     />
 
-                    {selectedIds.length > 0 && (
+                    {selectedIds.length > 0 ? (
                         <Stack direction="row" spacing={1} sx={{flex: 1, minWidth: 0}}>
                             <Button
                                 variant="outlined"
@@ -323,7 +325,7 @@ export function AdminModelPage({client, basePath, slug}: AdminModelPageProps) {
                                 Выбрано: {selectedIds.length}
                             </Typography>
                         </Stack>
-                    )}
+                    ) : null}
 
                     <Box sx={{marginLeft: 'auto'}}>
                         <Button startIcon={<AddIcon />} variant="contained" onClick={() => setCreateOpen(true)}>
@@ -352,19 +354,18 @@ export function AdminModelPage({client, basePath, slug}: AdminModelPageProps) {
                     <Table stickyHeader size="small">
                         <TableHead>
                             <TableRow>
-                                <TableCell padding="checkbox" sx={{backgroundColor: '#171719'}} />
+                                <TableCell padding="checkbox" />
                                 {listFields.map((fieldName) => {
                                     const field = fieldMap.get(fieldName);
                                     const sortDirection = resolveSortDirection(sortFields, fieldName);
                                     const isSortable = resolveFieldSortable(field);
+
                                     return (
                                         <TableCell
                                             key={fieldName}
-                                            sortDirection={sortDirection || false}
+                                            sortDirection={sortDirection ?? false}
                                             sx={{
                                                 backgroundColor: '#171719',
-                                                color: 'rgba(255, 255, 255, 0.96)',
-                                                fontWeight: 700,
                                                 cursor: isSortable ? 'pointer' : 'default',
                                                 userSelect: 'none',
                                             }}
@@ -420,7 +421,7 @@ export function AdminModelPage({client, basePath, slug}: AdminModelPageProps) {
                             })}
                         </TableBody>
                     </Table>
-                    {isLoadingMore && <LinearProgress />}
+                    {isLoadingMore ? <LinearProgress /> : null}
                 </Box>
             </Paper>
 
@@ -482,7 +483,18 @@ const AdminModelRow = memo(function AdminModelRow({
     const rowId = row[pkField] as string | number;
 
     return (
-        <TableRow hover>
+        <TableRow
+            hover
+            sx={{
+                transition: 'background-color 180ms ease',
+                '& > .MuiTableCell-root': {
+                    transition: 'background-color 180ms ease, border-color 180ms ease',
+                },
+                '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.032)',
+                },
+            }}
+        >
             <TableCell padding="checkbox">
                 <Checkbox
                     checked={isSelected}
@@ -494,9 +506,15 @@ const AdminModelRow = memo(function AdminModelRow({
                 if (index === 0) {
                     return (
                         <TableCell key={fieldName}>
-                            <Link href={`${basePath}/${slug}/${rowId}`} style={{textDecoration: 'none'}}>
+                            <AdminNavLink
+                                href={`${basePath}/${slug}/${rowId}`}
+                                style={{
+                                    textDecoration: 'none',
+                                    transition: 'color 160ms ease, opacity 160ms ease',
+                                }}
+                            >
                                 {fieldValue}
-                            </Link>
+                            </AdminNavLink>
                         </TableCell>
                     );
                 }
@@ -510,6 +528,34 @@ const AdminModelRow = memo(function AdminModelRow({
         </TableRow>
     );
 });
+
+function AdminModelPageSkeleton() {
+    return (
+        <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
+            <MainHeaderSkeleton titleWidth={240} subtitleWidth="38%" />
+
+            <Paper sx={{p: 1.5, borderRadius: '10px', flexShrink: 0}}>
+                <Stack direction={{xs: 'column', lg: 'row'}} spacing={1.5} alignItems={{lg: 'center'}}>
+                    <Skeleton variant="rounded" width={360} height={40} />
+                    <Box sx={{marginLeft: 'auto'}}>
+                        <Skeleton variant="rounded" width={128} height={40} />
+                    </Box>
+                </Stack>
+            </Paper>
+
+            <Paper sx={{borderRadius: '10px', flex: 1, minHeight: 0, overflow: 'hidden'}}>
+                <Box sx={{height: '100%', overflow: 'auto', p: 1.5}}>
+                    <Stack spacing={1}>
+                        <Skeleton variant="rounded" width="100%" height={42} />
+                        {Array.from({length: 10}).map((_, index) => (
+                            <Skeleton key={index} variant="rounded" width="100%" height={48} />
+                        ))}
+                    </Stack>
+                </Box>
+            </Paper>
+        </Stack>
+    );
+}
 
 function mergeListResponse(
     previousData: AdminListResponse,
@@ -570,4 +616,69 @@ function replaceUrlParams(pathname: string | null, query: string, sort: string):
     const nextPath = pathname ?? window.location.pathname;
     const nextUrl = params.toString() ? `${nextPath}?${params.toString()}` : nextPath;
     window.history.replaceState(window.history.state, '', nextUrl);
+}
+
+function requestListItems(
+    client: XLAdminClient,
+    slug: string,
+    params: AdminListRequestParams,
+) {
+    const requestKey = buildListRequestKey(slug, params);
+    const cachedResponse = listResponseCache.get(requestKey);
+    if (cachedResponse) {
+        return Promise.resolve(cachedResponse);
+    }
+
+    const existingRequest = inFlightListRequests.get(requestKey);
+    if (existingRequest) {
+        return existingRequest;
+    }
+
+    const request = client.getItems(slug, params)
+        .then((response) => {
+            listResponseCache.set(requestKey, response);
+            return response;
+        })
+        .finally(() => {
+            inFlightListRequests.delete(requestKey);
+        });
+
+    inFlightListRequests.set(requestKey, request);
+    return request;
+}
+
+function buildListRequestKey(slug: string, params: AdminListRequestParams): string {
+    return JSON.stringify({
+        slug,
+        q: params.q ?? null,
+        sort: params.sort ?? null,
+        limit: params.limit ?? DEFAULT_PAGE_SIZE,
+        offset: params.offset ?? 0,
+    });
+}
+
+function findCachedInitialListResponse(
+    slug: string,
+    query?: string,
+    sort?: string,
+): AdminListResponse | null {
+    for (const [cacheKey, response] of listResponseCache.entries()) {
+        const parsedKey = JSON.parse(cacheKey) as {
+            slug: string;
+            q: string | null;
+            sort: string | null;
+            offset: number;
+        };
+
+        if (
+            parsedKey.slug === slug
+            && (parsedKey.q ?? undefined) === query
+            && (parsedKey.sort ?? undefined) === sort
+            && parsedKey.offset === 0
+        ) {
+            return response;
+        }
+    }
+
+    return null;
 }

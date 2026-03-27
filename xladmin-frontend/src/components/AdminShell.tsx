@@ -6,7 +6,8 @@ import {ThemeProvider, type Theme} from '@mui/material/styles';
 import type {XLAdminClient} from '../client';
 import type {AdminModelMeta} from '../types';
 import {defaultAdminTheme} from '../theme/defaultAdminTheme';
-import {AdminSidebar} from './AdminSidebar';
+import {Main} from './layout/Main';
+import {Sidebar} from './layout/Sidebar';
 
 type AdminShellProps = {
     client: XLAdminClient;
@@ -31,7 +32,7 @@ export function AdminShell({client, models, basePath, children, theme}: AdminShe
                     },
                     '*': {
                         scrollbarWidth: 'thin',
-                        scrollbarColor: '#35353a transparent',
+                        scrollbarColor: '#2b2b2f transparent',
                     },
                     '*::-webkit-scrollbar': {
                         width: '3px',
@@ -41,7 +42,7 @@ export function AdminShell({client, models, basePath, children, theme}: AdminShe
                         background: 'transparent',
                     },
                     '*::-webkit-scrollbar-thumb': {
-                        backgroundColor: '#35353a',
+                        backgroundColor: '#2b2b2f',
                         borderRadius: '999px',
                     },
                     '[data-xladmin-root="true"]': {
@@ -76,19 +77,9 @@ export function AdminShell({client, models, basePath, children, theme}: AdminShe
                     sx={{height: '100%', minHeight: 0, alignItems: 'stretch'}}
                 >
                     <Box sx={{width: {xs: '100%', lg: 320}, flexShrink: 0, minHeight: 0}}>
-                        <AdminSidebar models={models} basePath={basePath}/>
+                        <Sidebar models={models} basePath={basePath}/>
                     </Box>
-                    <Box
-                        sx={{
-                            flex: 1,
-                            minWidth: 0,
-                            minHeight: 0,
-                            display: 'flex',
-                            flexDirection: 'column',
-                        }}
-                    >
-                        {children}
-                    </Box>
+                    <Main>{children}</Main>
                 </Stack>
             </Box>
         </ThemeProvider>

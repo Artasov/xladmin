@@ -11,6 +11,22 @@ from sqlalchemy.orm import ColumnProperty, RelationshipProperty
 from xladmin.config import AdminModelConfig
 
 
+def get_mapper_field_names(config: AdminModelConfig) -> list[str]:
+    """
+    Возвращает имена ORM-атрибутов в их естественном порядке объявления в модели.
+
+    Это основной дефолтный порядок для detail/list/create/update представлений,
+    если проект не переопределил его явно через конфиг.
+    """
+
+    mapper = sa_inspect(config.model)
+    return [
+        prop.key
+        for prop in mapper.attrs
+        if isinstance(prop, ColumnProperty | RelationshipProperty)
+    ]
+
+
 def get_column_names(config: AdminModelConfig) -> list[str]:
     mapper = sa_inspect(config.model)
     return [prop.key for prop in mapper.attrs if isinstance(prop, ColumnProperty)]
@@ -29,7 +45,7 @@ def get_all_field_names(config: AdminModelConfig) -> list[str]:
     описал в `config.fields`, например `new_password`.
     """
 
-    ordered_names = list(get_column_names(config))
+    ordered_names = list(get_mapper_field_names(config))
     configured_names = _get_configured_field_names(config)
     for field_name in config.fields:
         if field_name not in ordered_names:
