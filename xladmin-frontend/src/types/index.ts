@@ -1,3 +1,5 @@
+export type AdminLocale = 'ru' | 'en';
+
 export type AdminFieldMeta = {
     name: string;
     label: string;
@@ -28,8 +30,10 @@ export type AdminObjectActionMeta = {
 };
 
 export type AdminModelMeta = {
+    locale: AdminLocale;
     slug: string;
     title: string;
+    description?: string | null;
     pk_field: string;
     display_field: string | null;
     page_size: number;
@@ -40,6 +44,16 @@ export type AdminModelMeta = {
     bulk_actions: AdminBulkActionMeta[];
     object_actions: AdminObjectActionMeta[];
     fields: AdminFieldMeta[];
+};
+
+export type AdminModelsBlockMeta = {
+    slug: string;
+    title: string;
+    description?: string | null;
+    color?: string | null;
+    collapsible: boolean;
+    default_expanded: boolean;
+    models: AdminModelMeta[];
 };
 
 export type AdminListResponse = {
@@ -53,13 +67,29 @@ export type AdminDetailResponse = {
     item: Record<string, unknown>;
 };
 
+export type AdminDeletePreviewNode = {
+    model_slug: string | null;
+    model_title: string;
+    relation_name: string | null;
+    id: string | number;
+    label: string;
+    children: AdminDeletePreviewNode[];
+};
+
+export type AdminDeletePreviewResponse = {
+    summary: {roots: number; related: number; total: number};
+    roots: AdminDeletePreviewNode[];
+};
+
 export type AdminObjectActionResponse = {
     item: Record<string, unknown>;
     result: Record<string, unknown>;
 };
 
 export type AdminModelsResponse = {
+    locale: AdminLocale;
     items: AdminModelMeta[];
+    blocks: AdminModelsBlockMeta[];
 };
 
 export type AdminChoicesResponse = {

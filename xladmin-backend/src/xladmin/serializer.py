@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.orm.attributes import NO_VALUE
 
 from xladmin.config import AdminModelConfig
 from xladmin.introspection import (
@@ -35,9 +36,13 @@ def serialize_model_instance(
 
 def serialize_relations(config: AdminModelConfig, instance: Any) -> dict[str, Any]:
     mapper = sa_inspect(config.model)
+    instance_state = sa_inspect(instance)
     payload: dict[str, Any] = {}
     for relation_name in get_relationship_names(config):
         relationship = mapper.relationships[relation_name]
+        if instance_state.attrs[relation_name].loaded_value is NO_VALUE:
+            payload[relation_name] = [] if relationship.uselist else None
+            continue
         value = getattr(instance, relation_name)
         if value is None:
             payload[relation_name] = None

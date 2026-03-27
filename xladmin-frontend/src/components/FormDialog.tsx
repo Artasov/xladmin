@@ -14,7 +14,7 @@ import {AdapterDayjs} from '@mui/x-date-pickers/AdapterDayjs';
 import type {XLAdminClient} from '../client';
 import type {AdminModelMeta} from '../types';
 import {buildAdminPayload} from '../utils/adminFields';
-import {AdminFieldEditor} from './AdminFieldEditor';
+import {FieldEditor} from './FieldEditor';
 
 type AdminFormDialogProps = {
     open: boolean;
@@ -29,7 +29,9 @@ type AdminFormDialogProps = {
     itemId?: string | number;
 };
 
-export function AdminFormDialog({
+export type FormDialogProps = AdminFormDialogProps;
+
+export function FormDialog({
     open,
     onClose,
     onSuccess,
@@ -40,7 +42,7 @@ export function AdminFormDialog({
     client,
     initialValues,
     itemId,
-}: AdminFormDialogProps) {
+}: FormDialogProps) {
     const [values, setValues] = useState<Record<string, unknown>>({});
     const editableFieldNames = useMemo(
         () => (mode === 'create' ? meta.create_fields : meta.update_fields),
@@ -73,7 +75,7 @@ export function AdminFormDialog({
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
                     <Box sx={{display: 'grid', gap: 2, pt: 1}}>
                         {editableFields.map((field) => (
-                            <AdminFieldEditor
+                            <FieldEditor
                                 key={field.name}
                                 field={field}
                                 value={values[field.name]}
@@ -94,3 +96,5 @@ export function AdminFormDialog({
         </Dialog>
     );
 }
+
+export const AdminFormDialog = FormDialog;

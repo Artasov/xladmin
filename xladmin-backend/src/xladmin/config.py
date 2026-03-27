@@ -6,14 +6,7 @@ from typing import Any
 
 
 @dataclass(slots=True)
-class AdminFieldConfig:
-    """
-    Настройки одного поля в админке.
-
-    Через этот объект можно скрывать поле, запрещать редактирование и подсказывать,
-    какое поле лучше использовать как label у связанного объекта.
-    """
-
+class FieldConfig:
     label: str | None = None
     help_text: str | None = None
     hidden_in_list: bool = False
@@ -30,52 +23,44 @@ class AdminFieldConfig:
 
 
 @dataclass(slots=True)
-class AdminBulkActionConfig:
-    """
-    Описывает bulk-операцию над выбранными объектами списка.
-
-    По умолчанию библиотека уже умеет удаление, а через этот конфиг проект
-    может добавить свои действия, например архивирование или массовую смену статуса.
-    """
-
+class BulkActionConfig:
     slug: str
     label: str
     handler: Callable[
-        [Any, AdminModelConfig, list[Any], dict[str, Any], Any],
-        Awaitable[dict[str, Any] | None] | dict[str, Any] | None
+        [Any, ModelConfig, list[Any], dict[str, Any], Any],
+        Awaitable[dict[str, Any] | None] | dict[str, Any] | None,
     ]
 
 
 @dataclass(slots=True)
-class AdminObjectActionConfig:
-    """
-    Описывает кастомное действие над конкретным объектом.
-
-    Такие действия показываются на детальной странице объекта справа, рядом со
-    встроенными действиями `Сохранить` и `Удалить`.
-    """
-
+class ObjectActionConfig:
     slug: str
     label: str
     handler: Callable[
-        [Any, AdminModelConfig, Any, dict[str, Any], Any],
-        Awaitable[dict[str, Any] | None] | dict[str, Any] | None
+        [Any, ModelConfig, Any, dict[str, Any], Any],
+        Awaitable[dict[str, Any] | None] | dict[str, Any] | None,
     ]
 
 
 @dataclass(slots=True)
-class AdminModelConfig:
-    """
-    Описание ORM-модели для админки.
-
-    `slug` используется в URL и в frontend routing.
-    `title` это человекочитаемое имя модели в sidebar и на страницах.
-    """
-
-    model: type[Any]
+class ModelsBlockConfig:
     slug: str
     title: str
-    fields: dict[str, AdminFieldConfig] = field(default_factory=dict)
+    models: tuple[type[Any] | str, ...] = ()
+    model_slugs: tuple[str, ...] = ()
+    description: str | None = None
+    color: str | None = None
+    collapsible: bool = False
+    default_expanded: bool = True
+
+
+@dataclass(slots=True)
+class ModelConfig:
+    model: type[Any]
+    slug: str | None = None
+    title: str | None = None
+    description: str | None = None
+    fields: dict[str, FieldConfig] = field(default_factory=dict)
     pk_field: str = "id"
     display_field: str | None = None
     search_fields: tuple[str, ...] = ()
@@ -87,23 +72,32 @@ class AdminModelConfig:
     update_fields: tuple[str, ...] | None = None
     ordering: tuple[str, ...] = ()
     page_size: int = 50
-    bulk_actions: tuple[AdminBulkActionConfig, ...] = ()
-    object_actions: tuple[AdminObjectActionConfig, ...] = ()
+    bulk_actions: tuple[BulkActionConfig, ...] = ()
+    object_actions: tuple[ObjectActionConfig, ...] = ()
 
-    def get_field_config(self, field_name: str) -> AdminFieldConfig:
-        return self.fields.get(field_name, AdminFieldConfig())
+    def get_field_config(self, field_name: str) -> FieldConfig:
+        return self.fields.get(field_name, FieldConfig())
 
 
 @dataclass(slots=True)
-class AdminHTTPConfig:
-    """
-    HTTP-конфиг для подключения админки к проекту.
+class AdminConfig:
+    models: tuple[ModelConfig, ...] = ()
+    models_blocks: tuple[ModelsBlockConfig, ...] = ()
+    locale: str = "ru"
 
-    Библиотека не знает, как у проекта устроены session и auth.
-    Поэтому проект сам передаёт зависимости и правило доступа.
-    """
 
+@dataclass(slots=True)
+class HttpConfig:
     registry: Any
     get_db_session_dependency: Callable[..., Any]
     get_current_user_dependency: Callable[..., Any]
     is_allowed: Callable[[Any], bool]
+
+
+AdminFieldConfig = FieldConfig
+AdminBulkActionConfig = BulkActionConfig
+AdminObjectActionConfig = ObjectActionConfig
+AdminModelsBlockConfig = ModelsBlockConfig
+AdminModelConfig = ModelConfig
+AdminHTTPConfig = HttpConfig
+ModelsBlock = ModelsBlockConfig

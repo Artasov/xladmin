@@ -1,49 +1,51 @@
 'use client';
 
 import {memo} from 'react';
-import {Box, List, ListItemButton, ListItemText, Paper, Stack, Typography} from '@mui/material';
-import type {AdminModelMeta} from '../../types';
-import {AdminNavLink} from '../AdminNavLink';
+import {Box, ListItemButton, Typography} from '@mui/material';
+import {useAdminTranslation} from '../../i18n';
+import type {AdminModelMeta, AdminModelsBlockMeta} from '../../types';
+import {ModelsBlocks} from '../ModelsBlocks';
+import {NavLink} from '../NavLink';
 
 type SidebarProps = {
     models: AdminModelMeta[];
+    blocks: AdminModelsBlockMeta[];
     basePath: string;
 };
 
-/**
- * Левая колонка админки со списком моделей.
- */
-export const Sidebar = memo(function Sidebar({models, basePath}: SidebarProps) {
+export const Sidebar = memo(function Sidebar({models, blocks, basePath}: SidebarProps) {
+    const t = useAdminTranslation();
+
     return (
-        <Paper
-            sx={{
-                p: 2,
-                borderRadius: '10px',
-                height: '100%',
-                overflow: 'hidden',
-            }}
-        >
-            <Box sx={{height: '100%', overflow: 'auto', pr: 0.5}}>
-                <Typography variant="h6" sx={{mb: 2, fontWeight: 700}}>
-                    XLAdmin
-                </Typography>
-                <Stack spacing={1}>
-                    <AdminNavLink href={basePath} style={{textDecoration: 'none'}}>
-                        <ListItemButton sx={{borderRadius: '8px', backgroundColor: 'rgba(255, 255, 255, 0.035)'}}>
-                            <ListItemText primary="Все модели"/>
+        <Box sx={{height: '100%', overflow: 'hidden'}}>
+            <Box
+                sx={{
+                    height: '100%',
+                    overflowY: 'scroll',
+                    overflowX: 'hidden',
+                    scrollbarGutter: 'stable',
+                    direction: 'rtl',
+                    ml: 0,
+                    pl: 0,
+                }}
+            >
+                <Box sx={{direction: 'ltr', pl: 3}}>
+                    <NavLink href={basePath} style={{textDecoration: 'none'}}>
+                        <ListItemButton
+                            sx={{
+                                mb: 2,
+                                borderRadius: '8px',
+                                backgroundColor: 'rgba(255, 255, 255, 0.035)',
+                            }}
+                        >
+                            <Typography variant="subtitle1" sx={{fontWeight: 700}}>
+                                {t('overview')}
+                            </Typography>
                         </ListItemButton>
-                    </AdminNavLink>
-                    <List dense disablePadding sx={{display: 'flex', flexDirection: 'column', gap: 1}}>
-                        {models.map((model) => (
-                            <AdminNavLink key={model.slug} href={`${basePath}/${model.slug}`} style={{textDecoration: 'none'}}>
-                                <ListItemButton sx={{borderRadius: '8px'}}>
-                                    <ListItemText primary={model.title} secondary={model.slug}/>
-                                </ListItemButton>
-                            </AdminNavLink>
-                        ))}
-                    </List>
-                </Stack>
+                    </NavLink>
+                    <ModelsBlocks models={models} blocks={blocks} basePath={basePath} variant="sidebar" />
+                </Box>
             </Box>
-        </Paper>
+        </Box>
     );
 });

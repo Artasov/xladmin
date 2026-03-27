@@ -1,5 +1,6 @@
 import type {
     AdminChoicesResponse,
+    AdminDeletePreviewResponse,
     AdminDetailResponse,
     AdminListResponse,
     AdminModelMeta,
@@ -15,7 +16,9 @@ export type XLAdminClient = {
     createItem: (slug: string, payload: Record<string, unknown>) => Promise<AdminDetailResponse>;
     patchItem: (slug: string, id: string | number, payload: Record<string, unknown>) => Promise<AdminDetailResponse>;
     deleteItem: (slug: string, id: string | number) => Promise<void>;
+    getDeletePreview: (slug: string, id: string | number) => Promise<AdminDeletePreviewResponse>;
     bulkDelete: (slug: string, ids: Array<string | number>) => Promise<{deleted: number}>;
+    getBulkDeletePreview: (slug: string, ids: Array<string | number>) => Promise<AdminDeletePreviewResponse>;
     runBulkAction: (slug: string, actionSlug: string, ids: Array<string | number>, payload?: Record<string, unknown>) => Promise<{processed: number} & Record<string, unknown>>;
     runObjectAction: (slug: string, id: string | number, actionSlug: string, payload?: Record<string, unknown>) => Promise<AdminObjectActionResponse>;
     getChoices: (slug: string, fieldName: string, q?: string, ids?: Array<string | number>) => Promise<AdminChoicesResponse>;
@@ -62,8 +65,14 @@ export function createXLAdminClient(transport: XLAdminTransport): XLAdminClient 
         async deleteItem(slug, id) {
             await transport.delete(`/xladmin/models/${slug}/items/${id}/`);
         },
+        async getDeletePreview(slug, id) {
+            return await transportGet<AdminDeletePreviewResponse>(transport, `/xladmin/models/${slug}/items/${id}/delete-preview/`);
+        },
         async bulkDelete(slug, ids) {
             return await transportPost<{deleted: number}>(transport, `/xladmin/models/${slug}/bulk-delete/`, {ids});
+        },
+        async getBulkDeletePreview(slug, ids) {
+            return await transportPost<AdminDeletePreviewResponse>(transport, `/xladmin/models/${slug}/bulk-delete-preview/`, {ids});
         },
         async runBulkAction(slug, actionSlug, ids, payload) {
             return await transportPost<{processed: number} & Record<string, unknown>>(

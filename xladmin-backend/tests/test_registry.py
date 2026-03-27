@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from xladmin import AdminModelConfig, AdminRegistry
+from xladmin import AdminConfig, AdminModelConfig, AdminRegistry, ModelConfig
 
 
 class Base(DeclarativeBase):
@@ -22,3 +22,14 @@ def test_registry_stores_model_configs() -> None:
 
     assert config.model is DemoModel
     assert config.title == "Demo"
+
+
+def test_registry_builds_defaults_from_admin_config() -> None:
+    registry = AdminRegistry(config=AdminConfig(models=(ModelConfig(model=DemoModel),)))
+
+    config = registry.list()[0]
+
+    assert config.model is DemoModel
+    assert config.slug == "demo-model"
+    assert config.title == "Demo Model"
+    assert config.ordering == ("-id",)

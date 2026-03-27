@@ -1,26 +1,68 @@
 # xladmin
 
-`xladmin` это backend-библиотека для быстрой сборки админки поверх `FastAPI` и `SQLAlchemy`.
+`xladmin` это backend-пакет админки для `FastAPI + SQLAlchemy`.
 
 Важно:
 
 - имя пакета в PyPI: `xladmin`
-- Python-импорт внутри проекта: `xladmin`
+- импорт в Python: `from xladmin import ...`
+- исходники монорепы: [Artasov/xladmin](https://github.com/Artasov/xladmin)
+
+## Основной API
+
+- `AdminConfig` — корневой декларативный конфиг
+- `ModelConfig` — конфиг одной ORM-модели
+- `FieldConfig` — переопределение поведения конкретного поля
+- `BulkActionConfig` — кастомное действие над несколькими объектами
+- `ObjectActionConfig` — кастомное действие над одним объектом
+- `ModelsBlock` — блок моделей для sidebar и overview
+- `HttpConfig` — контракт интеграции с проектом
+- `create_router(...)` — фабрика FastAPI-router
+
+Короткие имена считаются основными. Старые `Admin*` имена и `create_admin_router(...)` оставлены как alias для совместимости.
+
+## Минимальный пример
+
+```python
+from xladmin import AdminConfig, HttpConfig, ModelConfig, create_router
+
+from src.core.auth.dependencies import get_current_user
+from src.core.db.session import get_db_session
+from src.modules.identity.models import UserORM
+
+
+xladmin_config = AdminConfig(
+    models=(
+        ModelConfig(model=UserORM),
+    ),
+)
+
+router = create_router(
+    HttpConfig(
+        registry=xladmin_config,
+        get_db_session_dependency=get_db_session,
+        get_current_user_dependency=get_current_user,
+        is_allowed=lambda user: bool(user.is_staff),
+    ),
+)
+```
+
+`ModelConfig(model=UserORM)` уже достаточно для базовой админки. Библиотека сама достроит:
+
+- `slug`
+- `title`
+- базовые `search_fields`
+- базовый `ordering`
 
 ## Что есть в библиотеке
 
-- `AdminRegistry` — реестр admin-моделей
-- `AdminModelConfig` — конфиг одной ORM-модели
-- `AdminFieldConfig` — конфиг одного поля
-- `AdminBulkActionConfig` — bulk-действие над выбранными объектами
-- `create_admin_router(...)` — factory готового FastAPI router
-
-Основные файлы:
-
-- `src/xladmin/config.py`
-- `src/xladmin/router.py`
-- `src/xladmin/introspection.py`
-- `src/xladmin/serializer.py`
+- list / detail / create / patch / delete
+- bulk actions и object actions
+- relation choices
+- model descriptions
+- model blocks
+- RU / EN locale
+- delete preview для single delete и bulk delete
 
 ## Совместимость
 
@@ -30,15 +72,5 @@
 
 ## Документация
 
-Практическая инструкция вынесена в [docs/HOW_TO_USE.md](docs/HOW_TO_USE.md).
-
-Там есть:
-
-- короткий пример подключения
-- расширенный пример на `UserORM` и `OrderORM`
-- настройка `list_display`, `detail_fields`, `update_fields`
-- кастомный поиск
-- кастомные `value_getter` / `value_setter`
-- relation fields
-- bulk actions
-- `page_size`
+- подробная инструкция: [docs/HOW_TO_USE.md](docs/HOW_TO_USE.md)
+- фронтенд-пакет: [../xladmin-frontend/README.md](../xladmin-frontend/README.md)

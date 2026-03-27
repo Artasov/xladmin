@@ -2,7 +2,7 @@
 
 ## 1. Быстрое подключение
 
-Фронтенд-библиотека ждёт не “проектный API”, а клиент, совместимый с контрактом `XLAdminClient`.
+Frontend-библиотека ждёт не “проектный API”, а клиент, совместимый с контрактом `XLAdminClient`.
 
 Самые частые варианты:
 
@@ -12,17 +12,25 @@
 'use client';
 
 import {useMemo} from 'react';
-import {AdminHome, AdminShell, createAxiosXLAdminClient} from 'xladmin';
+import {OverviewPage, Shell, createAxiosXLAdminClient} from 'xladmin';
 import {api} from '@/modules/Api/client';
 
 
-export function XLAdminHomePageClient({models}: {models: []}) {
+export function XLAdminHomePageClient({
+    models,
+    blocks,
+    locale,
+}: {
+    models: [];
+    blocks: [];
+    locale: 'ru' | 'en';
+}) {
     const client = useMemo(() => createAxiosXLAdminClient(api), []);
 
     return (
-        <AdminShell client={client} models={models} basePath="/admin">
-            <AdminHome client={client} basePath="/admin" />
-        </AdminShell>
+        <Shell client={client} models={models} blocks={blocks} basePath="/admin" locale={locale}>
+            <OverviewPage basePath="/admin" models={models} blocks={blocks} locale={locale} />
+        </Shell>
     );
 }
 ```
@@ -33,10 +41,18 @@ export function XLAdminHomePageClient({models}: {models: []}) {
 'use client';
 
 import {useMemo} from 'react';
-import {AdminHome, AdminShell, createFetchXLAdminClient} from 'xladmin';
+import {OverviewPage, Shell, createFetchXLAdminClient} from 'xladmin';
 
 
-export function XLAdminHomePageClient({models}: {models: []}) {
+export function XLAdminHomePageClient({
+    models,
+    blocks,
+    locale,
+}: {
+    models: [];
+    blocks: [];
+    locale: 'ru' | 'en';
+}) {
     const client = useMemo(() => createFetchXLAdminClient({
         baseUrl: '/api/v1',
         credentials: 'include',
@@ -46,9 +62,9 @@ export function XLAdminHomePageClient({models}: {models: []}) {
     }), []);
 
     return (
-        <AdminShell client={client} models={models} basePath="/admin">
-            <AdminHome client={client} basePath="/admin" />
-        </AdminShell>
+        <Shell client={client} models={models} blocks={blocks} basePath="/admin" locale={locale}>
+            <OverviewPage basePath="/admin" models={models} blocks={blocks} locale={locale} />
+        </Shell>
     );
 }
 ```
@@ -60,14 +76,16 @@ import type {XLAdminClient} from 'xladmin';
 
 
 const client: XLAdminClient = {
-    getModels: async () => ({items: []}),
+    getModels: async () => ({locale: 'ru', items: [], blocks: []}),
     getModel: async (slug) => fetchModelSomehow(slug),
     getItems: async (slug, params) => fetchItemsSomehow(slug, params),
     getItem: async (slug, id) => fetchItemSomehow(slug, id),
     createItem: async (slug, payload) => createItemSomehow(slug, payload),
     patchItem: async (slug, id, payload) => patchItemSomehow(slug, id, payload),
     deleteItem: async (slug, id) => deleteItemSomehow(slug, id),
+    getDeletePreview: async (slug, id) => fetchDeletePreviewSomehow(slug, id),
     bulkDelete: async (slug, ids) => bulkDeleteSomehow(slug, ids),
+    getBulkDeletePreview: async (slug, ids) => fetchBulkDeletePreviewSomehow(slug, ids),
     runBulkAction: async (slug, actionSlug, ids, payload) => runBulkActionSomehow(slug, actionSlug, ids, payload),
     runObjectAction: async (slug, id, actionSlug, payload) => runObjectActionSomehow(slug, id, actionSlug, payload),
     getChoices: async (slug, fieldName, q, ids) => fetchChoicesSomehow(slug, fieldName, q, ids),
@@ -76,19 +94,21 @@ const client: XLAdminClient = {
 
 ## 2. Нормальная интеграция в проект
 
-Обычно проект делает маленькие обёртки, а не вставляет библиотечные компоненты прямо в `app`.
+Обычно проект делает маленькие client-wrapper компоненты, а не использует библиотечные компоненты прямо в `app`.
 
 ```tsx
 'use client';
 
 import {useMemo} from 'react';
 import {
-    AdminHome,
-    AdminModelPage,
-    AdminObjectPage,
-    AdminShell,
+    ModelPage,
+    ObjectPage,
+    OverviewPage,
+    Shell,
     createAxiosXLAdminClient,
+    type AdminLocale,
     type AdminModelMeta,
+    type AdminModelsBlockMeta,
 } from 'xladmin';
 
 import {api} from '@/modules/Api/client';
@@ -96,27 +116,41 @@ import {api} from '@/modules/Api/client';
 
 type XLAdminShellProps = {
     models: AdminModelMeta[];
+    blocks: AdminModelsBlockMeta[];
+    locale: AdminLocale;
     children: React.ReactNode;
 };
 
 
-function XLAdminShellRoot({models, children}: XLAdminShellProps) {
+function XLAdminShellRoot({models, blocks, locale, children}: XLAdminShellProps) {
     const client = useMemo(() => createAxiosXLAdminClient(api), []);
 
     return (
-        <AdminShell client={client} models={models} basePath="/ru/admin">
+        <Shell
+            client={client}
+            models={models}
+            blocks={blocks}
+            basePath="/ru/admin"
+            locale={locale}
+        >
             {children}
-        </AdminShell>
+        </Shell>
     );
 }
 
 
-export function XLAdminHomePageClient({models}: {models: AdminModelMeta[]}) {
-    const client = useMemo(() => createAxiosXLAdminClient(api), []);
-
+export function XLAdminHomePageClient({
+    models,
+    blocks,
+    locale,
+}: {
+    models: AdminModelMeta[];
+    blocks: AdminModelsBlockMeta[];
+    locale: AdminLocale;
+}) {
     return (
-        <XLAdminShellRoot models={models}>
-            <AdminHome client={client} basePath="/ru/admin" />
+        <XLAdminShellRoot models={models} blocks={blocks} locale={locale}>
+            <OverviewPage basePath="/ru/admin" models={models} blocks={blocks} locale={locale} />
         </XLAdminShellRoot>
     );
 }
@@ -124,16 +158,20 @@ export function XLAdminHomePageClient({models}: {models: AdminModelMeta[]}) {
 
 export function XLAdminModelPageClient({
     models,
+    blocks,
     slug,
+    locale,
 }: {
     models: AdminModelMeta[];
+    blocks: AdminModelsBlockMeta[];
     slug: string;
+    locale: AdminLocale;
 }) {
     const client = useMemo(() => createAxiosXLAdminClient(api), []);
 
     return (
-        <XLAdminShellRoot models={models}>
-            <AdminModelPage client={client} basePath="/ru/admin" slug={slug} />
+        <XLAdminShellRoot models={models} blocks={blocks} locale={locale}>
+            <ModelPage client={client} basePath="/ru/admin" slug={slug} />
         </XLAdminShellRoot>
     );
 }
@@ -141,38 +179,102 @@ export function XLAdminModelPageClient({
 
 export function XLAdminObjectPageClient({
     models,
+    blocks,
     slug,
     id,
+    locale,
 }: {
     models: AdminModelMeta[];
+    blocks: AdminModelsBlockMeta[];
     slug: string;
     id: string;
+    locale: AdminLocale;
 }) {
     const client = useMemo(() => createAxiosXLAdminClient(api), []);
 
     return (
-        <XLAdminShellRoot models={models}>
-            <AdminObjectPage client={client} slug={slug} id={id} />
+        <XLAdminShellRoot models={models} blocks={blocks} locale={locale}>
+            <ObjectPage client={client} slug={slug} id={id} />
         </XLAdminShellRoot>
     );
 }
 ```
 
-## 3. Тема библиотеки
+## 3. Что делает frontend сам
 
-По умолчанию `AdminShell` использует встроенную тёмную тему библиотеки.
+`ModelPage`
+
+- показывает список объектов
+- держит `q`, `sort` и `page` в query params
+- поддерживает поиск, сортировку и постраничную навигацию
+- показывает bulk actions через меню `Actions`
+- показывает delete preview перед bulk delete
+- показывает skeleton только для таблицы при перезагрузке списка
+
+`ObjectPage`
+
+- открывает конкретный объект
+- даёт inline-редактирование
+- показывает справа панель действий
+- показывает `Save` только если форма реально изменилась
+- показывает delete preview перед удалением объекта
+- показывает object actions из backend-конфига
+
+`FieldEditor`
+
+- `boolean` -> `Switch`
+- `date` -> `DatePicker`
+- `datetime` -> `DateTimePicker`
+- relation -> `Autocomplete`
+- обычные поля -> `TextField`
+
+`ModelsBlocks`
+
+- строит overview и sidebar blocks из backend meta
+- поддерживает `collapsible`, `default_expanded` и `color`
+
+## 4. Locale и форматирование
+
+Библиотека поддерживает `ru` и `en`.
+
+Что локализовано:
+
+- встроенные UI label и сообщения
+- delete preview dialog
+- overview / all models
+- yes / no
+- loading / saving / deleting
+
+`date` и `datetime` форматируются через `Intl` по текущему locale.
+
+Если backend отдал `locale="en"`, frontend автоматически покажет английские встроенные тексты и формат дат.
+
+## 5. Delete preview
+
+Frontend использует два отдельных метода клиента:
+
+- `getDeletePreview(slug, id)`
+- `getBulkDeletePreview(slug, ids)`
+
+Оба ответа показываются в `DeletePreviewDialog`.
+
+Самостоятельно этот компонент обычно не нужно подключать: `ModelPage` и `ObjectPage` уже используют его внутри.
+
+## 6. Theme
+
+По умолчанию `Shell` использует встроенную тему библиотеки.
 
 ```tsx
-<AdminShell client={client} models={models} basePath="/admin">
+<Shell client={client} models={models} blocks={blocks} basePath="/admin" locale={locale}>
     {children}
-</AdminShell>
+</Shell>
 ```
 
 Если проект хочет свою тему, её можно передать явно:
 
 ```tsx
 import {createTheme} from '@mui/material/styles';
-import {AdminShell, defaultAdminTheme} from 'xladmin';
+import {Shell, defaultAdminTheme} from 'xladmin';
 
 
 const adminTheme = createTheme(defaultAdminTheme, {
@@ -185,57 +287,50 @@ const adminTheme = createTheme(defaultAdminTheme, {
 });
 
 
-<AdminShell
+<Shell
     client={client}
     models={models}
+    blocks={blocks}
     basePath="/admin"
+    locale={locale}
     theme={adminTheme}
 >
     {children}
-</AdminShell>
+</Shell>
 ```
 
-Важно:
-
-- если `theme` не передан, используется встроенная тема библиотеки
-- если `theme` передан, используется уже она
-- если нужно унаследовать дефолтную тему, удобнее строить свою от `defaultAdminTheme`
-
-## 4. Что делает frontend сам
-
-`AdminModelPage`
-
-- показывает список объектов
-- читает `sort` и `q` из query params
-- пишет их обратно в URL
-- поддерживает infinite scroll
-- берёт `page_size` из backend-меты модели
-- показывает bulk actions через меню `Действия`
-
-`AdminObjectPage`
-
-- открывает объект
-- даёт inline-редактирование
-- показывает справа панель действий
-- показывает `Сохранить` только если форма реально изменена
-- показывает `Удалить` и кастомные object actions из backend-конфига
-
-`AdminFieldEditor`
-
-- `boolean` -> `Switch`
-- `date` -> `DatePicker`
-- `datetime` -> `DateTimePicker`
-- relation -> `Autocomplete`
-- обычные поля -> `TextField`
-
-## 5. Что важно про transport
+## 7. Что важно про transport
 
 Библиотека не навязывает `axios`.
 
-Контракт такой:
+Поддерживаются:
 
-- можно использовать `createAxiosXLAdminClient(...)`
-- можно использовать `createFetchXLAdminClient(...)`
-- можно полностью реализовать `XLAdminClient` вручную
+- `createAxiosXLAdminClient(...)`
+- `createFetchXLAdminClient(...)`
+- полностью свой `XLAdminClient`
 
 Главное, чтобы frontend-клиент умел ходить в backend endpoints пакета `xladmin`.
+
+## 8. Совместимость
+
+Основные короткие имена:
+
+- `Shell`
+- `OverviewPage`
+- `ModelPage`
+- `ObjectPage`
+- `FieldEditor`
+- `FormDialog`
+- `ModelsBlocks`
+- `NavLink`
+
+Старые alias тоже экспортируются для совместимости:
+
+- `AdminShell`
+- `AdminHome`
+- `AdminModelPage`
+- `AdminObjectPage`
+- `AdminFieldEditor`
+- `AdminFormDialog`
+- `AdminModelsBlocks`
+- `AdminNavLink`

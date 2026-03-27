@@ -9,37 +9,47 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect as sa_inspect
 from sqlalchemy.orm import selectinload
 
-from xladmin.config import AdminHTTPConfig, AdminModelConfig
+from xladmin.config import HttpConfig, ModelConfig
+from xladmin.delete_preview import build_delete_preview
+from xladmin.i18n import translate
 from xladmin.introspection import (
     convert_value_for_column,
     get_column_names,
     get_create_fields,
+    get_model_blocks_meta,
     get_model_meta,
     get_sort_column_name,
     get_update_fields,
 )
+from xladmin.registry import build_registry
 from xladmin.serializer import serialize_model_instance
 
 
-def create_admin_router(config: AdminHTTPConfig) -> APIRouter:
-    """Создаёт готовый FastAPI router для зарегистрированных admin-моделей."""
-
+def create_router(config: HttpConfig) -> APIRouter:
+    registry = build_registry(config.registry)
     router = APIRouter(prefix="/xladmin", tags=["XLAdmin"])
 
     def _check_access(user: Any) -> None:
         if not config.is_allowed(user):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden.")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=translate(registry.locale, "forbidden"))
 
-    async def _get_model_config(slug: str) -> AdminModelConfig:
+    async def _get_model_config(slug: str) -> ModelConfig:
         try:
-            return config.registry.get(slug)
+            return registry.get(slug)
         except KeyError as exc:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Admin model not found.") from exc
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=translate(registry.locale, "admin_model_not_found"),
+            ) from exc
 
     @router.get("/models/")
     async def list_models(user: Any = Depends(config.get_current_user_dependency)) -> dict[str, Any]:
         _check_access(user)
-        return {"items": [get_model_meta(model_config) for model_config in config.registry.list()]}
+        return {
+            "locale": registry.locale,
+            "items": [get_model_meta(model_config, locale=registry.locale) for model_config in registry.list()],
+            "blocks": get_model_blocks_meta(registry),
+        }
 
     @router.get("/models/{slug}/")
     async def get_model(
@@ -47,7 +57,7 @@ def create_admin_router(config: AdminHTTPConfig) -> APIRouter:
             user: Any = Depends(config.get_current_user_dependency),
     ) -> dict[str, Any]:
         _check_access(user)
-        return get_model_meta(await _get_model_config(slug))
+        return get_model_meta(await _get_model_config(slug), locale=registry.locale)
 
     @router.get("/models/{slug}/items/")
     async def list_items(
@@ -69,7 +79,7 @@ def create_admin_router(config: AdminHTTPConfig) -> APIRouter:
         total = int((await session.execute(total_query)).scalar_one())
         items = list((await session.execute(query.limit(limit).offset(offset))).scalars())
         return {
-            "meta": get_model_meta(model_config),
+            "meta": get_model_meta(model_config, locale=registry.locale),
             "pagination": {"limit": limit, "offset": offset, "total": total},
             "items": [serialize_model_instance(model_config, item, mode="list") for item in items],
         }
@@ -85,9 +95,9 @@ def create_admin_router(config: AdminHTTPConfig) -> APIRouter:
         model_config = await _get_model_config(slug)
         item = await _get_item_by_pk(session, model_config, item_id)
         if item is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"))
         return {
-            "meta": get_model_meta(model_config),
+            "meta": get_model_meta(model_config, locale=registry.locale),
             "item": serialize_model_instance(model_config, item, mode="detail"),
         }
 
@@ -119,11 +129,25 @@ def create_admin_router(config: AdminHTTPConfig) -> APIRouter:
         model_config = await _get_model_config(slug)
         item = await _get_item_by_pk(session, model_config, item_id)
         if item is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"))
         await _apply_payload_to_item(session, model_config, item, payload, mode="update")
         await session.commit()
         await session.refresh(item)
         return {"item": serialize_model_instance(model_config, item, mode="detail")}
+
+    @router.get("/models/{slug}/items/{item_id}/delete-preview/")
+    async def get_delete_preview(
+            slug: str,
+            item_id: str,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> dict[str, Any]:
+        _check_access(user)
+        model_config = await _get_model_config(slug)
+        item = await _get_item_by_pk(session, model_config, item_id)
+        if item is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"))
+        return await build_delete_preview(session, registry, model_config, [item])
 
     @router.delete("/models/{slug}/items/{item_id}/", status_code=status.HTTP_204_NO_CONTENT)
     async def delete_item(
@@ -136,7 +160,7 @@ def create_admin_router(config: AdminHTTPConfig) -> APIRouter:
         model_config = await _get_model_config(slug)
         item = await _get_item_by_pk(session, model_config, item_id)
         if item is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"))
         await session.delete(item)
         await session.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -154,11 +178,14 @@ def create_admin_router(config: AdminHTTPConfig) -> APIRouter:
         model_config = await _get_model_config(slug)
         item = await _get_item_by_pk(session, model_config, item_id)
         if item is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object not found.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"))
 
         action = next((item for item in model_config.object_actions if item.slug == action_slug), None)
         if action is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Object action not found.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=translate(registry.locale, "object_action_not_found"),
+            )
 
         result = action.handler(session, model_config, item, payload or {}, user)
         if inspect.isawaitable(result):
@@ -191,6 +218,23 @@ def create_admin_router(config: AdminHTTPConfig) -> APIRouter:
         await session.commit()
         return {"deleted": len(items)}
 
+    @router.post("/models/{slug}/bulk-delete-preview/")
+    async def bulk_delete_preview(
+            slug: str,
+            payload: dict[str, list[Any]],
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> dict[str, Any]:
+        _check_access(user)
+        model_config = await _get_model_config(slug)
+        ids = payload.get("ids", [])
+        if not ids:
+            return {"summary": {"roots": 0, "related": 0, "total": 0}, "roots": []}
+        pk_attr = getattr(model_config.model, model_config.pk_field)
+        query = select(model_config.model).where(pk_attr.in_([_convert_pk(item_id) for item_id in ids]))
+        items = list((await session.execute(_apply_eager_loads(model_config, query))).scalars())
+        return await build_delete_preview(session, registry, model_config, items)
+
     @router.post("/models/{slug}/bulk-actions/{action_slug}/")
     async def bulk_action(
             slug: str,
@@ -210,7 +254,10 @@ def create_admin_router(config: AdminHTTPConfig) -> APIRouter:
 
         action = next((item for item in model_config.bulk_actions if item.slug == action_slug), None)
         if action is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bulk action not found.")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=translate(registry.locale, "bulk_action_not_found"),
+            )
 
         pk_attr = getattr(model_config.model, model_config.pk_field)
         query = select(model_config.model).where(pk_attr.in_([_convert_pk(item_id) for item_id in ids]))
@@ -234,7 +281,7 @@ def create_admin_router(config: AdminHTTPConfig) -> APIRouter:
         _check_access(user)
         model_config = await _get_model_config(slug)
         relation_model = _resolve_relation_model(model_config, field_name)
-        relation_config = config.registry.find_by_model(relation_model)
+        relation_config = registry.find_by_model(relation_model)
         label_field = (
             model_config.get_field_config(field_name).relation_label_field
             or _resolve_label_field(relation_model)
@@ -268,7 +315,7 @@ def create_admin_router(config: AdminHTTPConfig) -> APIRouter:
 
 async def _apply_payload_to_item(
         session: AsyncSession,
-        model_config: AdminModelConfig,
+        model_config: ModelConfig,
         item: Any,
         payload: dict[str, Any],
         *,
@@ -299,7 +346,7 @@ async def _apply_payload_to_item(
         setattr(item, field_name, convert_value_for_column(column, value))
 
 
-def _apply_ordering(model_config: AdminModelConfig, query, sort: str | None = None):
+def _apply_ordering(model_config: ModelConfig, query, sort: str | None = None):
     ordering_items = (
         [item.strip() for item in (sort or "").split(",") if item.strip()]
         if sort
@@ -319,7 +366,7 @@ def _apply_ordering(model_config: AdminModelConfig, query, sort: str | None = No
     return query
 
 
-def _apply_search(model_config: AdminModelConfig, query, q: str | None, session: AsyncSession):
+def _apply_search(model_config: ModelConfig, query, q: str | None, session: AsyncSession):
     if not q:
         return query
     if model_config.search_query_builder is not None:
@@ -335,7 +382,7 @@ def _apply_search(model_config: AdminModelConfig, query, q: str | None, session:
     return query.where(or_(*conditions))
 
 
-def _apply_eager_loads(model_config: AdminModelConfig, query):
+def _apply_eager_loads(model_config: ModelConfig, query):
     mapper = sa_inspect(model_config.model)
     relation_names = set(mapper.relationships.keys())
     relation_fields = [
@@ -352,7 +399,7 @@ def _apply_eager_loads(model_config: AdminModelConfig, query):
     return query
 
 
-def _resolve_relation_model(model_config: AdminModelConfig, field_name: str) -> type[Any]:
+def _resolve_relation_model(model_config: ModelConfig, field_name: str) -> type[Any]:
     configured_model = model_config.get_field_config(field_name).relation_model
     if configured_model is not None:
         return configured_model
@@ -363,12 +410,18 @@ def _resolve_relation_model(model_config: AdminModelConfig, field_name: str) -> 
     column = mapper.columns[field_name]
     foreign_key = next(iter(column.foreign_keys), None)
     if foreign_key is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Field has no relation choices.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=translate(registry.locale, "field_has_no_relation_choices"),
+        )
     remote_table = foreign_key.column.table
     for model in mapper.registry._class_registry.values():
         if isinstance(model, type) and getattr(model, "__table__", None) is remote_table:
             return model
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Related model was not found.")
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=translate(registry.locale, "related_model_not_found"),
+    )
 
 
 def _resolve_label_field(model: type[Any]) -> str:
@@ -388,7 +441,7 @@ def _convert_pk(value: Any) -> Any:
 
 async def _assign_relationship_value(
         session: AsyncSession,
-        model_config: AdminModelConfig,
+        model_config: ModelConfig,
         item: Any,
         field_name: str,
         value: Any,
@@ -419,10 +472,13 @@ async def _assign_relationship_value(
 
 async def _get_item_by_pk(
         session: AsyncSession,
-        model_config: AdminModelConfig,
+        model_config: ModelConfig,
         item_id: str,
 ) -> Any:
     pk_attr = getattr(model_config.model, model_config.pk_field)
     query = select(model_config.model).where(pk_attr == _convert_pk(item_id))
     query = _apply_eager_loads(model_config, query)
     return (await session.execute(query)).scalar_one_or_none()
+
+
+create_admin_router = create_router

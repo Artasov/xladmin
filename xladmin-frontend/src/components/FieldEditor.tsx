@@ -11,6 +11,7 @@ import {
 import {DatePicker, DateTimePicker} from '@mui/x-date-pickers';
 import dayjs from 'dayjs';
 import type {XLAdminClient} from '../client';
+import {useAdminTranslation} from '../i18n';
 import type {AdminFieldMeta} from '../types';
 
 type AdminFieldEditorProps = {
@@ -27,20 +28,17 @@ type RelationOption = {
     label: string;
 };
 
-/**
- * Универсальный редактор поля админки.
- *
- * Здесь библиотека сама подбирает виджет под тип поля, а проект при необходимости
- * может переопределить это через `input_kind` на backend.
- */
-export const AdminFieldEditor = memo(function AdminFieldEditor({
+export type FieldEditorProps = AdminFieldEditorProps;
+
+export const FieldEditor = memo(function FieldEditor({
     field,
     value,
     onChange,
     slug,
     client,
     readOnly = false,
-}: AdminFieldEditorProps) {
+}: FieldEditorProps) {
+    const t = useAdminTranslation();
     const [choices, setChoices] = useState<RelationOption[]>([]);
     const [searchValue, setSearchValue] = useState('');
     const [isLoadingChoices, setIsLoadingChoices] = useState(false);
@@ -51,14 +49,11 @@ export const AdminFieldEditor = memo(function AdminFieldEditor({
             setChoices([]);
             return;
         }
+
         let isMounted = true;
         setIsLoadingChoices(true);
-        client.getChoices(
-            slug,
-            field.name,
-            searchValue || undefined,
-            selectedIds,
-        )
+
+        client.getChoices(slug, field.name, searchValue || undefined, selectedIds)
             .then((response) => {
                 if (!isMounted) return;
                 setChoices((current) => mergeChoices(current, response.items));
@@ -71,6 +66,7 @@ export const AdminFieldEditor = memo(function AdminFieldEditor({
                 if (!isMounted) return;
                 setIsLoadingChoices(false);
             });
+
         return () => {
             isMounted = false;
         };
@@ -99,27 +95,14 @@ export const AdminFieldEditor = memo(function AdminFieldEditor({
                 value={value ? dayjs(String(value)) : null}
                 onChange={(nextValue) => onChange(nextValue ? nextValue.format('YYYY-MM-DD') : null)}
                 slotProps={{
-                    popper: {
-                        disablePortal: true,
-                    },
-                    desktopPaper: {
-                        sx: {
-                            borderRadius: '10px',
-                            backgroundImage: 'none',
-                            backgroundColor: 'background.paper',
-                        },
-                    },
-                    mobilePaper: {
-                        sx: {
-                            borderRadius: '10px',
-                            backgroundImage: 'none',
-                            backgroundColor: 'background.paper',
-                        },
-                    },
+                    popper: {disablePortal: true},
+                    desktopPaper: buildPickerPaperProps(),
+                    mobilePaper: buildPickerPaperProps(),
                     textField: {
                         fullWidth: true,
                         size: 'small',
                         helperText: field.help_text ?? undefined,
+                        slotProps: {htmlInput: buildHtmlInputProps(field)},
                     },
                 }}
             />
@@ -134,27 +117,14 @@ export const AdminFieldEditor = memo(function AdminFieldEditor({
                 value={value ? dayjs(String(value)) : null}
                 onChange={(nextValue) => onChange(nextValue ? nextValue.toISOString() : null)}
                 slotProps={{
-                    popper: {
-                        disablePortal: true,
-                    },
-                    desktopPaper: {
-                        sx: {
-                            borderRadius: '10px',
-                            backgroundImage: 'none',
-                            backgroundColor: 'background.paper',
-                        },
-                    },
-                    mobilePaper: {
-                        sx: {
-                            borderRadius: '10px',
-                            backgroundImage: 'none',
-                            backgroundColor: 'background.paper',
-                        },
-                    },
+                    popper: {disablePortal: true},
+                    desktopPaper: buildPickerPaperProps(),
+                    mobilePaper: buildPickerPaperProps(),
                     textField: {
                         fullWidth: true,
                         size: 'small',
                         helperText: field.help_text ?? undefined,
+                        slotProps: {htmlInput: buildHtmlInputProps(field)},
                     },
                 }}
             />
@@ -170,6 +140,7 @@ export const AdminFieldEditor = memo(function AdminFieldEditor({
             choices,
             isLoadingChoices,
             onSearchChange: setSearchValue,
+            searchPlaceholder: t('search'),
         });
     }
 
@@ -185,10 +156,14 @@ export const AdminFieldEditor = memo(function AdminFieldEditor({
             type={resolveInputType(field)}
             multiline={field.input_kind === 'textarea' || field.type.toLowerCase().includes('text')}
             minRows={field.input_kind === 'textarea' || field.type.toLowerCase().includes('text') ? 3 : undefined}
+            slotProps={{
+                htmlInput: buildHtmlInputProps(field),
+            }}
         />
     );
 });
 
+export const AdminFieldEditor = FieldEditor;
 
 function renderChoiceEditor({
     field,
@@ -198,6 +173,7 @@ function renderChoiceEditor({
     choices,
     isLoadingChoices,
     onSearchChange,
+    searchPlaceholder,
 }: {
     field: AdminFieldMeta;
     value: unknown;
@@ -206,9 +182,10 @@ function renderChoiceEditor({
     choices: RelationOption[];
     isLoadingChoices: boolean;
     onSearchChange: (value: string) => void;
+    searchPlaceholder: string;
 }) {
     const selectedIds = normalizeSelectedIds(value, field.is_relation_many);
-    const selectedOptions = selectedIds.map((id) => choices.find((choice) => String(choice.id) == String(id)) ?? {
+    const selectedOptions = selectedIds.map((id) => choices.find((choice) => String(choice.id) === String(id)) ?? {
         id,
         label: String(id),
     });
@@ -238,25 +215,28 @@ function renderChoiceEditor({
                         },
                     },
                 }}
-                ListboxProps={{
-                    sx: {
-                        maxHeight: 240,
-                    },
-                }}
+                ListboxProps={{sx: {maxHeight: 240}}}
                 renderInput={(params) => (
                     <TextField
                         {...params}
                         label={field.label}
-                        placeholder="Поиск"
+                        placeholder={searchPlaceholder}
                         helperText={field.help_text ?? undefined}
-                        InputProps={{
-                            ...params.InputProps,
-                            endAdornment: (
-                                <>
-                                    {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
-                                    {params.InputProps.endAdornment}
-                                </>
-                            ),
+                        slotProps={{
+                            input: {
+                                ...params.InputProps,
+                                endAdornment: (
+                                    <>
+                                        {isLoadingChoices ? <CircularProgress color="inherit" size={16} /> : null}
+                                        {params.InputProps.endAdornment}
+                                    </>
+                                ),
+                            },
+                            htmlInput: {
+                                ...params.inputProps,
+                                autoComplete: 'new-password',
+                                name: `admin-choice-${field.name}`,
+                            },
                         }}
                     />
                 )}
@@ -278,41 +258,43 @@ function renderChoiceEditor({
             onChange={(_, nextValue) => onChange(nextValue?.id ?? null)}
             onInputChange={(_, nextInputValue) => onSearchChange(nextInputValue)}
             slotProps={{
-                    paper: {
-                        sx: {
-                            mt: 0.5,
-                            borderRadius: '10px',
-                            backgroundImage: 'none',
-                            backgroundColor: 'background.paper',
-                        },
+                paper: {
+                    sx: {
+                        mt: 0.5,
+                        borderRadius: '10px',
+                        backgroundImage: 'none',
+                        backgroundColor: 'background.paper',
                     },
-                }}
-            ListboxProps={{
-                sx: {
-                    maxHeight: 240,
                 },
             }}
+            ListboxProps={{sx: {maxHeight: 240}}}
             renderInput={(params) => (
                 <TextField
                     {...params}
                     label={field.label}
-                    placeholder="Поиск"
+                    placeholder={searchPlaceholder}
                     helperText={field.help_text ?? undefined}
-                    InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                            <>
-                                {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
-                                {params.InputProps.endAdornment}
-                            </>
-                        ),
+                    slotProps={{
+                        input: {
+                            ...params.InputProps,
+                            endAdornment: (
+                                <>
+                                    {isLoadingChoices ? <CircularProgress color="inherit" size={16} /> : null}
+                                    {params.InputProps.endAdornment}
+                                </>
+                            ),
+                        },
+                        htmlInput: {
+                            ...params.inputProps,
+                            autoComplete: 'new-password',
+                            name: `admin-choice-${field.name}`,
+                        },
                     }}
                 />
             )}
         />
     );
 }
-
 
 function normalizeSelectedIds(value: unknown, isMultiple: boolean): Array<string | number> {
     if (isMultiple) {
@@ -327,7 +309,6 @@ function normalizeSelectedIds(value: unknown, isMultiple: boolean): Array<string
     return [];
 }
 
-
 function mergeChoices(current: RelationOption[], next: RelationOption[]): RelationOption[] {
     const choiceMap = new Map<string, RelationOption>();
     for (const choice of [...current, ...next]) {
@@ -335,7 +316,6 @@ function mergeChoices(current: RelationOption[], next: RelationOption[]): Relati
     }
     return [...choiceMap.values()];
 }
-
 
 function resolveInputType(field: AdminFieldMeta): string {
     if (field.input_kind === 'password') {
@@ -345,4 +325,28 @@ function resolveInputType(field: AdminFieldMeta): string {
         return 'number';
     }
     return 'text';
+}
+
+function buildHtmlInputProps(field: AdminFieldMeta) {
+    if (field.input_kind === 'password') {
+        return {
+            autoComplete: 'new-password',
+            name: `admin-password-${field.name}`,
+        };
+    }
+
+    return {
+        autoComplete: 'off',
+        name: `admin-field-${field.name}`,
+    };
+}
+
+function buildPickerPaperProps() {
+    return {
+        sx: {
+            borderRadius: '10px',
+            backgroundImage: 'none',
+            backgroundColor: 'background.paper',
+        },
+    };
 }

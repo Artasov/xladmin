@@ -9,6 +9,8 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import ColumnProperty, RelationshipProperty
 
 from xladmin.config import AdminModelConfig
+from xladmin.i18n import normalize_locale, translate
+from xladmin.registry import AdminRegistry
 
 
 def get_mapper_field_names(config: AdminModelConfig) -> list[str]:
@@ -125,7 +127,8 @@ def get_display_value(config: AdminModelConfig, instance: Any) -> str:
     return f"{config.title} #{pk_value}"
 
 
-def get_model_meta(config: AdminModelConfig) -> dict[str, Any]:
+def get_model_meta(config: AdminModelConfig, *, locale: str = "ru") -> dict[str, Any]:
+    normalized_locale = normalize_locale(locale)
     mapper = sa_inspect(config.model)
     relation_names = set(get_relationship_names(config))
     column_names = set(get_column_names(config))
@@ -156,8 +159,10 @@ def get_model_meta(config: AdminModelConfig) -> dict[str, Any]:
         )
 
     return {
+        "locale": normalized_locale,
         "slug": config.slug,
         "title": config.title,
+        "description": config.description,
         "pk_field": config.pk_field,
         "display_field": config.display_field,
         "page_size": config.page_size,
@@ -165,7 +170,7 @@ def get_model_meta(config: AdminModelConfig) -> dict[str, Any]:
         "detail_fields": get_visible_detail_fields(config),
         "create_fields": get_create_fields(config),
         "update_fields": get_update_fields(config),
-        "bulk_actions": [{"slug": "delete", "label": "Удалить"}, *[
+        "bulk_actions": [{"slug": "delete", "label": translate(normalized_locale, "delete")}, *[
             {"slug": action.slug, "label": action.label}
             for action in config.bulk_actions
         ]],
@@ -175,6 +180,21 @@ def get_model_meta(config: AdminModelConfig) -> dict[str, Any]:
         ],
         "fields": fields,
     }
+
+
+def get_model_blocks_meta(registry: AdminRegistry) -> list[dict[str, Any]]:
+    return [
+        {
+            "slug": block.slug,
+            "title": block.title,
+            "description": block.description,
+            "color": block.color,
+            "collapsible": block.collapsible,
+            "default_expanded": block.default_expanded,
+            "models": [get_model_meta(model_config, locale=registry.locale) for model_config in model_configs],
+        }
+        for block, model_configs in registry.resolve_model_blocks()
+    ]
 
 
 def convert_value_for_column(column, value: Any) -> Any:

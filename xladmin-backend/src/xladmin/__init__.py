@@ -1,19 +1,50 @@
 from xladmin.config import (
     AdminBulkActionConfig,
+    AdminConfig,
     AdminFieldConfig,
     AdminHTTPConfig,
     AdminModelConfig,
+    AdminModelsBlockConfig,
     AdminObjectActionConfig,
+    BulkActionConfig,
+    FieldConfig,
+    HttpConfig,
+    ModelConfig,
+    ModelsBlock,
+    ModelsBlockConfig,
+    ObjectActionConfig,
 )
-from xladmin.registry import AdminRegistry
-from xladmin.router import create_admin_router
+from xladmin.registry import (
+    AdminRegistry,
+    Registry,
+    build_admin_registry,
+    build_registry,
+    normalize_config,
+    normalize_model_config,
+)
+from xladmin.router import create_admin_router, create_router
 
 __all__ = (
     "AdminBulkActionConfig",
+    "AdminConfig",
     "AdminFieldConfig",
     "AdminHTTPConfig",
     "AdminModelConfig",
+    "AdminModelsBlockConfig",
     "AdminObjectActionConfig",
     "AdminRegistry",
+    "BulkActionConfig",
+    "FieldConfig",
+    "HttpConfig",
+    "ModelConfig",
+    "ModelsBlock",
+    "ModelsBlockConfig",
+    "ObjectActionConfig",
+    "Registry",
+    "build_admin_registry",
+    "build_registry",
     "create_admin_router",
+    "create_router",
+    "normalize_config",
+    "normalize_model_config",
 )

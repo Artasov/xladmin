@@ -1,31 +1,38 @@
 # xladmin
 
-`xladmin` это React/MUI-библиотека для admin UI поверх backend-пакета `xladmin`.
+`xladmin` это React + MUI frontend-пакет для admin UI поверх backend-пакета `xladmin`.
 
 Важно:
 
 - имя пакета в npm: `xladmin`
-- импорты во frontend: `from 'xladmin'`
+- импорт во frontend: `from 'xladmin'`
+- исходники монорепы: [Artasov/xladmin](https://github.com/Artasov/xladmin)
 
 ## Что есть в библиотеке
 
-- `createXLAdminClient(...)` — сборка клиента из любого совместимого transport-объекта
-- `createAxiosXLAdminClient(...)` — готовый helper для `axios`
-- `createFetchXLAdminClient(...)` — готовый helper для `fetch`
-- `AdminShell` — общий layout админки
-- `AdminHome` — главная страница со списком моделей
-- `AdminModelPage` — список объектов модели
-- `AdminObjectPage` — детальная страница объекта
-- `defaultAdminTheme` — встроенная тема библиотеки
+- transport-agnostic `XLAdminClient`
+- helpers для `axios` и `fetch`
+- `Shell`, `OverviewPage`, `ModelPage`, `ObjectPage`
+- `ModelsBlocks`, `FieldEditor`, `FormDialog`
+- встроенный RU / EN i18n
+- форматирование `date` и `datetime`
+- delete preview dialog перед single delete и bulk delete
+- встроенная MUI theme `defaultAdminTheme`
 
-Основные файлы:
+Короткие имена считаются основными. Старые `Admin*` имена оставлены как alias для совместимости.
 
-- `src/client.ts`
-- `src/components/AdminShell.tsx`
-- `src/components/AdminModelPage.tsx`
-- `src/components/AdminObjectPage.tsx`
-- `src/components/AdminFieldEditor.tsx`
-- `src/theme/defaultAdminTheme.ts`
+## Основной API
+
+- `createXLAdminClient(...)`
+- `createAxiosXLAdminClient(...)`
+- `createFetchXLAdminClient(...)`
+- `Shell`
+- `OverviewPage`
+- `ModelPage`
+- `ObjectPage`
+- `ModelsBlocks`
+- `DeletePreviewDialog`
+- `defaultAdminTheme`
 
 ## Совместимость
 
@@ -36,7 +43,7 @@
 - `@mui/icons-material >=7,<8`
 - `@mui/x-date-pickers >=8,<9`
 - `dayjs >=1,<2`
-- `axios >=1,<2` — опционально, только если проект хочет использовать axios-helper
+- `axios >=1,<2` — опционально, только если проект использует axios-helper
 
 ## Как подключать
 
@@ -44,8 +51,8 @@
 
 Можно использовать:
 
-- `createAxiosXLAdminClient(api)` если у проекта уже есть `axios instance`
-- `createFetchXLAdminClient({...})` если проект работает через `fetch`
-- свой `XLAdminClient`, если проекту нужен полностью свой transport или особая логика
+- `createAxiosXLAdminClient(api)` — если проект уже живёт на `axios instance`
+- `createFetchXLAdminClient({...})` — если проект работает через `fetch`
+- свой `XLAdminClient` — если проекту нужен полностью свой transport
 
-Практическая инструкция вынесена в [docs/HOW_TO_USE.md](docs/HOW_TO_USE.md).
+Практическая интеграция вынесена в [docs/HOW_TO_USE.md](docs/HOW_TO_USE.md).

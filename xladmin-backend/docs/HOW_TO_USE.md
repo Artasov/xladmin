@@ -1,15 +1,14 @@
 # HOW TO USE
 
-## 1. Что библиотека ожидает от проекта
+## 1. Что должен дать проект
 
 `get_current_user_dependency`
 
-- должен возвращать объект текущего пользователя
-- у этого объекта должно быть как минимум поле `id`
-- и должны быть поля, которые использует ваше правило доступа в `is_allowed(...)`
-- обычно это `is_staff`
+- должен возвращать текущего пользователя
+- объект может быть ORM, DTO или любым другим типом
+- главное, чтобы `is_allowed(user)` мог прочитать нужные поля, обычно это `id` и `is_staff`
 
-Минимально нормальный контракт такой:
+Минимальный контракт:
 
 ```python
 class AdminActorDTO:
@@ -17,48 +16,31 @@ class AdminActorDTO:
     is_staff: bool
 ```
 
-Важно:
+## 2. Быстрый старт
 
-- библиотека не требует конкретную ORM-модель пользователя
-- можно вернуть ORM, DTO или любой другой объект
-- главное, чтобы `is_allowed(user)` мог прочитать нужные поля
+Обычно интеграция выглядит так:
 
-## 2. Быстрое подключение
-
-Обычно проект делает так:
-
-- `src/modules/xladmin/setup.py` — собирает registry и router
+- `src/modules/xladmin/setup.py` — собирает конфиг и router
 - `src/modules/xladmin/routes.py` — экспортирует router
-- `src/app/api.py` или другой агрегатор роутов — подключает router в FastAPI
-
-Минимальный пример сразу с wiring:
+- `src/app/api.py` — подключает router в FastAPI
 
 ```python
-# src/modules/xladmin/setup.py
-from xladmin import (
-    AdminHTTPConfig,
-    AdminModelConfig,
-    AdminRegistry,
-    create_admin_router,
-)
+from xladmin import AdminConfig, HttpConfig, ModelConfig, create_router
 
 from src.core.auth.dependencies import get_current_user
 from src.core.db.session import get_db_session
 from src.modules.identity.models import UserORM
 
 
-xladmin_registry = AdminRegistry(
-    AdminModelConfig(
-        model=UserORM,
-        slug="users",
-        title="Пользователи",
-        ordering=("-id",),
+xladmin_config = AdminConfig(
+    models=(
+        ModelConfig(model=UserORM),
     ),
 )
 
-xladmin_router = create_admin_router(
-    AdminHTTPConfig(
-        registry=xladmin_registry,
+xladmin_router = create_router(
+    HttpConfig(
+        registry=xladmin_config,
         get_db_session_dependency=get_db_session,
         get_current_user_dependency=get_current_user,
         is_allowed=lambda user: bool(user.is_staff),
@@ -67,14 +49,12 @@ xladmin_router = create_admin_router(
 ```
 
 ```python
-# src/modules/xladmin/routes.py
 from src.modules.xladmin.setup import xladmin_router
 
 router = xladmin_router
 ```
 
 ```python
-# src/app/api.py
 from fastapi import APIRouter
 
 from src.modules.xladmin.routes import router as xladmin_router
@@ -83,33 +63,50 @@ api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(xladmin_router)
 ```
 
-## 3. Расширенный пример
+## 3. Минимальный ModelConfig
 
-Ниже уже нормальный конфиг, где есть:
+Для базового list / detail / edit достаточно:
 
-- свой `list_display`
-- своя деталка
-- свой поиск
-- relation field
-- виртуальное поле для пароля
-- размер страницы списка
+```python
+from xladmin import AdminConfig, ModelConfig
+
+from src.modules.commerce.models import OrderORM
+
+
+xladmin_config = AdminConfig(
+    models=(
+        ModelConfig(model=OrderORM),
+    ),
+)
+```
+
+Библиотека сама достроит:
+
+- `slug`
+- `title`
+- базовые `search_fields`
+- базовый `ordering`
+
+## 4. Полный пример
 
 ```python
 from sqlalchemy import or_
 
 from xladmin import (
-    AdminBulkActionConfig,
-    AdminFieldConfig,
-    AdminHTTPConfig,
-    AdminModelConfig,
-    AdminRegistry,
-    create_admin_router,
+    AdminConfig,
+    BulkActionConfig,
+    FieldConfig,
+    HttpConfig,
+    ModelConfig,
+    ModelsBlock,
+    ObjectActionConfig,
+    create_router,
 )
 
 from src.core.auth.dependencies import get_current_user
 from src.core.auth.passwords import hash_password
 from src.core.db.session import get_db_session
-from src.modules.commercexl.models import OrderORM, PaymentORM
+from src.modules.commerce.models import OrderORM, PaymentORM
 from src.modules.identity.models import RoleORM, UserORM
 
 
@@ -120,10 +117,10 @@ def get_user_display_name(user: UserORM) -> str:
 
 
 def set_user_password(
-        user: UserORM,
-        value: str,
-        payload: dict[str, object],
-        mode: str,
+    user: UserORM,
+    value: str,
+    payload: dict[str, object],
+    mode: str,
 ) -> None:
     del payload, mode
     if not value:
@@ -146,7 +143,6 @@ def search_users(query, search_value: str, session):
             UserORM.email.ilike(like_value),
             UserORM.first_name.ilike(like_value),
             UserORM.last_name.ilike(like_value),
-            UserORM.middle_name.ilike(like_value),
         ),
     )
 
@@ -158,97 +154,129 @@ async def activate_users(session, model_config, items, payload, user):
     return {"activated": len(items)}
 
 
-registry = AdminRegistry(
-    AdminModelConfig(
-        model=UserORM,
-        slug="users",
-        title="Пользователи",
-        display_field="username",
-        page_size=100,
-        list_display=("id", "display_name", "is_staff", "is_active", "date_joined"),
-        detail_fields=(
-            "id",
-            "display_name",
-            "username",
-            "email",
-            "roles",
-            "is_staff",
-            "is_active",
-            "date_joined",
-            "new_password",
+async def resend_invite(session, model_config, item, payload, user):
+    del session, model_config, payload, user
+    item.invites_sent = (item.invites_sent or 0) + 1
+    return {"status": "ok"}
+
+
+xladmin_config = AdminConfig(
+    locale="en",
+    models=(
+        ModelConfig(
+            model=UserORM,
+            slug="users",
+            title="Users",
+            description="Project users and access flags.",
+            display_field="username",
+            page_size=100,
+            list_display=("id", "display_name", "is_staff", "is_active", "date_joined"),
+            detail_fields=(
+                "id",
+                "display_name",
+                "username",
+                "email",
+                "roles",
+                "is_staff",
+                "is_active",
+                "date_joined",
+                "new_password",
+            ),
+            update_fields=(
+                "username",
+                "email",
+                "roles",
+                "is_staff",
+                "is_active",
+                "date_joined",
+                "new_password",
+            ),
+            search_query_builder=search_users,
+            ordering=("-id",),
+            fields={
+                "id": FieldConfig(label="ID", read_only=True),
+                "display_name": FieldConfig(
+                    label="User",
+                    read_only=True,
+                    hidden_in_form=True,
+                    ordering_field="username",
+                    value_getter=get_user_display_name,
+                ),
+                "roles": FieldConfig(
+                    label="Roles",
+                    relation_model=RoleORM,
+                    relation_label_field="name",
+                    input_kind="relation-multiple",
+                ),
+                "date_joined": FieldConfig(
+                    label="Joined at",
+                    input_kind="datetime",
+                ),
+                "new_password": FieldConfig(
+                    label="New password",
+                    help_text="If empty, password stays unchanged.",
+                    input_kind="password",
+                    value_getter=lambda user: "",
+                    value_setter=set_user_password,
+                ),
+            },
+            bulk_actions=(
+                BulkActionConfig(
+                    slug="activate",
+                    label="Activate",
+                    handler=activate_users,
+                ),
+            ),
+            object_actions=(
+                ObjectActionConfig(
+                    slug="resend-invite",
+                    label="Resend invite",
+                    handler=resend_invite,
+                ),
+            ),
         ),
-        update_fields=(
-            "username",
-            "email",
-            "roles",
-            "is_staff",
-            "is_active",
-            "date_joined",
-            "new_password",
-        ),
-        search_query_builder=search_users,
-        ordering=("-id",),
-        fields={
-            "id": AdminFieldConfig(
-                label="ID",
-                read_only=True,
-            ),
-            "display_name": AdminFieldConfig(
-                label="Пользователь",
-                read_only=True,
-                hidden_in_form=True,
-                ordering_field="username",
-                value_getter=get_user_display_name,
-            ),
-            "roles": AdminFieldConfig(
-                label="Роли",
-                relation_model=RoleORM,
-                relation_label_field="name",
-                input_kind="relation-multiple",
-            ),
-            "date_joined": AdminFieldConfig(
-                label="Дата регистрации",
-                input_kind="datetime",
-            ),
-            "new_password": AdminFieldConfig(
-                label="Новый пароль",
-                help_text="Если поле пустое, пароль не изменится.",
-                input_kind="password",
-                value_getter=lambda user: "",
-                value_setter=set_user_password,
-            ),
-        },
-        bulk_actions=(
-            AdminBulkActionConfig(
-                slug="activate",
-                label="Активировать",
-                handler=activate_users,
-            ),
+        ModelConfig(
+            model=OrderORM,
+            title="Orders",
+            ordering=("-created_at",),
+            fields={
+                "user_id": FieldConfig(
+                    label="User",
+                    relation_model=UserORM,
+                    relation_label_field="email",
+                ),
+                "payment_id": FieldConfig(
+                    label="Payment",
+                    relation_model=PaymentORM,
+                ),
+            },
         ),
     ),
-    AdminModelConfig(
-        model=OrderORM,
-        slug="orders",
-        title="Заказы",
-        page_size=200,
-        ordering=("-created_at",),
-        fields={
-            "user_id": AdminFieldConfig(
-                label="Пользователь",
-                relation_model=UserORM,
-                relation_label_field="email",
-            ),
-            "payment_id": AdminFieldConfig(
-                label="Оплата",
-                relation_model=PaymentORM,
-            ),
-        },
+    models_blocks=(
+        ModelsBlock(
+            slug="identity-block",
+            title="Identity",
+            description="Users and access models.",
+            models=(UserORM,),
+            collapsible=True,
+            default_expanded=True,
+            color="#1f3b7a",
+        ),
+        ModelsBlock(
+            slug="commerce-block",
+            title="Commerce",
+            description="Orders and payments.",
+            models=(OrderORM,),
+            collapsible=True,
+            default_expanded=False,
+            color="#7a5b1f",
+        ),
     ),
 )
 
-router = create_admin_router(
-    AdminHTTPConfig(
-        registry=registry,
+router = create_router(
+    HttpConfig(
+        registry=xladmin_config,
         get_db_session_dependency=get_db_session,
         get_current_user_dependency=get_current_user,
         is_allowed=lambda user: bool(user.is_staff),
@@ -256,97 +284,221 @@ router = create_admin_router(
 )
 ```
 
-## 4. Что можно настраивать в `AdminModelConfig`
+## 5. Что настраивается в AdminConfig
+
+`models`
+
+- список моделей, которые проект явно добавляет в админку
+
+`models_blocks`
+
+- кастомные блоки моделей для sidebar и overview
+
+`locale`
+
+- язык встроенных label и ошибок
+- сейчас поддерживаются `ru` и `en`
+
+## 6. Что настраивается в ModelConfig
 
 `model`
-- SQLAlchemy ORM-модель.
+
+- SQLAlchemy ORM модель
 
 `slug`
-- имя модели в URL и во frontend routing.
+
+- slug модели в URL
+- опционально
 
 `title`
-- человекочитаемое имя модели.
+
+- человекочитаемое название модели
+- опционально
+
+`description`
+
+- описание модели для frontend
 
 `page_size`
-- сколько объектов библиотека запрашивает одной страницей.
-- это значение уходит и во frontend-мету.
+
+- количество объектов на страницу
 
 `list_display`
-- какие поля показывать в списке объектов.
+
+- поля в списке объектов
 
 `detail_fields`
-- какие поля показывать в детальном просмотре объекта.
+
+- поля на detail-странице
 
 `create_fields`
-- какие поля разрешены при создании.
+
+- поля, доступные при создании
 
 `update_fields`
-- какие поля разрешены при редактировании.
+
+- поля, доступные при редактировании
 
 `ordering`
-- дефолтная сортировка, если frontend не передал `sort`.
+
+- дефолтная сортировка
 
 `search_fields`
-- простой встроенный поиск по строковым полям.
+
+- простые поисковые поля
 
 `search_query_builder`
-- свой поиск, если простой встроенный поиск недостаточен.
+
+- кастомный builder для поиска
 
 `fields`
-- точечная настройка отдельных полей через `AdminFieldConfig`.
+
+- словарь переопределений `FieldConfig`
 
 `bulk_actions`
-- свои массовые действия над выбранными объектами.
 
-## 5. Что можно настраивать в `AdminFieldConfig`
+- кастомные действия над несколькими объектами
+
+`object_actions`
+
+- кастомные действия над одним объектом
+
+## 7. Что настраивается в FieldConfig
 
 `label`
-- человекочитаемое имя поля.
+
+- label поля
 
 `help_text`
-- подсказка под полем.
+
+- helper text под полем
 
 `read_only`
-- поле видно, но редактировать его нельзя.
+
+- видно, но нельзя редактировать
 
 `hidden_in_list`
-- скрыть поле из списка объектов.
+
+- скрыто в списке
 
 `hidden_in_detail`
-- скрыть поле из детального просмотра.
+
+- скрыто в detail
 
 `hidden_in_form`
-- скрыть поле из формы создания/редактирования.
+
+- скрыто в create/update форме
 
 `input_kind`
-- подсказать frontend, какой редактор использовать.
-- например: `password`, `date`, `datetime`, `relation-multiple`
+
+- hint для frontend, например:
+  - `password`
+  - `date`
+  - `datetime`
+  - `relation`
+  - `relation-multiple`
 
 `ordering_field`
-- если поле виртуальное, можно сказать, по какой настоящей колонке его сортировать.
+
+- реальное sortable-поле для виртуального поля
 
 `value_getter`
-- как получить значение виртуального поля.
+
+- кастомное значение поля
+
+`value_parser`
+
+- кастомный parser входящего значения
 
 `value_setter`
-- как применить значение обратно в ORM-объект.
-- это удобно для хеширования пароля, преобразования DTO и другого прикладного поведения.
+
+- кастомный setter входящего значения
 
 `relation_model`
-- какую ORM-модель использовать для relation choices.
+
+- ORM связанной модели для выбора значений
 
 `relation_label_field`
-- какое поле связанной модели показывать в списке выбора.
 
-## 6. Как работает сортировка и поиск
+- поле, которое будет показано в relation choices
 
-- frontend передаёт `sort=id,-is_active,username`
-- backend применяет эти поля в указанном порядке
-- если поле виртуальное, библиотека возьмёт `ordering_field`
-- relation `many` по умолчанию не сортируются
+## 8. Что настраивается в ModelsBlock
 
-Поиск:
+`slug`
 
-- если задан `search_query_builder`, используется он
-- если нет, библиотека ищет по `search_fields`
-- если нет и `search_fields`, библиотека берёт строковые колонки модели
+- уникальный id блока
+
+`title`
+
+- название блока
+
+`description`
+
+- описание блока
+
+`models`
+
+- tuple ORM-моделей из `AdminConfig.models`
+
+`color`
+
+- цвет блока для frontend
+
+`collapsible`
+
+- можно ли сворачивать блок
+
+`default_expanded`
+
+- состояние аккордеона по умолчанию
+
+## 9. Встроенные endpoints
+
+Библиотека сама поднимает:
+
+- `/xladmin/models/`
+- `/xladmin/models/{slug}/`
+- `/xladmin/models/{slug}/items/`
+- `/xladmin/models/{slug}/items/{id}/`
+- `/xladmin/models/{slug}/items/{id}/delete-preview/`
+- `/xladmin/models/{slug}/bulk-delete-preview/`
+- `/xladmin/models/{slug}/bulk-delete/`
+- `/xladmin/models/{slug}/bulk-actions/{action_slug}/`
+- `/xladmin/models/{slug}/items/{id}/actions/{action_slug}/`
+- `/xladmin/models/{slug}/fields/{field_name}/choices/`
+
+## 10. Delete preview
+
+Перед `delete` и `bulk delete` backend строит дерево связанных объектов.
+
+Что учитывается:
+
+- `delete` / `delete-orphan` cascade
+- несколько каскадных веток
+- незарегистрированные связанные модели
+
+Что не включается:
+
+- relation без delete-cascade
+
+Именно это дерево потом показывает frontend перед подтверждением удаления.
+
+## 11. Совместимость
+
+Короткие имена считаются основными:
+
+- `FieldConfig`
+- `BulkActionConfig`
+- `ObjectActionConfig`
+- `ModelsBlock`
+- `HttpConfig`
+- `create_router`
+
+Старые alias тоже экспортируются:
+
+- `AdminFieldConfig`
+- `AdminBulkActionConfig`
+- `AdminObjectActionConfig`
+- `AdminModelsBlockConfig`
+- `AdminHTTPConfig`
+- `create_admin_router`

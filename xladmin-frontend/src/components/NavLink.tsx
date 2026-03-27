@@ -9,10 +9,14 @@ type AdminNavLinkProps = {
     style?: CSSProperties;
 };
 
-export function AdminNavLink({href, children, style}: AdminNavLinkProps) {
+export type NavLinkProps = AdminNavLinkProps;
+
+export function NavLink({href, children, style}: NavLinkProps) {
     return (
         <Link href={href} style={style}>
             {children}
         </Link>
     );
 }
+
+export const AdminNavLink = NavLink;

@@ -1,28 +1,28 @@
 'use client';
 
-import {memo, useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {usePathname, useRouter} from 'next/navigation.js';
 import {
     Alert,
     Box,
     Button,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
     Paper,
-    Skeleton,
     Stack,
-    TextField,
     Typography,
 } from '@mui/material';
 import {LocalizationProvider} from '@mui/x-date-pickers';
 import {AdapterDayjs} from '@mui/x-date-pickers/AdapterDayjs';
+import 'dayjs/locale/en.js';
+import 'dayjs/locale/ru.js';
 import type {XLAdminClient} from '../client';
-import type {AdminDetailResponse, AdminFieldMeta} from '../types';
+import {useAdminLocale, useAdminTranslation} from '../i18n';
+import type {AdminDeletePreviewResponse, AdminDetailResponse} from '../types';
 import {buildAdminPayload, formatAdminValue} from '../utils/adminFields';
-import {AdminFieldEditor} from './AdminFieldEditor';
-import {MainHeader, MainHeaderSkeleton} from './layout/MainHeader';
+import {DeletePreviewDialog} from './DeletePreviewDialog';
+import {MainHeader} from './layout/MainHeader';
+import {ObjectField} from './object-page/ObjectField';
+import {ObjectPageSkeleton} from './object-page/ObjectPageSkeleton';
+import {ReadonlyObjectField} from './object-page/ReadonlyObjectField';
 
 type AdminObjectPageProps = {
     client: XLAdminClient;
@@ -30,10 +30,14 @@ type AdminObjectPageProps = {
     id: string;
 };
 
+export type ObjectPageProps = AdminObjectPageProps;
+
 const detailResponseCache = new Map<string, AdminDetailResponse>();
 const inFlightDetailRequests = new Map<string, Promise<AdminDetailResponse>>();
 
-export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
+export function ObjectPage({client, slug, id}: ObjectPageProps) {
+    const locale = useAdminLocale();
+    const t = useAdminTranslation();
     const router = useRouter();
     const pathname = usePathname();
     const cacheKey = `${slug}:${id}`;
@@ -46,6 +50,9 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [activeActionSlug, setActiveActionSlug] = useState<string | null>(null);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [deletePreview, setDeletePreview] = useState<AdminDeletePreviewResponse | null>(null);
+    const [isDeletePreviewLoading, setIsDeletePreviewLoading] = useState(false);
+    const [deletePreviewError, setDeletePreviewError] = useState<string | null>(null);
 
     useEffect(() => {
         let isMounted = true;
@@ -70,33 +77,27 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
         request
             .then((response) => {
                 detailResponseCache.set(cacheKey, response);
-                if (!isMounted) {
-                    return;
-                }
+                if (!isMounted) return;
                 setData(response);
                 setValues(response.item);
                 setInitialValues(response.item);
             })
             .catch((reason: unknown) => {
-                if (!isMounted) {
-                    return;
-                }
-                setError(reason instanceof Error ? reason.message : 'Не удалось загрузить объект.');
+                if (!isMounted) return;
+                setError(reason instanceof Error ? reason.message : t('object_load_error'));
             })
             .finally(() => {
                 if (inFlightDetailRequests.get(cacheKey) === request) {
                     inFlightDetailRequests.delete(cacheKey);
                 }
-                if (!isMounted) {
-                    return;
-                }
+                if (!isMounted) return;
                 setIsLoading(false);
             });
 
         return () => {
             isMounted = false;
         };
-    }, [cacheKey, client, id, slug]);
+    }, [cacheKey, client, id, slug, t]);
 
     const meta = data?.meta ?? null;
     const detailFields = meta?.detail_fields ?? [];
@@ -135,7 +136,7 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
         });
     }, []);
 
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         if (!meta || !isDirty) {
             return;
         }
@@ -150,13 +151,13 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
             setValues(response.item);
             setInitialValues(response.item);
         } catch (reason: unknown) {
-            setError(reason instanceof Error ? reason.message : 'Не удалось сохранить объект.');
+            setError(reason instanceof Error ? reason.message : t('object_save_error'));
         } finally {
             setIsSaving(false);
         }
-    };
+    }, [cacheKey, client, currentPayload, id, isDirty, meta, slug, t]);
 
-    const handleDelete = async () => {
+    const handleDelete = useCallback(async () => {
         setIsDeleting(true);
         setError(null);
         try {
@@ -164,13 +165,13 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
             detailResponseCache.delete(cacheKey);
             router.push(pathname.split('/').slice(0, -1).join('/'));
         } catch (reason: unknown) {
-            setError(reason instanceof Error ? reason.message : 'Не удалось удалить объект.');
+            setError(reason instanceof Error ? reason.message : t('object_delete_error'));
             setIsDeleting(false);
             setDeleteConfirmOpen(false);
         }
-    };
+    }, [cacheKey, client, id, pathname, router, slug, t]);
 
-    const handleRunObjectAction = async (actionSlug: string) => {
+    const handleRunObjectAction = useCallback(async (actionSlug: string) => {
         setActiveActionSlug(actionSlug);
         setError(null);
         try {
@@ -183,14 +184,29 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
             setValues(response.item);
             setInitialValues(response.item);
         } catch (reason: unknown) {
-            setError(reason instanceof Error ? reason.message : 'Не удалось выполнить действие.');
+            setError(reason instanceof Error ? reason.message : t('object_action_error'));
         } finally {
             setActiveActionSlug(null);
         }
-    };
+    }, [cacheKey, client, data, id, slug, t]);
+
+    const handleOpenDeletePreview = useCallback(async () => {
+        setDeleteConfirmOpen(true);
+        setDeletePreview(null);
+        setDeletePreviewError(null);
+        setIsDeletePreviewLoading(true);
+        try {
+            const preview = await client.getDeletePreview(slug, id);
+            setDeletePreview(preview);
+        } catch (reason: unknown) {
+            setDeletePreviewError(reason instanceof Error ? reason.message : t('delete_preview_error'));
+        } finally {
+            setIsDeletePreviewLoading(false);
+        }
+    }, [client, id, slug, t]);
 
     if (isLoading && !data) {
-        return <AdminObjectPageSkeleton />;
+        return <ObjectPageSkeleton />;
     }
 
     if (error && !data) {
@@ -198,15 +214,20 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
     }
 
     if (!data || !meta) {
-        return <AdminObjectPageSkeleton />;
+        return <ObjectPageSkeleton />;
     }
 
     return (
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={locale}>
             <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
                 <MainHeader
                     title={String(data.item._display ?? `${meta.title} #${id}`)}
                     subtitle={meta.slug}
+                    details={meta.description ? (
+                        <Typography color="text.secondary" sx={{fontSize: 14, lineHeight: 1.45}}>
+                            {meta.description}
+                        </Typography>
+                    ) : undefined}
                     error={error}
                 />
 
@@ -219,7 +240,7 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
                             overflow: 'hidden',
                         }}
                     >
-                        <Box sx={{height: '100%', overflow: 'auto', p: 2.5}}>
+                        <Box component="form" autoComplete="off" sx={{height: '100%', overflow: 'auto', p: 2.5}}>
                             <Stack spacing={1.5}>
                                 {detailFields.map((fieldName) => {
                                     const field = fieldMap.get(fieldName);
@@ -229,7 +250,7 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
 
                                     if (editableFieldNames.has(fieldName)) {
                                         return (
-                                            <AdminObjectField
+                                            <ObjectField
                                                 key={field.name}
                                                 field={field}
                                                 value={values[field.name]}
@@ -241,10 +262,10 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
                                     }
 
                                     return (
-                                        <ReadonlyAdminObjectField
+                                        <ReadonlyObjectField
                                             key={field.name}
                                             field={field}
-                                            value={formatAdminValue(values[field.name])}
+                                            value={formatAdminValue(values[field.name], {locale, field})}
                                         />
                                     );
                                 })}
@@ -265,20 +286,20 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
                     >
                         <Stack spacing={1}>
                             <Typography variant="subtitle2" color="text.secondary">
-                                Действия
+                                {t('actions')}
                             </Typography>
                             {isDirty ? (
-                                <Button variant="contained" onClick={handleSave} disabled={isSaving}>
-                                    {isSaving ? 'Сохранение...' : 'Сохранить'}
+                                <Button variant="contained" onClick={() => void handleSave()} disabled={isSaving}>
+                                    {isSaving ? t('saving') : t('save')}
                                 </Button>
                             ) : null}
                             <Button
                                 variant="outlined"
                                 color="error"
-                                onClick={() => setDeleteConfirmOpen(true)}
+                                onClick={() => void handleOpenDeletePreview()}
                                 disabled={isDeleting}
                             >
-                                Удалить
+                                {t('delete')}
                             </Button>
                             {objectActions.map((action) => (
                                 <Button
@@ -287,7 +308,7 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
                                     onClick={() => void handleRunObjectAction(action.slug)}
                                     disabled={activeActionSlug !== null}
                                 >
-                                    {activeActionSlug === action.slug ? 'Выполнение...' : action.label}
+                                    {activeActionSlug === action.slug ? t('executing') : action.label}
                                 </Button>
                             ))}
                         </Stack>
@@ -295,107 +316,25 @@ export function AdminObjectPage({client, slug, id}: AdminObjectPageProps) {
                 </Stack>
             </Stack>
 
-            <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} maxWidth="xs" fullWidth>
-                <DialogTitle>Удалить объект?</DialogTitle>
-                <DialogContent>
-                    <Typography color="text.secondary">
-                        Это действие нельзя отменить.
-                    </Typography>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setDeleteConfirmOpen(false)}>Отмена</Button>
-                    <Button color="error" variant="contained" onClick={() => void handleDelete()} disabled={isDeleting}>
-                        {isDeleting ? 'Удаление...' : 'Удалить'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            <DeletePreviewDialog
+                open={deleteConfirmOpen}
+                title={t('delete_object_title')}
+                preview={deletePreview}
+                error={deletePreviewError}
+                isLoading={isDeletePreviewLoading}
+                isSubmitting={isDeleting}
+                onClose={() => {
+                    if (isDeleting) {
+                        return;
+                    }
+                    setDeleteConfirmOpen(false);
+                    setDeletePreview(null);
+                    setDeletePreviewError(null);
+                }}
+                onConfirm={() => void handleDelete()}
+            />
         </LocalizationProvider>
     );
 }
 
-function AdminObjectPageSkeleton() {
-    return (
-        <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
-            <MainHeaderSkeleton titleWidth={420} subtitleWidth="32%" />
-
-            <Stack direction={{xs: 'column', lg: 'row'}} spacing={1.5} sx={{flex: 1, minHeight: 0, alignItems: 'stretch'}}>
-                <Paper sx={{borderRadius: '10px', flex: 1, minHeight: 0, overflow: 'hidden'}}>
-                    <Box sx={{height: '100%', overflow: 'auto', p: 2.5}}>
-                        <Stack spacing={1.5}>
-                            {Array.from({length: 9}).map((_, index) => (
-                                <Skeleton key={index} variant="rounded" width="100%" height={56} />
-                            ))}
-                        </Stack>
-                    </Box>
-                </Paper>
-
-                <Paper
-                    sx={{
-                        width: {xs: '100%', lg: 280},
-                        flexShrink: 0,
-                        borderRadius: '10px',
-                        p: 1.5,
-                        alignSelf: 'flex-start',
-                    }}
-                >
-                    <Stack spacing={1}>
-                        <Skeleton variant="text" width={90} height={28} />
-                        <Skeleton variant="rounded" width="100%" height={40} />
-                        <Skeleton variant="rounded" width="100%" height={40} />
-                    </Stack>
-                </Paper>
-            </Stack>
-        </Stack>
-    );
-}
-
-type AdminObjectFieldProps = {
-    field: AdminFieldMeta;
-    value: unknown;
-    slug: string;
-    client: XLAdminClient;
-    onFieldChange: (fieldName: string, nextValue: unknown) => void;
-};
-
-const AdminObjectField = memo(function AdminObjectField({
-    field,
-    value,
-    slug,
-    client,
-    onFieldChange,
-}: AdminObjectFieldProps) {
-    const handleChange = useCallback((nextValue: unknown) => {
-        onFieldChange(field.name, nextValue);
-    }, [field.name, onFieldChange]);
-
-    return (
-        <AdminFieldEditor
-            field={field}
-            value={value}
-            slug={slug}
-            client={client}
-            onChange={handleChange}
-        />
-    );
-});
-
-type ReadonlyAdminObjectFieldProps = {
-    field: AdminFieldMeta;
-    value: string;
-};
-
-const ReadonlyAdminObjectField = memo(function ReadonlyAdminObjectField({
-    field,
-    value,
-}: ReadonlyAdminObjectFieldProps) {
-    return (
-        <TextField
-            label={field.label}
-            value={value}
-            size="small"
-            fullWidth
-            disabled
-            helperText={field.help_text ?? undefined}
-        />
-    );
-});
+export const AdminObjectPage = ObjectPage;
