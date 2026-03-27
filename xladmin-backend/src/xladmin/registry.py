@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, List
+from typing import Any
 
 from xladmin.config import AdminConfig, ModelConfig, ModelsBlockConfig
 from xladmin.i18n import normalize_locale
@@ -43,16 +43,16 @@ class Registry:
                 return config
         return None
 
-    def list(self) -> List[ModelConfig]:
+    def list(self) -> list[ModelConfig]:
         return list(self._configs_by_slug.values())
 
-    def list_model_blocks(self) -> List[ModelsBlockConfig]:
+    def list_model_blocks(self) -> list[ModelsBlockConfig]:
         return list(self._model_blocks)
 
-    def resolve_model_blocks(self) -> List[tuple[ModelsBlockConfig, List[ModelConfig]]]:
-        resolved_blocks: List[tuple[ModelsBlockConfig, List[ModelConfig]]] = []
+    def resolve_model_blocks(self) -> list[tuple[ModelsBlockConfig, list[ModelConfig]]]:
+        resolved_blocks: list[tuple[ModelsBlockConfig, list[ModelConfig]]] = []
         for block in self._model_blocks:
-            block_models: List[ModelConfig] = []
+            block_models: list[ModelConfig] = []
             references = block.models or block.model_slugs
             for item in references:
                 if isinstance(item, str):

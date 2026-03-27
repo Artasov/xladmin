@@ -37,12 +37,12 @@ class DemoUserORM(Base):
     password: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     joined_on: Mapped[date | None] = mapped_column(Date)
     is_active: Mapped[bool] = mapped_column(default=True)
-    posts: Mapped[list["DemoPostORM"]] = relationship(
+    posts: Mapped[list[DemoPostORM]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    badges: Mapped[list["DemoBadgeORM"]] = relationship(back_populates="user")
-    secrets: Mapped[list["DemoSecretORM"]] = relationship(
+    badges: Mapped[list[DemoBadgeORM]] = relationship(back_populates="user")
+    secrets: Mapped[list[DemoSecretORM]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
@@ -69,7 +69,7 @@ class DemoPostORM(Base):
     title: Mapped[str] = mapped_column(String(128), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("demo_users.id"), nullable=False)
     user: Mapped[DemoUserORM] = relationship(back_populates="posts")
-    comments: Mapped[list["DemoCommentORM"]] = relationship(
+    comments: Mapped[list[DemoCommentORM]] = relationship(
         back_populates="post",
         cascade="all, delete-orphan",
     )
