@@ -1,6 +1,7 @@
 'use client';
 
 import {memo} from 'react';
+import type {MouseEvent} from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {Checkbox, IconButton, TableCell, TableRow} from '@mui/material';
 import type {AdminFieldMeta, AdminLocale} from '../../types';
@@ -17,7 +18,7 @@ export type ListRowProps = {
     fieldMap: Map<string, AdminFieldMeta>;
     isSelected: boolean;
     onToggleSelection: (rowId: string | number, checked: boolean) => void;
-    onOpenMenu: (event: React.MouseEvent<HTMLElement>, rowId: string | number) => void;
+    onOpenMenu: (event: MouseEvent<HTMLElement>, rowId: string | number) => void;
 };
 
 export const ListRow = memo(function ListRow({

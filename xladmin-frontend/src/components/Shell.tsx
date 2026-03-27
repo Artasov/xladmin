@@ -113,5 +113,3 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
         </ThemeProvider>
     );
 }
-
-export const AdminShell = Shell;

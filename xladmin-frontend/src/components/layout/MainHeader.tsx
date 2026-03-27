@@ -121,5 +121,3 @@ export function MainHeaderSkeleton({
         </Paper>
     );
 }
-
-export const HeaderSkeleton = MainHeaderSkeleton;

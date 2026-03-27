@@ -290,7 +290,7 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> dict[str, Any]:
         _check_access(user)
         model_config = await _get_model_config(slug)
-        relation_model = _resolve_relation_model(model_config, field_name)
+        relation_model = _resolve_relation_model(model_config, field_name, locale=registry.locale)
         relation_config = registry.find_by_model(relation_model)
         label_field = (
                 model_config.get_field_config(field_name).relation_label_field
@@ -384,7 +384,7 @@ def _apply_search(model_config: ModelConfig, query, q: str | None, session: Asyn
     search_fields = model_config.search_fields or tuple(
         column_name
         for column_name, column in sa_inspect(model_config.model).columns.items()
-        if getattr(column.type, "python_type", None) is str,
+        if getattr(column.type, "python_type", None) is str
     )
     conditions = [getattr(model_config.model, field_name).ilike(f"%{q}%") for field_name in search_fields]
     if not conditions:
@@ -409,7 +409,7 @@ def _apply_eager_loads(model_config: ModelConfig, query):
     return query
 
 
-def _resolve_relation_model(model_config: ModelConfig, field_name: str) -> type[Any]:
+def _resolve_relation_model(model_config: ModelConfig, field_name: str, *, locale: str | None = None) -> type[Any]:
     configured_model = model_config.get_field_config(field_name).relation_model
     if configured_model is not None:
         return configured_model
@@ -422,15 +422,16 @@ def _resolve_relation_model(model_config: ModelConfig, field_name: str) -> type[
     if foreign_key is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=translate(registry.locale, "field_has_no_relation_choices"),
+            detail=translate(locale, "field_has_no_relation_choices"),
         )
     remote_table = foreign_key.column.table
-    for model in mapper.registry._class_registry.values():
-        if isinstance(model, type) and getattr(model, "__table__", None) is remote_table:
+    for registry_mapper in mapper.registry.mappers:
+        model = registry_mapper.class_
+        if getattr(model, "__table__", None) is remote_table:
             return model
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
-        detail=translate(registry.locale, "related_model_not_found"),
+        detail=translate(locale, "related_model_not_found"),
     )
 
 

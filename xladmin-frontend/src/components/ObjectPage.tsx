@@ -336,5 +336,3 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
         </LocalizationProvider>
     );
 }
-
-export const AdminObjectPage = ObjectPage;

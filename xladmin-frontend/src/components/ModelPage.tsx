@@ -1,6 +1,7 @@
 'use client';
 
 import {usePathname, useSearchParams} from 'next/navigation.js';
+import type {MouseEvent} from 'react';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -348,7 +349,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
         setSelectedIds([]);
     }, [meta, rows]);
 
-    const handleOpenRowMenu = useCallback((event: React.MouseEvent<HTMLElement>, rowId: string | number) => {
+    const handleOpenRowMenu = useCallback((event: MouseEvent<HTMLElement>, rowId: string | number) => {
         setRowActionMenuAnchor(event.currentTarget);
         setRowActionMenuId(rowId);
     }, []);
@@ -610,8 +611,6 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
     );
 }
 
-export const AdminModelPage = ModelPage;
-
 function resolveSortDirection(sortFields: string[], fieldName: string): 'asc' | 'desc' | null {
     if (sortFields.includes(`-${fieldName}`)) return 'desc';
     if (sortFields.includes(fieldName)) return 'asc';
@@ -619,12 +618,16 @@ function resolveSortDirection(sortFields: string[], fieldName: string): 'asc' | 
 }
 
 function resolveFieldSortable(field: AdminFieldMeta | undefined): boolean {
-    if (!field) return false;
-    if (field.is_sortable === true) return true;
-    if (field.is_sortable === false) return false;
-    if (field.is_relation_many || field.input_kind === 'relation-multiple') return false;
-    if (field.is_virtual) return false;
-    return true;
+    if (!field) {
+        return false;
+    }
+
+    return (
+        field.is_sortable !== false
+        && !field.is_relation_many
+        && field.input_kind !== 'relation-multiple'
+        && !field.is_virtual
+    );
 }
 
 function replaceUrlParams(pathname: string | null, query: string, sort: string, page: number): void {

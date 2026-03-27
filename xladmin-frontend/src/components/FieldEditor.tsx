@@ -163,7 +163,6 @@ export const FieldEditor = memo(function FieldEditor({
     );
 });
 
-export const AdminFieldEditor = FieldEditor;
 
 function renderChoiceEditor({
     field,
@@ -214,8 +213,8 @@ function renderChoiceEditor({
                             backgroundColor: 'background.paper',
                         },
                     },
+                    listbox: {sx: {maxHeight: 240}},
                 }}
-                ListboxProps={{sx: {maxHeight: 240}}}
                 renderInput={(params) => (
                     <TextField
                         {...params}
@@ -266,8 +265,8 @@ function renderChoiceEditor({
                         backgroundColor: 'background.paper',
                     },
                 },
+                listbox: {sx: {maxHeight: 240}},
             }}
-            ListboxProps={{sx: {maxHeight: 240}}}
             renderInput={(params) => (
                 <TextField
                     {...params}

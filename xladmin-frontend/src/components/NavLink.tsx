@@ -18,5 +18,3 @@ export function NavLink({href, children, style}: NavLinkProps) {
         </Link>
     );
 }
-
-export const AdminNavLink = NavLink;

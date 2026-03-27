@@ -102,8 +102,6 @@ export function OverviewPage({client, basePath}: OverviewPageProps) {
     );
 }
 
-export const AdminHome = OverviewPage;
-
 function OverviewPageSkeleton() {
     return (
         <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>

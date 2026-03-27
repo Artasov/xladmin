@@ -222,7 +222,7 @@ async function resolveHeaders(
         return {};
     }
     if (typeof headers === 'function') {
-        return await headers();
+        return headers();
     }
     return headers;
 }

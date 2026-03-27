@@ -8,16 +8,16 @@ export {
     type XLAdminFetchClientConfig,
     type XLAdminTransport,
 } from './client';
-export * from './components/FormDialog';
-export * from './components/OverviewPage';
-export * from './components/ModelPage';
-export * from './components/ObjectPage';
-export * from './components/Shell';
-export * from './components/FieldEditor';
-export * from './components/NavLink';
-export * from './components/ModelsBlocks';
+export {FormDialog, type FormDialogProps} from './components/FormDialog';
+export {OverviewPage, type OverviewPageProps} from './components/OverviewPage';
+export {ModelPage, type ModelPageProps} from './components/ModelPage';
+export {ObjectPage, type ObjectPageProps} from './components/ObjectPage';
+export {Shell, type ShellProps} from './components/Shell';
+export {FieldEditor, type FieldEditorProps} from './components/FieldEditor';
+export {NavLink, type NavLinkProps} from './components/NavLink';
+export {ModelsBlocks, type ModelsBlocksProps} from './components/ModelsBlocks';
 export * from './components/DeletePreviewDialog';
-export * from './components/layout/MainHeader';
+export {MainHeader, MainHeaderSkeleton} from './components/layout/MainHeader';
 export * from './components/layout/Sidebar';
 export * from './theme/defaultAdminTheme';
 export * from './i18n';

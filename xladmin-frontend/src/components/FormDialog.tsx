@@ -96,5 +96,3 @@ export function FormDialog({
         </Dialog>
     );
 }
-
-export const AdminFormDialog = FormDialog;

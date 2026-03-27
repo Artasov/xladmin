@@ -119,40 +119,35 @@ async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[Fast
     def hash_password_setter(
             instance: DemoUserORM,
             value: str,
-            payload: dict[str, object],
-            mode: str,
+            _payload: dict[str, object],
+            _mode: str,
     ) -> None:
-        del payload, mode
         instance.password = f"hashed::{value}"
 
-    def custom_user_search(query, q: str, session: AsyncSession):
-        del session
+    def custom_user_search(query, q: str, _session: AsyncSession):
         return query.where(DemoUserORM.username.ilike(f"{q}%"))
 
-    def custom_role_search(query, q: str, session: AsyncSession):
-        del session
+    def custom_role_search(query, q: str, _session: AsyncSession):
         return query.where(DemoRoleORM.name.ilike(f"{q}%"))
 
     async def activate_users(
-            session: AsyncSession,
-            model_config: AdminModelConfig,
+            _session: AsyncSession,
+            _model_config: AdminModelConfig,
             items: list[DemoUserORM],
-            payload: dict[str, Any],
-            user: Any,
+            _payload: dict[str, Any],
+            _user: Any,
     ) -> dict[str, Any]:
-        del session, model_config, payload, user
         for item in items:
             item.is_active = True
         return {"activated": len(items)}
 
     async def deactivate_user(
-            session: AsyncSession,
-            model_config: AdminModelConfig,
+            _session: AsyncSession,
+            _model_config: AdminModelConfig,
             item: DemoUserORM,
-            payload: dict[str, Any],
-            user: Any,
+            _payload: dict[str, Any],
+            _user: Any,
     ) -> dict[str, Any]:
-        del session, model_config, payload, user
         item.is_active = False
         return {"deactivated": 1}
 
