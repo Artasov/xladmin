@@ -249,7 +249,7 @@ async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[Fast
         ),
     )
 
-    async with engine.begin() as connection:
+    async with engine.begin() as connection:  # noqa
         await connection.run_sync(Base.metadata.create_all)
 
     return app, session_factory

@@ -359,7 +359,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
     }
 
     if (!data || !meta) {
-        return <ModelPageSkeleton />;
+        return <ModelPageSkeleton/>;
     }
 
     return (
@@ -389,7 +389,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                         placeholder={t('search')}
                     />
 
-                    <Button startIcon={<AddIcon />} variant="contained" onClick={() => setCreateOpen(true)}>
+                    <Button startIcon={<AddIcon/>} variant="contained" onClick={() => setCreateOpen(true)}>
                         {t('create')}
                     </Button>
 
@@ -397,7 +397,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                         <Stack direction="row" spacing={1} sx={{flex: 1, minWidth: 0}}>
                             <Button
                                 variant="outlined"
-                                endIcon={<ExpandMoreIcon />}
+                                endIcon={<ExpandMoreIcon/>}
                                 onClick={(event) => setBulkActionMenuAnchor(event.currentTarget)}
                             >
                                 {t('actions')}
@@ -406,7 +406,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                                 {t('selected_count', {count: selectedIds.length})}
                             </Typography>
                         </Stack>
-                    ) : <Box sx={{flex: 1}} />}
+                    ) : <Box sx={{flex: 1}}/>}
 
                     <Stack direction="row" spacing={0} alignItems="center" sx={{marginLeft: 'auto'}}>
                         <IconButton
@@ -415,7 +415,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                             disabled={currentPage <= 1}
                             sx={{mr: '-5px'}}
                         >
-                            <ChevronLeftIcon fontSize="small" />
+                            <ChevronLeftIcon fontSize="small"/>
                         </IconButton>
                         <InputBase
                             value={pageInput}
@@ -444,7 +444,8 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                                 },
                             }}
                         />
-                        <Typography color="text.secondary" sx={{minWidth: 'auto', fontSize: '1rem', lineHeight: '1rem'}}>
+                        <Typography color="text.secondary"
+                                    sx={{minWidth: 'auto', fontSize: '1rem', lineHeight: '1rem'}}>
                             / {totalPages}
                         </Typography>
                         <IconButton
@@ -453,7 +454,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                             disabled={currentPage >= totalPages}
                             sx={{ml: '-5px'}}
                         >
-                            <ChevronRightIcon fontSize="small" />
+                            <ChevronRightIcon fontSize="small"/>
                         </IconButton>
                     </Stack>
                 </Stack>
@@ -468,7 +469,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                 }}
             >
                 {isLoading ? (
-                    <ModelTableSkeleton />
+                    <ModelTableSkeleton/>
                 ) : (
                     <Box sx={{height: '100%', overflow: 'auto'}}>
                         <Table stickyHeader size="small">
@@ -512,14 +513,18 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                                                         {field?.label ?? fieldName}
                                                     </TableSortLabel>
                                                 ) : (
-                                                    <Typography component="span" sx={{fontSize: 14, fontWeight: 700, color: 'rgba(255, 255, 255, 0.96)'}}>
+                                                    <Typography component="span" sx={{
+                                                        fontSize: 14,
+                                                        fontWeight: 700,
+                                                        color: 'rgba(255, 255, 255, 0.96)'
+                                                    }}>
                                                         {field?.label ?? fieldName}
                                                     </Typography>
                                                 )}
                                             </TableCell>
                                         );
                                     })}
-                                    <TableCell align="right" sx={{backgroundColor: '#171719', width: 56}} />
+                                    <TableCell align="right" sx={{backgroundColor: '#171719', width: 56}}/>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -623,10 +628,10 @@ function resolveFieldSortable(field: AdminFieldMeta | undefined): boolean {
     }
 
     return (
-        field.is_sortable !== false
-        && !field.is_relation_many
-        && field.input_kind !== 'relation-multiple'
-        && !field.is_virtual
+        field.is_sortable &&
+        !field.is_relation_many &&
+        field.input_kind !== 'relation-multiple' &&
+        !field.is_virtual
     );
 }
 
