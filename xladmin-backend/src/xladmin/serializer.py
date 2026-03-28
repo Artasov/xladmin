@@ -12,6 +12,7 @@ from xladmin.config import AdminModelConfig
 from xladmin.introspection import (
     get_display_value,
     get_field_value,
+    get_pk_field_name,
     get_pk_value,
     get_relationship_names,
     get_visible_detail_fields,
@@ -27,7 +28,7 @@ def serialize_model_instance(
 ) -> dict[str, Any]:
     fields = get_visible_list_fields(config) if mode == "list" else get_visible_detail_fields(config)
     payload = {field_name: serialize_scalar(get_field_value(config, instance, field_name)) for field_name in fields}
-    payload[config.pk_field] = serialize_scalar(get_pk_value(config, instance))
+    payload[get_pk_field_name(config)] = serialize_scalar(get_pk_value(config, instance))
     payload["_display"] = get_display_value(config, instance)
     if mode == "detail":
         payload["_relations"] = serialize_relations(config, instance)

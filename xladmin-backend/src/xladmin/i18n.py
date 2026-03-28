@@ -15,6 +15,7 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "bulk_action_not_found": "Массовое действие не найдено.",
         "field_has_no_relation_choices": "У поля нет связанных вариантов выбора.",
         "related_model_not_found": "Связанная модель не найдена.",
+        "delete_blocked": "Удаление заблокировано связанными объектами.",
     },
     "en": {
         "delete": "Delete",
@@ -25,6 +26,7 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "bulk_action_not_found": "Bulk action was not found.",
         "field_has_no_relation_choices": "The field has no related choices.",
         "related_model_not_found": "Related model was not found.",
+        "delete_blocked": "Deletion is blocked by related objects.",
     },
 }
 

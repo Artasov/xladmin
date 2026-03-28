@@ -29,6 +29,7 @@ import {
 import type {XLAdminClient} from '../client';
 import {useAdminLocale, useAdminTranslation} from '../i18n';
 import type {AdminDeletePreviewResponse, AdminFieldMeta, AdminListResponse} from '../types';
+import {getListFieldWidthPx} from '../utils/adminFields';
 import {DeletePreviewDialog} from './DeletePreviewDialog';
 import {FormDialog} from './FormDialog';
 import {MainHeader} from './layout/MainHeader';
@@ -53,6 +54,8 @@ type AdminListRequestParams = {
 
 const DEFAULT_PAGE_SIZE = 50;
 const SEARCH_DEBOUNCE_MS = 300;
+const CHECKBOX_COLUMN_WIDTH = 56;
+const ACTIONS_COLUMN_WIDTH = 56;
 const inFlightListRequests = new Map<string, Promise<AdminListResponse>>();
 const listResponseCache = new Map<string, AdminListResponse>();
 
@@ -472,10 +475,21 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                     <ModelTableSkeleton/>
                 ) : (
                     <Box sx={{height: '100%', overflow: 'auto'}}>
-                        <Table stickyHeader size="small">
+                        <Table stickyHeader size="small" sx={{tableLayout: 'fixed'}}>
                             <TableHead>
                                 <TableRow>
-                                    <TableCell padding="checkbox" sx={{backgroundColor: '#171719'}}>
+                                    <TableCell
+                                        padding="none"
+                                        sx={{
+                                            backgroundColor: '#171719',
+                                            width: CHECKBOX_COLUMN_WIDTH,
+                                            minWidth: CHECKBOX_COLUMN_WIDTH,
+                                            maxWidth: CHECKBOX_COLUMN_WIDTH,
+                                            boxSizing: 'border-box',
+                                            textAlign: 'center',
+                                            px: 1,
+                                        }}
+                                    >
                                         <Checkbox
                                             checked={allVisibleSelected}
                                             indeterminate={!allVisibleSelected && hasVisibleSelection}
@@ -495,6 +509,9 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                                                     backgroundColor: '#171719',
                                                     cursor: isSortable ? 'pointer' : 'default',
                                                     userSelect: 'none',
+                                                    width: getListFieldWidthPx(field),
+                                                    minWidth: getListFieldWidthPx(field),
+                                                    maxWidth: getListFieldWidthPx(field),
                                                 }}
                                                 onClick={isSortable ? () => toggleSort(fieldName) : undefined}
                                             >
@@ -524,7 +541,15 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                                             </TableCell>
                                         );
                                     })}
-                                    <TableCell align="right" sx={{backgroundColor: '#171719', width: 56}}/>
+                                    <TableCell
+                                        align="right"
+                                        sx={{
+                                            backgroundColor: '#171719',
+                                            width: ACTIONS_COLUMN_WIDTH,
+                                            minWidth: ACTIONS_COLUMN_WIDTH,
+                                            maxWidth: ACTIONS_COLUMN_WIDTH,
+                                        }}
+                                    />
                                 </TableRow>
                             </TableHead>
                             <TableBody>

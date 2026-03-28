@@ -61,8 +61,12 @@ router = create_router(
 - relation choices
 - model descriptions
 - model blocks
+- `query_for_list` для кастомизации list-query
+- `width_px` у `FieldConfig` для ширины колонок списка
+- авто-детект `JSON` полей
 - RU / EN locale
 - delete preview для single delete и bulk delete
+- удаление обязательных дочерних `one-to-many` связей даже без явного ORM cascade
 
 ## Совместимость
 

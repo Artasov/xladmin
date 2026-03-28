@@ -36,28 +36,71 @@ export function buildAdminPayload(
 type FormatAdminValueOptions = {
     locale?: AdminLocale;
     field?: Pick<AdminFieldMeta, 'input_kind' | 'type'>;
+    pretty?: boolean;
+    maxLength?: number;
 };
 
 export function formatAdminValue(value: unknown, options?: FormatAdminValueOptions): string {
     const locale = normalizeAdminLocale(options?.locale);
+    const maxLength = options?.maxLength;
 
     if (value === null || value === undefined) return '';
     if (Array.isArray(value)) {
-        return value.map((item) => formatAdminValue(item, options)).filter(Boolean).join(', ');
+        return trimAdminValue(
+            value.map((item) => formatAdminValue(item, options)).filter(Boolean).join(', '),
+            maxLength,
+        );
     }
     if (typeof value === 'boolean') {
-        return value ? translateAdmin(locale, 'yes') : translateAdmin(locale, 'no');
+        return trimAdminValue(value ? translateAdmin(locale, 'yes') : translateAdmin(locale, 'no'), maxLength);
     }
     if (typeof value === 'string') {
         const formattedDateValue = formatDateLikeValue(value, locale, options?.field);
         if (formattedDateValue !== null) {
-            return formattedDateValue;
+            return trimAdminValue(formattedDateValue, maxLength);
         }
+        return trimAdminValue(value, maxLength);
     }
     if (typeof value === 'object') {
-        return JSON.stringify(value);
+        const indentation = options?.pretty ? 2 : 0;
+        return trimAdminValue(JSON.stringify(value, null, indentation), maxLength);
     }
-    return String(value);
+    return trimAdminValue(String(value), maxLength);
+}
+
+export function getListFieldWidthPx(field: AdminFieldMeta | undefined): number {
+    if (field?.width_px && field.width_px > 0) {
+        return field.width_px;
+    }
+    if (!field) {
+        return 180;
+    }
+
+    const normalizedType = field.type.toLowerCase();
+    const normalizedInputKind = field.input_kind.toLowerCase();
+
+    if (normalizedInputKind === 'json' || normalizedType.includes('json')) {
+        return 420;
+    }
+    if (normalizedInputKind === 'textarea' || normalizedType.includes('text')) {
+        return 360;
+    }
+    if (field.is_primary_key || normalizedType.includes('uuid')) {
+        return 240;
+    }
+    if (normalizedInputKind === 'datetime') {
+        return 190;
+    }
+    if (normalizedInputKind === 'date') {
+        return 160;
+    }
+    if (normalizedInputKind === 'boolean') {
+        return 120;
+    }
+    if (field.is_relation) {
+        return 240;
+    }
+    return 220;
 }
 
 function formatDateLikeValue(
@@ -110,4 +153,11 @@ function isDateTimeValue(value: string): boolean {
 
 function resolveIntlLocale(locale: AdminLocale): string {
     return locale === 'en' ? 'en-US' : 'ru-RU';
+}
+
+function trimAdminValue(value: string, maxLength: number | undefined): string {
+    if (!maxLength || value.length <= maxLength) {
+        return value;
+    }
+    return `${value.slice(0, maxLength).trimEnd()}…`;
 }

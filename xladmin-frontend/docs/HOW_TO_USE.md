@@ -225,6 +225,7 @@ export function XLAdminObjectPageClient({
 - `boolean` -> `Switch`
 - `date` -> `DatePicker`
 - `datetime` -> `DateTimePicker`
+- `json` -> multiline `TextField` с валидацией JSON
 - relation -> `Autocomplete`
 - обычные поля -> `TextField`
 
@@ -248,6 +249,18 @@ export function XLAdminObjectPageClient({
 `date` и `datetime` форматируются через `Intl` по текущему locale.
 
 Если backend отдал `locale="en"`, frontend автоматически покажет английские встроенные тексты и формат дат.
+
+`JSON`-значения в detail/read-only режиме показываются как форматированный JSON, а не как `[object Object]`.
+
+## 4.1. Ширины колонок и длинные тексты
+
+Если backend передал `field.width_px`, `ModelPage` использует это значение как фиксированную ширину колонки.
+
+Если ширина не задана, frontend применяет разумные эвристики:
+
+- JSON и большие тексты получают более широкую колонку
+- `date` / `datetime` и `boolean` — более узкую
+- длинные строки в list-view обрезаются примерно до 200 символов и показываются через ellipsis
 
 ## 5. Delete preview
 

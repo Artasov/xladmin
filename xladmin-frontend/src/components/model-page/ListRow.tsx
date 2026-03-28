@@ -5,7 +5,7 @@ import type {MouseEvent} from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {Checkbox, IconButton, TableCell, TableRow} from '@mui/material';
 import type {AdminFieldMeta, AdminLocale} from '../../types';
-import {formatAdminValue} from '../../utils/adminFields';
+import {formatAdminValue, getListFieldWidthPx} from '../../utils/adminFields';
 import {NavLink} from '../NavLink';
 
 export type ListRowProps = {
@@ -33,6 +33,8 @@ export const ListRow = memo(function ListRow({
     onToggleSelection,
     onOpenMenu,
 }: ListRowProps) {
+    const checkboxColumnWidth = 56;
+    const actionsColumnWidth = 56;
     const rowId = row[pkField] as string | number;
 
     return (
@@ -48,7 +50,17 @@ export const ListRow = memo(function ListRow({
                 },
             }}
         >
-            <TableCell padding="checkbox">
+            <TableCell
+                padding="none"
+                sx={{
+                    width: checkboxColumnWidth,
+                    minWidth: checkboxColumnWidth,
+                    maxWidth: checkboxColumnWidth,
+                    boxSizing: 'border-box',
+                    textAlign: 'center',
+                    px: 1,
+                }}
+            >
                 <Checkbox
                     checked={isSelected}
                     onChange={(_, checked) => onToggleSelection(rowId, checked)}
@@ -56,15 +68,29 @@ export const ListRow = memo(function ListRow({
             </TableCell>
             {listFields.map((fieldName, index) => {
                 const field = fieldMap.get(fieldName);
-                const fieldValue = formatAdminValue(row[fieldName], {locale, field});
+                const fieldValue = formatAdminValue(row[fieldName], {locale, field, maxLength: 200});
+                const widthPx = getListFieldWidthPx(field);
+                const commonCellSx = {
+                    width: widthPx,
+                    minWidth: widthPx,
+                    maxWidth: widthPx,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                };
                 if (index === 0) {
                     return (
                         <TableCell
                             key={fieldName}
                             sx={{
+                                ...commonCellSx,
                                 '& a': {
                                     color: 'text.primary',
                                     transition: 'color 160ms ease, opacity 160ms ease',
+                                    display: 'block',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
                                 },
                                 '& a:hover': {
                                     color: 'primary.main',
@@ -80,9 +106,16 @@ export const ListRow = memo(function ListRow({
                         </TableCell>
                     );
                 }
-                return <TableCell key={fieldName}>{fieldValue}</TableCell>;
+                return <TableCell key={fieldName} sx={commonCellSx}>{fieldValue}</TableCell>;
             })}
-            <TableCell align="right">
+            <TableCell
+                align="right"
+                sx={{
+                    width: actionsColumnWidth,
+                    minWidth: actionsColumnWidth,
+                    maxWidth: actionsColumnWidth,
+                }}
+            >
                 <IconButton size="small" onClick={(event) => onOpenMenu(event, rowId)}>
                     <MoreVertIcon fontSize="small" />
                 </IconButton>

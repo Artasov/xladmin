@@ -9,6 +9,7 @@ from typing import Any
 class FieldConfig:
     label: str | None = None
     help_text: str | None = None
+    width_px: int | None = None
     hidden_in_list: bool = False
     hidden_in_detail: bool = False
     hidden_in_form: bool = False
@@ -65,6 +66,7 @@ class ModelConfig:
     display_field: str | None = None
     search_fields: tuple[str, ...] = ()
     search_query_builder: Callable[[Any, str, Any], Any] | None = None
+    query_for_list: Callable[[Any, Any, Any], Awaitable[Any] | Any] | None = None
     list_display: tuple[str, ...] | None = None
     list_fields: tuple[str, ...] | None = None
     detail_fields: tuple[str, ...] | None = None

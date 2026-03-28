@@ -10,7 +10,7 @@ from sqlalchemy.inspection import inspect as sa_inspect
 from sqlalchemy.orm import selectinload
 
 from xladmin.config import HttpConfig, ModelConfig
-from xladmin.delete_preview import build_delete_preview
+from xladmin.delete_preview import build_delete_plan, build_delete_preview
 from xladmin.i18n import translate
 from xladmin.introspection import (
     convert_value_for_column,
@@ -18,6 +18,7 @@ from xladmin.introspection import (
     get_create_fields,
     get_model_blocks_meta,
     get_model_meta,
+    get_pk_field_name,
     get_sort_column_name,
     get_update_fields,
 )
@@ -72,6 +73,9 @@ def create_router(config: HttpConfig) -> APIRouter:
         _check_access(user)
         model_config = await _get_model_config(slug)
         query = select(model_config.model)
+        if model_config.query_for_list is not None:
+            custom_query = model_config.query_for_list(query, session, user)
+            query = await custom_query if inspect.isawaitable(custom_query) else custom_query
         query = _apply_eager_loads(model_config, query)
         query = _apply_search(model_config, query, q, session)
         query = _apply_ordering(model_config, query, sort)
@@ -169,7 +173,17 @@ def create_router(config: HttpConfig) -> APIRouter:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"),
             )
-        await session.delete(item)
+        preview, delete_items, set_null_items = await build_delete_plan(session, registry, model_config, [item])
+        if not preview["can_delete"]:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=translate(registry.locale, "delete_blocked"),
+            )
+        for related_item, attribute_names in set_null_items:
+            for attribute_name in attribute_names:
+                setattr(related_item, attribute_name, None)
+        for delete_item in delete_items:
+            await session.delete(delete_item)
         await session.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -220,10 +234,19 @@ def create_router(config: HttpConfig) -> APIRouter:
         ids = payload.get("ids", [])
         if not ids:
             return {"deleted": 0}
-        pk_attr = getattr(model_config.model, model_config.pk_field)
+        pk_attr = getattr(model_config.model, get_pk_field_name(model_config))
         query = select(model_config.model).where(pk_attr.in_([_convert_pk(item_id) for item_id in ids]))
         items = list((await session.execute(query)).scalars())
-        for item in items:
+        preview, delete_items, set_null_items = await build_delete_plan(session, registry, model_config, items)
+        if not preview["can_delete"]:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=translate(registry.locale, "delete_blocked"),
+            )
+        for related_item, attribute_names in set_null_items:
+            for attribute_name in attribute_names:
+                setattr(related_item, attribute_name, None)
+        for item in delete_items:
             await session.delete(item)
         await session.commit()
         return {"deleted": len(items)}
@@ -239,8 +262,12 @@ def create_router(config: HttpConfig) -> APIRouter:
         model_config = await _get_model_config(slug)
         ids = payload.get("ids", [])
         if not ids:
-            return {"summary": {"roots": 0, "related": 0, "total": 0}, "roots": []}
-        pk_attr = getattr(model_config.model, model_config.pk_field)
+            return {
+                "can_delete": True,
+                "summary": {"roots": 0, "delete": 0, "protect": 0, "set_null": 0, "total": 0},
+                "roots": [],
+            }
+        pk_attr = getattr(model_config.model, get_pk_field_name(model_config))
         query = select(model_config.model).where(pk_attr.in_([_convert_pk(item_id) for item_id in ids]))
         items = list((await session.execute(_apply_eager_loads(model_config, query))).scalars())
         return await build_delete_preview(session, registry, model_config, items)
@@ -269,7 +296,7 @@ def create_router(config: HttpConfig) -> APIRouter:
                 detail=translate(registry.locale, "bulk_action_not_found"),
             )
 
-        pk_attr = getattr(model_config.model, model_config.pk_field)
+        pk_attr = getattr(model_config.model, get_pk_field_name(model_config))
         query = select(model_config.model).where(pk_attr.in_([_convert_pk(item_id) for item_id in ids]))
         items = list((await session.execute(_apply_eager_loads(model_config, query))).scalars())
         result = action.handler(session, model_config, items, payload, user)
@@ -486,7 +513,7 @@ async def _get_item_by_pk(
         model_config: ModelConfig,
         item_id: str,
 ) -> Any:
-    pk_attr = getattr(model_config.model, model_config.pk_field)
+    pk_attr = getattr(model_config.model, get_pk_field_name(model_config))
     query = select(model_config.model).where(pk_attr == _convert_pk(item_id))
     query = _apply_eager_loads(model_config, query)
     return (await session.execute(query)).scalar_one_or_none()

@@ -265,7 +265,7 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
                                         <ReadonlyObjectField
                                             key={field.name}
                                             field={field}
-                                            value={formatAdminValue(values[field.name], {locale, field})}
+                                            value={formatAdminValue(values[field.name], {locale, field, pretty: true})}
                                         />
                                     );
                                 })}

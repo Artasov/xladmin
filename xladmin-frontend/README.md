@@ -16,6 +16,9 @@
 - `ModelsBlocks`, `FieldEditor`, `FormDialog`
 - встроенный RU / EN i18n
 - форматирование `date` и `datetime`
+- форматирование и редактирование `JSON` полей
+- ширины колонок списка через `FieldConfig.width_px`
+- обрезка длинных текстов в list-view
 - delete preview dialog перед single delete и bulk delete
 - встроенная MUI theme `defaultAdminTheme`
 

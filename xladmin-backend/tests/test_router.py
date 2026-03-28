@@ -46,6 +46,7 @@ class DemoUserORM(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    tasks: Mapped[list[DemoTaskORM]] = relationship(back_populates="user")
 
 
 class DemoRoleORM(Base):
@@ -102,6 +103,86 @@ class DemoSecretORM(Base):
     user: Mapped[DemoUserORM] = relationship(back_populates="secrets")
 
 
+class DemoTaskORM(Base):
+    __tablename__ = "demo_tasks"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(64), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("demo_users.id"), nullable=False)
+    user: Mapped[DemoUserORM] = relationship(back_populates="tasks")
+
+
+class DemoOwnedProjectORM(Base):
+    __tablename__ = "demo_owned_projects"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(64), nullable=False)
+    author_id: Mapped[int] = mapped_column(ForeignKey("demo_users.id"), nullable=False)
+
+
+class DemoOwnedBoardORM(Base):
+    __tablename__ = "demo_owned_boards"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(64), nullable=False)
+    project_id: Mapped[int] = mapped_column(ForeignKey("demo_owned_projects.id"), nullable=False)
+
+
+class DemoTokenProfileORM(Base):
+    __tablename__ = "demo_token_profiles"
+
+    tokenprofile_ptr_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    title: Mapped[str] = mapped_column(String(64), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("demo_users.id"), nullable=False)
+
+
+class DemoAliasedMessageORM(Base):
+    __tablename__ = "demo_aliased_messages"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+
+
+class DemoAliasedChatORM(Base):
+    __tablename__ = "demo_aliased_chats"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    last_branch_message_id: Mapped[str | None] = mapped_column(
+        "last_leaf_message_id",
+        String(36),
+        ForeignKey("demo_aliased_messages.id"),
+    )
+
+
+class DemoSoftUserORM(Base):
+    __tablename__ = "demo_soft_users"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class DemoSoftNoteORM(Base):
+    __tablename__ = "demo_soft_notes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    body: Mapped[str] = mapped_column(String(255), nullable=False)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("demo_soft_users.id", ondelete="SET NULL"), nullable=True)
+
+
+class DemoHardParentORM(Base):
+    __tablename__ = "demo_hard_parents"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class DemoHardChildORM(Base):
+    __tablename__ = "demo_hard_children"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(64), nullable=False)
+    parent_id: Mapped[int] = mapped_column(ForeignKey("demo_hard_parents.id", ondelete="CASCADE"), nullable=False)
+
+
 async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[FastAPI, async_sessionmaker[AsyncSession]]:
     engine = create_async_engine(
         "sqlite+aiosqlite:///:memory:",
@@ -129,6 +210,9 @@ async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[Fast
 
     def custom_role_search(query, q: str, _session: AsyncSession):
         return query.where(DemoRoleORM.name.ilike(f"{q}%"))
+
+    def filter_roles_for_list(query, _session: AsyncSession, _user: Any):
+        return query.where(DemoRoleORM.name != "hidden")
 
     async def activate_users(
             _session: AsyncSession,
@@ -168,6 +252,7 @@ async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[Fast
                 fields={
                     "display_name": AdminFieldConfig(
                         label="Отображение",
+                        width_px=320,
                         read_only=True,
                         hidden_in_form=True,
                         ordering_field="username",
@@ -201,6 +286,7 @@ async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[Fast
                 title="Роли",
                 list_display=("id", "name"),
                 search_query_builder=custom_role_search,
+                query_for_list=filter_roles_for_list,
                 ordering=("name",),
             ),
             ModelConfig(
@@ -233,6 +319,66 @@ async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[Fast
                 slug="badges",
                 title="Бейджи",
                 list_display=("id", "title"),
+            ),
+            ModelConfig(
+                model=DemoTaskORM,
+                slug="tasks",
+                title="Задачи",
+                list_display=("id", "title"),
+            ),
+            ModelConfig(
+                model=DemoOwnedProjectORM,
+                slug="owned-projects",
+                title="Projects",
+                list_display=("id", "title"),
+            ),
+            ModelConfig(
+                model=DemoOwnedBoardORM,
+                slug="owned-boards",
+                title="Boards",
+                list_display=("id", "title"),
+            ),
+            ModelConfig(
+                model=DemoTokenProfileORM,
+                slug="token-profiles",
+                title="Token Profiles",
+                list_display=("tokenprofile_ptr_id", "title"),
+            ),
+            ModelConfig(
+                model=DemoAliasedMessageORM,
+                slug="aliased-messages",
+                title="Aliased Messages",
+                list_display=("id",),
+            ),
+            ModelConfig(
+                model=DemoAliasedChatORM,
+                slug="aliased-chats",
+                title="Aliased Chats",
+                list_display=("id", "last_branch_message_id"),
+            ),
+            ModelConfig(
+                model=DemoSoftUserORM,
+                slug="soft-users",
+                title="Soft Users",
+                list_display=("id", "username"),
+            ),
+            ModelConfig(
+                model=DemoSoftNoteORM,
+                slug="soft-notes",
+                title="Soft Notes",
+                list_display=("id", "body", "user_id"),
+            ),
+            ModelConfig(
+                model=DemoHardParentORM,
+                slug="hard-parents",
+                title="Hard Parents",
+                list_display=("id", "title"),
+            ),
+            ModelConfig(
+                model=DemoHardChildORM,
+                slug="hard-children",
+                title="Hard Children",
+                list_display=("id", "title", "parent_id"),
             ),
         ),
     )
@@ -300,10 +446,36 @@ async def test_router_uses_list_display_and_custom_search() -> None:
 
             assert response.status_code == 200
             payload = response.json()
+            display_name_meta = next(
+                field for field in payload["meta"]["fields"] if field["name"] == "display_name"
+            )
             assert payload["meta"]["list_fields"] == ["id", "display_name", "joined_on", "is_active"]
             assert payload["meta"]["page_size"] == 120
+            assert display_name_meta["width_px"] == 320
             assert payload["items"][0]["display_name"].endswith("alpha")
             assert payload["pagination"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_router_supports_custom_query_for_list() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        session.add_all(
+            [
+                DemoRoleORM(name="admin"),
+                DemoRoleORM(name="hidden"),
+            ],
+        )
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/roles/items/")
+
+            assert response.status_code == 200
+            assert [item["name"] for item in response.json()["items"]] == ["admin"]
 
 
 @pytest.mark.asyncio
@@ -489,9 +661,11 @@ async def test_router_builds_delete_preview_tree_for_object() -> None:
 
             assert response.status_code == 200
             payload = response.json()
-            assert payload["summary"] == {"roots": 1, "related": 2, "total": 3}
+            assert payload["can_delete"] is True
+            assert payload["summary"] == {"roots": 1, "delete": 2, "protect": 0, "set_null": 0, "total": 3}
             assert payload["roots"][0]["model_slug"] == "users"
             assert payload["roots"][0]["children"][0]["model_slug"] == "posts"
+            assert payload["roots"][0]["children"][0]["effect"] == "delete"
             assert payload["roots"][0]["children"][0]["children"][0]["model_slug"] == "comments"
 
 
@@ -518,7 +692,8 @@ async def test_router_builds_delete_preview_tree_for_bulk_delete() -> None:
 
             assert response.status_code == 200
             payload = response.json()
-            assert payload["summary"] == {"roots": 2, "related": 4, "total": 6}
+            assert payload["can_delete"] is True
+            assert payload["summary"] == {"roots": 2, "delete": 4, "protect": 0, "set_null": 0, "total": 6}
             assert [root["id"] for root in payload["roots"]] == [1, 2]
 
 
@@ -533,7 +708,8 @@ async def test_router_returns_empty_bulk_delete_preview_for_empty_ids() -> None:
 
             assert response.status_code == 200
             assert response.json() == {
-                "summary": {"roots": 0, "related": 0, "total": 0},
+                "can_delete": True,
+                "summary": {"roots": 0, "delete": 0, "protect": 0, "set_null": 0, "total": 0},
                 "roots": [],
             }
 
@@ -553,12 +729,13 @@ async def test_router_builds_bulk_delete_preview_only_for_existing_ids() -> None
 
             assert response.status_code == 200
             payload = response.json()
-            assert payload["summary"] == {"roots": 1, "related": 0, "total": 1}
+            assert payload["can_delete"] is True
+            assert payload["summary"] == {"roots": 1, "delete": 0, "protect": 0, "set_null": 0, "total": 1}
             assert [root["id"] for root in payload["roots"]] == [1]
 
 
 @pytest.mark.asyncio
-async def test_router_skips_non_cascade_relations_in_delete_preview() -> None:
+async def test_router_marks_non_cascade_relations_as_protected_in_delete_preview() -> None:
     app, session_factory = await _build_app()
 
     async with session_factory() as session:
@@ -574,8 +751,261 @@ async def test_router_skips_non_cascade_relations_in_delete_preview() -> None:
 
             assert response.status_code == 200
             payload = response.json()
-            assert payload["summary"] == {"roots": 1, "related": 0, "total": 1}
-            assert payload["roots"][0]["children"] == []
+            assert payload["can_delete"] is False
+            assert payload["summary"] == {"roots": 1, "delete": 0, "protect": 1, "set_null": 0, "total": 2}
+            assert payload["roots"][0]["children"][0]["model_slug"] == "badges"
+            assert payload["roots"][0]["children"][0]["effect"] == "protect"
+
+
+@pytest.mark.asyncio
+async def test_router_marks_required_non_cascade_relations_as_protected_in_delete_preview() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        user = DemoUserORM(username="alpha", password="hashed::1")
+        user.tasks.append(DemoTaskORM(title="Follow-up"))
+        session.add(user)
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/users/items/1/delete-preview/")
+
+            assert response.status_code == 200
+            payload = response.json()
+            assert payload["can_delete"] is False
+            assert payload["summary"] == {"roots": 1, "delete": 0, "protect": 1, "set_null": 0, "total": 2}
+            assert payload["roots"][0]["children"][0]["model_slug"] == "tasks"
+            assert payload["roots"][0]["children"][0]["effect"] == "protect"
+
+
+@pytest.mark.asyncio
+async def test_router_blocks_delete_for_required_non_cascade_relations() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        user = DemoUserORM(username="alpha", password="hashed::1")
+        user.tasks.append(DemoTaskORM(title="Follow-up"))
+        session.add(user)
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.delete("/xladmin/models/users/items/1/")
+
+            assert response.status_code == 409
+
+    async with session_factory() as session:
+        assert len(list((await session.execute(select(DemoUserORM))).scalars())) == 1
+        assert len(list((await session.execute(select(DemoTaskORM))).scalars())) == 1
+
+
+@pytest.mark.asyncio
+async def test_router_detects_reverse_foreign_keys_without_parent_relationships() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        user = DemoUserORM(username="owner", password="hashed::1")
+        session.add(user)
+        await session.flush()
+        project = DemoOwnedProjectORM(title="Tracker Project", author_id=user.id)
+        session.add(project)
+        await session.flush()
+        session.add(DemoOwnedBoardORM(title="Roadmap", project_id=project.id))
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/users/items/1/delete-preview/")
+
+            assert response.status_code == 200
+            payload = response.json()
+            assert payload["can_delete"] is False
+            assert payload["summary"] == {"roots": 1, "delete": 0, "protect": 2, "set_null": 0, "total": 3}
+            project_node = payload["roots"][0]["children"][0]
+            assert project_node["model_slug"] == "owned-projects"
+            assert project_node["relation_name"] == "author_id"
+            assert project_node["effect"] == "protect"
+            assert project_node["children"][0]["model_slug"] == "owned-boards"
+            assert project_node["children"][0]["relation_name"] == "project_id"
+            assert project_node["children"][0]["effect"] == "protect"
+
+
+@pytest.mark.asyncio
+async def test_router_blocks_delete_for_reverse_foreign_keys_without_parent_relationships() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        user = DemoUserORM(username="owner", password="hashed::1")
+        session.add(user)
+        await session.flush()
+        project = DemoOwnedProjectORM(title="Tracker Project", author_id=user.id)
+        session.add(project)
+        await session.flush()
+        session.add(DemoOwnedBoardORM(title="Roadmap", project_id=project.id))
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.delete("/xladmin/models/users/items/1/")
+
+            assert response.status_code == 409
+
+    async with session_factory() as session:
+        assert len(list((await session.execute(select(DemoUserORM))).scalars())) == 1
+        assert len(list((await session.execute(select(DemoOwnedProjectORM))).scalars())) == 1
+        assert len(list((await session.execute(select(DemoOwnedBoardORM))).scalars())) == 1
+
+
+@pytest.mark.asyncio
+async def test_router_handles_related_models_with_non_default_primary_key() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        user = DemoUserORM(username="owner", password="hashed::1")
+        session.add(user)
+        await session.flush()
+        session.add(
+            DemoTokenProfileORM(
+                tokenprofile_ptr_id="profile-1",
+                title="Profile",
+                user_id=user.id,
+            ),
+        )
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/users/items/1/delete-preview/")
+
+            assert response.status_code == 200
+            payload = response.json()
+            assert payload["can_delete"] is False
+            related_slugs = [child["model_slug"] for child in payload["roots"][0]["children"]]
+            assert "token-profiles" in related_slugs
+
+
+@pytest.mark.asyncio
+async def test_router_handles_related_models_with_aliased_column_name() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        message = DemoAliasedMessageORM(id="message-1")
+        session.add(message)
+        await session.flush()
+        session.add(DemoAliasedChatORM(id="chat-1", last_branch_message_id=message.id))
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/aliased-messages/items/message-1/delete-preview/")
+
+            assert response.status_code == 200
+            payload = response.json()
+            assert payload["can_delete"] is False
+            assert payload["summary"] == {"roots": 1, "delete": 0, "protect": 1, "set_null": 0, "total": 2}
+            assert payload["roots"][0]["children"][0]["model_slug"] == "aliased-chats"
+
+
+@pytest.mark.asyncio
+async def test_router_marks_ondelete_set_null_relations_in_delete_preview() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        user = DemoSoftUserORM(username="alpha")
+        session.add(user)
+        await session.flush()
+        session.add(DemoSoftNoteORM(body="note", user_id=user.id))
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/soft-users/items/1/delete-preview/")
+
+            assert response.status_code == 200
+            payload = response.json()
+            assert payload["can_delete"] is True
+            assert payload["summary"] == {"roots": 1, "delete": 0, "protect": 0, "set_null": 1, "total": 2}
+            assert payload["roots"][0]["children"][0]["model_slug"] == "soft-notes"
+            assert payload["roots"][0]["children"][0]["effect"] == "set-null"
+
+
+@pytest.mark.asyncio
+async def test_router_applies_set_null_before_delete() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        user = DemoSoftUserORM(username="alpha")
+        session.add(user)
+        await session.flush()
+        session.add(DemoSoftNoteORM(body="note", user_id=user.id))
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.delete("/xladmin/models/soft-users/items/1/")
+
+            assert response.status_code == 204
+
+    async with session_factory() as session:
+        assert len(list((await session.execute(select(DemoSoftUserORM))).scalars())) == 0
+        note = (await session.execute(select(DemoSoftNoteORM))).scalar_one()
+        assert note.user_id is None
+
+
+@pytest.mark.asyncio
+async def test_router_marks_ondelete_cascade_relations_as_delete() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        parent = DemoHardParentORM(title="parent")
+        session.add(parent)
+        await session.flush()
+        session.add(DemoHardChildORM(title="child", parent_id=parent.id))
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/hard-parents/items/1/delete-preview/")
+
+            assert response.status_code == 200
+            payload = response.json()
+            assert payload["can_delete"] is True
+            assert payload["summary"] == {"roots": 1, "delete": 1, "protect": 0, "set_null": 0, "total": 2}
+            assert payload["roots"][0]["children"][0]["model_slug"] == "hard-children"
+            assert payload["roots"][0]["children"][0]["effect"] == "delete"
+
+
+@pytest.mark.asyncio
+async def test_router_deletes_ondelete_cascade_relations() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        parent = DemoHardParentORM(title="parent")
+        session.add(parent)
+        await session.flush()
+        session.add(DemoHardChildORM(title="child", parent_id=parent.id))
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.delete("/xladmin/models/hard-parents/items/1/")
+
+            assert response.status_code == 204
+
+    async with session_factory() as session:
+        assert len(list((await session.execute(select(DemoHardParentORM))).scalars())) == 0
+        assert len(list((await session.execute(select(DemoHardChildORM))).scalars())) == 0
 
 
 @pytest.mark.asyncio
@@ -597,7 +1027,8 @@ async def test_router_builds_delete_preview_with_multiple_cascade_branches() -> 
 
             assert response.status_code == 200
             payload = response.json()
-            assert payload["summary"] == {"roots": 1, "related": 3, "total": 4}
+            assert payload["can_delete"] is True
+            assert payload["summary"] == {"roots": 1, "delete": 3, "protect": 0, "set_null": 0, "total": 4}
             child_model_slugs = [child["model_slug"] for child in payload["roots"][0]["children"]]
             assert "posts" in child_model_slugs
             assert None in child_model_slugs

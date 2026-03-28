@@ -1,6 +1,6 @@
 'use client';
 
-import {createContext, useContext, useMemo, type ReactNode} from 'react';
+import {createContext, type ReactNode, useContext, useMemo} from 'react';
 import type {AdminLocale} from './types';
 
 type AdminTranslationKey =
@@ -32,20 +32,27 @@ type AdminTranslationKey =
     | 'delete_object_title'
     | 'delete_bulk_title'
     | 'delete_preview_hint'
+    | 'delete_preview_blocked_hint'
     | 'delete_preview_roots'
-    | 'delete_preview_related'
+    | 'delete_preview_delete'
+    | 'delete_preview_protect'
+    | 'delete_preview_set_null'
     | 'delete_preview_total'
     | 'delete_preview_empty'
     | 'delete_preview_loading'
     | 'delete_preview_error'
     | 'delete_preview_no_selection'
+    | 'delete_effect_delete'
+    | 'delete_effect_protect'
+    | 'delete_effect_set_null'
+    | 'invalid_json'
     | 'staff_only';
 
 const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
     ru: {
         loading: 'Загрузка...',
         overview: 'Обзор',
-        overview_title: 'Админка',
+        overview_title: 'Обзор',
         overview_subtitle: 'Кастомные блоки моделей выводятся сверху, ниже всегда доступен общий блок всех моделей.',
         all_models: 'Все модели',
         all_models_description: 'Все подключённые модели доступны в одном общем списке.',
@@ -71,19 +78,26 @@ const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
         delete_object_title: 'Удалить объект?',
         delete_bulk_title: 'Удалить выбранные объекты?',
         delete_preview_hint: 'Будут удалены следующие объекты и связанные записи.',
+        delete_preview_blocked_hint: 'Удаление сейчас невозможно: есть связанные объекты, которые блокируют hard delete.',
         delete_preview_roots: 'Выбрано: {count}',
-        delete_preview_related: 'Связанных объектов: {count}',
-        delete_preview_total: 'Всего будет удалено: {count}',
+        delete_preview_delete: 'Будут удалены: {count}',
+        delete_preview_protect: 'Блокируют удаление: {count}',
+        delete_preview_set_null: 'Будут отвязаны: {count}',
+        delete_preview_total: 'Всего будет затронуто: {count}',
         delete_preview_empty: 'Связанные объекты не будут удалены.',
         delete_preview_loading: 'Загрузка...',
         delete_preview_error: 'Не удалось построить дерево удаления.',
         delete_preview_no_selection: 'Нет объектов для удаления.',
+        delete_effect_delete: 'Удалится',
+        delete_effect_protect: 'Блокирует',
+        delete_effect_set_null: 'Будет отвязано',
+        invalid_json: 'Некорректный JSON.',
         staff_only: 'Доступ к админке есть только у staff-пользователей.',
     },
     en: {
         loading: 'Loading...',
         overview: 'Overview',
-        overview_title: 'Admin',
+        overview_title: 'Overview',
         overview_subtitle: 'Custom model blocks are shown above, and the shared all-models block is always available below.',
         all_models: 'All models',
         all_models_description: 'All connected models are available in one shared list.',
@@ -109,13 +123,20 @@ const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
         delete_object_title: 'Delete object?',
         delete_bulk_title: 'Delete selected objects?',
         delete_preview_hint: 'The following objects and related records will be deleted.',
+        delete_preview_blocked_hint: 'Deletion is currently blocked because related objects prevent hard delete.',
         delete_preview_roots: 'Selected: {count}',
-        delete_preview_related: 'Related objects: {count}',
-        delete_preview_total: 'Total to delete: {count}',
+        delete_preview_delete: 'Will be deleted: {count}',
+        delete_preview_protect: 'Blocking deletion: {count}',
+        delete_preview_set_null: 'Will be detached: {count}',
+        delete_preview_total: 'Total affected: {count}',
         delete_preview_empty: 'No related objects will be deleted.',
         delete_preview_loading: 'Loading...',
         delete_preview_error: 'Failed to build delete tree.',
         delete_preview_no_selection: 'No objects selected for deletion.',
+        delete_effect_delete: 'Will be deleted',
+        delete_effect_protect: 'Blocks deletion',
+        delete_effect_set_null: 'Will be detached',
+        invalid_json: 'Invalid JSON.',
         staff_only: 'Only staff users can access the admin.',
     },
 };

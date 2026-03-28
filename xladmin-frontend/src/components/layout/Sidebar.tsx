@@ -29,7 +29,7 @@ export const Sidebar = memo(function Sidebar({models, blocks, basePath}: Sidebar
                     pl: 0,
                 }}
             >
-                <Box sx={{direction: 'ltr', pl: 3}}>
+                <Box sx={{direction: 'ltr', pl: 1}}>
                     <NavLink href={basePath} style={{textDecoration: 'none'}}>
                         <ListItemButton
                             sx={{

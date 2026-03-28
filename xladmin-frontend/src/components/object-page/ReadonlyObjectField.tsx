@@ -13,6 +13,14 @@ export const ReadonlyObjectField = memo(function ReadonlyObjectField({
     field,
     value,
 }: ReadonlyObjectFieldProps) {
+    const isMultiline = (
+        field.input_kind === 'textarea'
+        || field.input_kind === 'json'
+        || field.type.toLowerCase().includes('text')
+        || value.includes('\n')
+        || value.length > 120
+    );
+
     return (
         <TextField
             label={field.label}
@@ -20,6 +28,8 @@ export const ReadonlyObjectField = memo(function ReadonlyObjectField({
             size="small"
             fullWidth
             disabled
+            multiline={isMultiline}
+            minRows={isMultiline ? 4 : undefined}
             helperText={field.help_text ?? undefined}
         />
     );

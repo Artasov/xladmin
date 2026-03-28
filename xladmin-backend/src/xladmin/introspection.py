@@ -85,7 +85,7 @@ def get_create_fields(config: AdminModelConfig) -> list[str]:
             continue
         if name in column_names:
             column = mapper.columns[name]
-            if name == config.pk_field and _pk_is_generated(column):
+            if name == get_pk_field_name(config) and _pk_is_generated(column):
                 continue
         elif name in relationship_names:
             pass
@@ -102,7 +102,7 @@ def get_update_fields(config: AdminModelConfig) -> list[str]:
     return [
         name for name in get_all_field_names(config)
         if (
-                name != config.pk_field
+                name != get_pk_field_name(config)
                 and not _is_read_only(config, name)
                 and not config.get_field_config(name).hidden_in_form
                 and (
@@ -114,8 +114,15 @@ def get_update_fields(config: AdminModelConfig) -> list[str]:
     ]
 
 
+def get_pk_field_name(config: AdminModelConfig) -> str:
+    mapper = sa_inspect(config.model)
+    if hasattr(config.model, config.pk_field):
+        return config.pk_field
+    return mapper.primary_key[0].key
+
+
 def get_pk_value(config: AdminModelConfig, instance: Any) -> Any:
-    return getattr(instance, config.pk_field)
+    return getattr(instance, get_pk_field_name(config))
 
 
 def get_display_value(config: AdminModelConfig, instance: Any) -> str:
@@ -142,6 +149,7 @@ def get_model_meta(config: AdminModelConfig, *, locale: str = "ru") -> dict[str,
                 "name": name,
                 "label": field_config.label or name,
                 "help_text": field_config.help_text,
+                "width_px": field_config.width_px,
                 "nullable": bool(column.nullable) if column is not None else True,
                 "read_only": _is_read_only(config, name),
                 "hidden_in_list": field_config.hidden_in_list,
@@ -163,7 +171,7 @@ def get_model_meta(config: AdminModelConfig, *, locale: str = "ru") -> dict[str,
         "slug": config.slug,
         "title": config.title,
         "description": config.description,
-        "pk_field": config.pk_field,
+        "pk_field": get_pk_field_name(config),
         "display_field": config.display_field,
         "page_size": config.page_size,
         "list_fields": get_visible_list_fields(config),
@@ -317,6 +325,9 @@ def _get_input_kind(config: AdminModelConfig, field_name: str, column: Any | Non
         return "relation-multiple" if mapper.relationships[field_name].uselist else "relation"
     if column is None:
         return "text"
+
+    if "json" in str(column.type).lower():
+        return "json"
 
     try:
         python_type = column.type.python_type

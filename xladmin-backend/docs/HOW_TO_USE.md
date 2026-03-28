@@ -402,6 +402,10 @@ router = create_router(
 
 - реальное sortable-поле для виртуального поля
 
+`width_px`
+
+- ширина колонки списка в пикселях для frontend
+
 `value_getter`
 
 - кастомное значение поля
@@ -421,6 +425,36 @@ router = create_router(
 `relation_label_field`
 
 - поле, которое будет показано в relation choices
+
+## 8.1. Кастомный query_for_list
+
+Если проекту нужен более точный или более дешёвый query для списка, его можно переопределить прямо в `ModelConfig`.
+
+```python
+from sqlalchemy import select
+
+from xladmin import ModelConfig
+
+
+def query_roles_for_list(query, session, user):
+    del session, user
+    return query.where(RoleORM.is_archived.is_(False))
+
+
+ModelConfig(
+    model=RoleORM,
+    query_for_list=query_roles_for_list,
+)
+```
+
+Хук получает уже подготовленный `select(model)` и может:
+
+- добавить `where`
+- добавить свои `join`
+- подменить сортировку
+- вернуть полностью другой query
+
+Синхронный и `async` варианты поддерживаются.
 
 ## 8. Что настраивается в ModelsBlock
 
@@ -474,12 +508,13 @@ router = create_router(
 Что учитывается:
 
 - `delete` / `delete-orphan` cascade
+- обязательные дочерние `one-to-many` связи с non-nullable foreign key
 - несколько каскадных веток
 - незарегистрированные связанные модели
 
 Что не включается:
 
-- relation без delete-cascade
+- relation, которые не должны удаляться вместе с root-объектом
 
 Именно это дерево потом показывает frontend перед подтверждением удаления.
 

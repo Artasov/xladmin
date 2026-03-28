@@ -42,7 +42,17 @@ export const FieldEditor = memo(function FieldEditor({
     const [choices, setChoices] = useState<RelationOption[]>([]);
     const [searchValue, setSearchValue] = useState('');
     const [isLoadingChoices, setIsLoadingChoices] = useState(false);
+    const [jsonTextValue, setJsonTextValue] = useState(() => stringifyJsonValue(value));
+    const [jsonError, setJsonError] = useState<string | null>(null);
     const selectedIds = useMemo(() => normalizeSelectedIds(value, field.is_relation_many), [field.is_relation_many, value]);
+
+    useEffect(() => {
+        if (field.input_kind !== 'json') {
+            return;
+        }
+        setJsonTextValue(stringifyJsonValue(value));
+        setJsonError(null);
+    }, [field.input_kind, value]);
 
     useEffect(() => {
         if (!field.has_choices) {
@@ -142,6 +152,40 @@ export const FieldEditor = memo(function FieldEditor({
             onSearchChange: setSearchValue,
             searchPlaceholder: t('search'),
         });
+    }
+
+    if (field.input_kind === 'json') {
+        return (
+            <TextField
+                label={field.label}
+                value={jsonTextValue}
+                onChange={(event) => {
+                    const nextValue = event.target.value;
+                    setJsonTextValue(nextValue);
+                    if (nextValue.trim() === '') {
+                        setJsonError(null);
+                        onChange(null);
+                        return;
+                    }
+                    try {
+                        onChange(JSON.parse(nextValue));
+                        setJsonError(null);
+                    } catch {
+                        setJsonError(t('invalid_json'));
+                    }
+                }}
+                size="small"
+                fullWidth
+                disabled={readOnly}
+                multiline
+                minRows={6}
+                error={jsonError !== null}
+                helperText={jsonError ?? field.help_text ?? undefined}
+                slotProps={{
+                    htmlInput: buildHtmlInputProps(field),
+                }}
+            />
+        );
     }
 
     return (
@@ -348,4 +392,14 @@ function buildPickerPaperProps() {
             backgroundColor: 'background.paper',
         },
     };
+}
+
+function stringifyJsonValue(value: unknown): string {
+    if (value === null || value === undefined || value === '') {
+        return '';
+    }
+    if (typeof value === 'string') {
+        return value;
+    }
+    return JSON.stringify(value, null, 2);
 }

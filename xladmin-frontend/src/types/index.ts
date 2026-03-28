@@ -4,6 +4,7 @@ export type AdminFieldMeta = {
     name: string;
     label: string;
     help_text: string | null;
+    width_px?: number | null;
     nullable: boolean;
     read_only: boolean;
     hidden_in_list: boolean;
@@ -73,11 +74,19 @@ export type AdminDeletePreviewNode = {
     relation_name: string | null;
     id: string | number;
     label: string;
+    effect: 'delete' | 'protect' | 'set-null';
     children: AdminDeletePreviewNode[];
 };
 
 export type AdminDeletePreviewResponse = {
-    summary: {roots: number; related: number; total: number};
+    can_delete: boolean;
+    summary: {
+        roots: number;
+        delete: number;
+        protect: number;
+        set_null: number;
+        total: number;
+    };
     roots: AdminDeletePreviewNode[];
 };
 
