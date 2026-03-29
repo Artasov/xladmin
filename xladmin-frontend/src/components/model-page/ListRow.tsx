@@ -68,6 +68,7 @@ export const ListRow = memo(function ListRow({
             </TableCell>
             {listFields.map((fieldName, index) => {
                 const field = fieldMap.get(fieldName);
+                const fullFieldValue = formatAdminValue(row[fieldName], {locale, field});
                 const fieldValue = formatAdminValue(row[fieldName], {locale, field, maxLength: 200});
                 const widthPx = getListFieldWidthPx(field);
                 const commonCellSx = {
@@ -82,6 +83,7 @@ export const ListRow = memo(function ListRow({
                     return (
                         <TableCell
                             key={fieldName}
+                            title={fullFieldValue}
                             sx={{
                                 ...commonCellSx,
                                 '& a': {
@@ -100,13 +102,14 @@ export const ListRow = memo(function ListRow({
                             <NavLink
                                 href={`${basePath}/${slug}/${rowId}`}
                                 style={{textDecoration: 'none'}}
+                                title={fullFieldValue}
                             >
                                 {fieldValue}
                             </NavLink>
                         </TableCell>
                     );
                 }
-                return <TableCell key={fieldName} sx={commonCellSx}>{fieldValue}</TableCell>;
+                return <TableCell key={fieldName} title={fullFieldValue} sx={commonCellSx}>{fieldValue}</TableCell>;
             })}
             <TableCell
                 align="right"

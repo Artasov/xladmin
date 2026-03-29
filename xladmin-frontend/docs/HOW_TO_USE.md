@@ -205,8 +205,8 @@ export function XLAdminObjectPageClient({
 `ModelPage`
 
 - показывает список объектов
-- держит `q`, `sort` и `page` в query params
-- поддерживает поиск, сортировку и постраничную навигацию
+- держит `q`, `sort`, `page` и `list_filters` в query params
+- поддерживает поиск, сортировку, компактные фильтры и постраничную навигацию
 - показывает bulk actions через меню `Actions`
 - показывает delete preview перед bulk delete
 - показывает skeleton только для таблицы при перезагрузке списка
@@ -233,6 +233,7 @@ export function XLAdminObjectPageClient({
 
 - строит overview и sidebar blocks из backend meta
 - поддерживает `collapsible`, `default_expanded` и `color`
+- сохраняет последнее состояние аккордеонов в `localStorage`
 
 ## 4. Locale и форматирование
 
@@ -251,6 +252,18 @@ export function XLAdminObjectPageClient({
 Если backend отдал `locale="en"`, frontend автоматически покажет английские встроенные тексты и формат дат.
 
 `JSON`-значения в detail/read-only режиме показываются как форматированный JSON, а не как `[object Object]`.
+
+## 4.2. List filters
+
+Если backend отдал `meta.list_filters`, `ModelPage` автоматически строит отдельную правую панель фильтров внутри страницы модели.
+
+Что делает frontend:
+
+- хранит значения фильтров в query params
+- сбрасывает пагинацию на первую страницу при изменении фильтра
+- для `text` фильтров использует debounce
+- для `boolean` и `select` фильтров показывает `select`
+- умеет догружать dynamic options для relation/select filters через backend
 
 ## 4.1. Ширины колонок и длинные тексты
 

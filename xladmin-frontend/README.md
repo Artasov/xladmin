@@ -15,11 +15,13 @@
 - `Shell`, `OverviewPage`, `ModelPage`, `ObjectPage`
 - `ModelsBlocks`, `FieldEditor`, `FormDialog`
 - встроенный RU / EN i18n
+- right sidebar list filters from backend `list_filters`
 - форматирование `date` и `datetime`
 - форматирование и редактирование `JSON` полей
 - ширины колонок списка через `FieldConfig.width_px`
 - обрезка длинных текстов в list-view
 - delete preview dialog перед single delete и bulk delete
+- сохранение раскрытости `ModelsBlocks` в `localStorage`
 - встроенная MUI theme `defaultAdminTheme`
 
 Короткие имена считаются основными. Старые `Admin*` имена оставлены как alias для совместимости.

@@ -1,5 +1,20 @@
 export type AdminLocale = 'ru' | 'en';
 
+export type AdminFieldInputKind =
+    | 'text'
+    | 'textarea'
+    | 'password'
+    | 'number'
+    | 'decimal'
+    | 'boolean'
+    | 'date'
+    | 'datetime'
+    | 'json'
+    | 'relation'
+    | 'relation-multiple';
+
+export type AdminListFilterInputKind = 'text' | 'select' | 'boolean';
+
 export type AdminFieldMeta = {
     name: string;
     label: string;
@@ -11,13 +26,29 @@ export type AdminFieldMeta = {
     hidden_in_detail: boolean;
     hidden_in_form: boolean;
     type: string;
-    input_kind: string;
+    input_kind: AdminFieldInputKind;
     is_primary_key: boolean;
     is_virtual: boolean;
     has_choices: boolean;
     is_relation: boolean;
     is_relation_many: boolean;
     is_sortable: boolean;
+};
+
+export type AdminListFilterOptionMeta = {
+    value: string;
+    label: string;
+};
+
+export type AdminListFilterMeta = {
+    slug: string;
+    label: string;
+    group: string | null;
+    field_name: string | null;
+    input_kind: AdminListFilterInputKind;
+    placeholder: string | null;
+    has_choices: boolean;
+    options: AdminListFilterOptionMeta[];
 };
 
 export type AdminBulkActionMeta = {
@@ -38,6 +69,7 @@ export type AdminModelMeta = {
     pk_field: string;
     display_field: string | null;
     page_size: number;
+    list_filters: AdminListFilterMeta[];
     list_fields: string[];
     detail_fields: string[];
     create_fields: string[];

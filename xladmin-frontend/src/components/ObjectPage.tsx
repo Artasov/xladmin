@@ -2,10 +2,12 @@
 
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {usePathname, useRouter} from 'next/navigation.js';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import {
     Alert,
     Box,
     Button,
+    IconButton,
     Paper,
     Stack,
     Typography,
@@ -53,6 +55,8 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
     const [deletePreview, setDeletePreview] = useState<AdminDeletePreviewResponse | null>(null);
     const [isDeletePreviewLoading, setIsDeletePreviewLoading] = useState(false);
     const [deletePreviewError, setDeletePreviewError] = useState<string | null>(null);
+    const listPath = useMemo(() => pathname.split('/').slice(0, -1).join('/'), [pathname]);
+    const adminRootPath = useMemo(() => listPath.split('/').slice(0, -1).join('/'), [listPath]);
 
     useEffect(() => {
         let isMounted = true;
@@ -163,13 +167,29 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
         try {
             await client.deleteItem(slug, id);
             detailResponseCache.delete(cacheKey);
-            router.push(pathname.split('/').slice(0, -1).join('/'));
+            router.push(listPath);
         } catch (reason: unknown) {
             setError(reason instanceof Error ? reason.message : t('object_delete_error'));
             setIsDeleting(false);
             setDeleteConfirmOpen(false);
         }
-    }, [cacheKey, client, id, pathname, router, slug, t]);
+    }, [cacheKey, client, id, listPath, router, slug, t]);
+
+    const handleNavigateBack = useCallback(() => {
+        if (typeof window !== 'undefined' && document.referrer) {
+            try {
+                const referrerUrl = new URL(document.referrer);
+                if (referrerUrl.origin === window.location.origin && referrerUrl.pathname.startsWith(adminRootPath)) {
+                    router.back();
+                    return;
+                }
+            } catch {
+                // noop
+            }
+        }
+
+        router.push(listPath);
+    }, [adminRootPath, listPath, router]);
 
     const handleRunObjectAction = useCallback(async (actionSlug: string) => {
         setActiveActionSlug(actionSlug);
@@ -223,6 +243,16 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
                 <MainHeader
                     title={String(data.item._display ?? `${meta.title} #${id}`)}
                     subtitle={meta.slug}
+                    beforeTitle={(
+                        <IconButton
+                            aria-label={t('back')}
+                            onClick={handleNavigateBack}
+                            size="small"
+                            sx={{ml: -0.5}}
+                        >
+                            <ArrowBackIcon fontSize="small" />
+                        </IconButton>
+                    )}
                     details={meta.description ? (
                         <Typography color="text.secondary" sx={{fontSize: 14, lineHeight: 1.45}}>
                             {meta.description}

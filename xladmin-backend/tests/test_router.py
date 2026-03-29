@@ -18,6 +18,8 @@ from xladmin import (
     AdminConfig,
     AdminFieldConfig,
     AdminHTTPConfig,
+    AdminListFilterConfig,
+    AdminListFilterOptionConfig,
     AdminModelConfig,
     AdminObjectActionConfig,
     ModelConfig,
@@ -47,6 +49,10 @@ class DemoUserORM(Base):
         cascade="all, delete-orphan",
     )
     tasks: Mapped[list[DemoTaskORM]] = relationship(back_populates="user")
+    roles: Mapped[list[DemoRoleORM]] = relationship(
+        secondary="demo_user_roles",
+        back_populates="users",
+    )
 
 
 class DemoRoleORM(Base):
@@ -54,6 +60,18 @@ class DemoRoleORM(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    users: Mapped[list[DemoUserORM]] = relationship(
+        secondary="demo_user_roles",
+        back_populates="roles",
+    )
+
+
+class DemoUserRoleORM(Base):
+    __tablename__ = "demo_user_roles"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("demo_users.id"), nullable=False)
+    role_id: Mapped[int] = mapped_column(ForeignKey("demo_roles.id"), nullable=False)
 
 
 class DemoAuditORM(Base):
@@ -214,6 +232,17 @@ async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[Fast
     def filter_roles_for_list(query, _session: AsyncSession, _user: Any):
         return query.where(DemoRoleORM.name != "hidden")
 
+    def filter_users_by_prefix(query, value: str, _session: AsyncSession, _user: Any):
+        if not value:
+            return query
+        return query.where(DemoUserORM.username.ilike(f"{value}%"))
+
+    def filter_active_audience(query, _value: str, _session: AsyncSession, _user: Any):
+        return query.where(DemoUserORM.is_active.is_(True))
+
+    def filter_inactive_audience(query, _value: str, _session: AsyncSession, _user: Any):
+        return query.where(DemoUserORM.is_active.is_(False))
+
     async def activate_users(
             _session: AsyncSession,
             _model_config: AdminModelConfig,
@@ -249,6 +278,51 @@ async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[Fast
                 search_query_builder=custom_user_search,
                 page_size=120,
                 ordering=("-id",),
+                list_filters=(
+                    AdminListFilterConfig(
+                        slug="status",
+                        label="Status",
+                        group="Flags",
+                        field_name="is_active",
+                        input_kind="boolean",
+                    ),
+                    AdminListFilterConfig(
+                        slug="role_id",
+                        label="Role",
+                        group="Access",
+                        field_name="roles",
+                        relation_model=DemoRoleORM,
+                        relation_label_field="name",
+                    ),
+                    AdminListFilterConfig(
+                        slug="username_contains",
+                        label="Username",
+                        field_name="username",
+                        input_kind="text",
+                    ),
+                    AdminListFilterConfig(
+                        slug="username_prefix",
+                        label="Username Prefix",
+                        filter_handler=filter_users_by_prefix,
+                    ),
+                    AdminListFilterConfig(
+                        slug="audience",
+                        label="Audience",
+                        group="Flags",
+                        options=(
+                            AdminListFilterOptionConfig(
+                                value="active-only",
+                                label="Active only",
+                                filter_handler=filter_active_audience,
+                            ),
+                            AdminListFilterOptionConfig(
+                                value="inactive-only",
+                                label="Inactive only",
+                                filter_handler=filter_inactive_audience,
+                            ),
+                        ),
+                    ),
+                ),
                 fields={
                     "display_name": AdminFieldConfig(
                         label="Отображение",
@@ -476,6 +550,210 @@ async def test_router_supports_custom_query_for_list() -> None:
 
             assert response.status_code == 200
             assert [item["name"] for item in response.json()["items"]] == ["admin"]
+
+
+@pytest.mark.asyncio
+async def test_router_returns_list_filters_in_model_meta() -> None:
+    app, _session_factory = await _build_app()
+    transport = ASGITransport(app=app)
+
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/users/")
+
+            assert response.status_code == 200
+            assert response.json()["list_filters"] == [
+                {
+                    "slug": "status",
+                    "label": "Status",
+                    "group": "Flags",
+                    "field_name": "is_active",
+                    "input_kind": "boolean",
+                    "placeholder": None,
+                    "has_choices": True,
+                    "options": [
+                        {"value": "true", "label": "Да"},
+                        {"value": "false", "label": "Нет"},
+                    ],
+                },
+                {
+                    "slug": "role_id",
+                    "label": "Role",
+                    "group": "Access",
+                    "field_name": "roles",
+                    "input_kind": "select",
+                    "placeholder": None,
+                    "has_choices": True,
+                    "options": [],
+                },
+                {
+                    "slug": "username_contains",
+                    "label": "Username",
+                    "group": None,
+                    "field_name": "username",
+                    "input_kind": "text",
+                    "placeholder": None,
+                    "has_choices": False,
+                    "options": [],
+                },
+                {
+                    "slug": "username_prefix",
+                    "label": "Username Prefix",
+                    "group": None,
+                    "field_name": None,
+                    "input_kind": "text",
+                    "placeholder": None,
+                    "has_choices": False,
+                    "options": [],
+                },
+                {
+                    "slug": "audience",
+                    "label": "Audience",
+                    "group": "Flags",
+                    "field_name": None,
+                    "input_kind": "select",
+                    "placeholder": None,
+                    "has_choices": True,
+                    "options": [
+                        {"value": "active-only", "label": "Active only"},
+                        {"value": "inactive-only", "label": "Inactive only"},
+                    ],
+                },
+            ]
+
+
+@pytest.mark.asyncio
+async def test_router_supports_boolean_list_filter() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        session.add_all(
+            [
+                DemoUserORM(username="alpha", password="hashed::1", is_active=True),
+                DemoUserORM(username="beta", password="hashed::2", is_active=False),
+            ],
+        )
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/users/items/", params={"status": "false"})
+
+            assert response.status_code == 200
+            assert [item["display_name"] for item in response.json()["items"]] == ["Пользователь 2: beta"]
+
+
+@pytest.mark.asyncio
+async def test_router_returns_relation_filter_choices() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        session.add_all(
+            [
+                DemoRoleORM(name="admin"),
+                DemoRoleORM(name="manager"),
+            ],
+        )
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/users/filters/role_id/choices/")
+
+            assert response.status_code == 200
+            assert response.json()["items"] == [
+                {"id": 1, "label": "admin"},
+                {"id": 2, "label": "manager"},
+            ]
+
+
+@pytest.mark.asyncio
+async def test_router_supports_many_to_many_relation_list_filter() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        admin_role = DemoRoleORM(name="admin")
+        manager_role = DemoRoleORM(name="manager")
+        first_user = DemoUserORM(username="alpha", password="hashed::1", roles=[admin_role])
+        second_user = DemoUserORM(username="beta", password="hashed::2", roles=[manager_role])
+        session.add_all([first_user, second_user])
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/users/items/", params={"role_id": "1"})
+
+            assert response.status_code == 200
+            assert [item["display_name"] for item in response.json()["items"]] == ["Пользователь 1: alpha"]
+
+
+@pytest.mark.asyncio
+async def test_router_supports_text_list_filter() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        session.add_all(
+            [
+                DemoUserORM(username="alpha", password="hashed::1"),
+                DemoUserORM(username="xlar", password="hashed::2"),
+            ],
+        )
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/users/items/", params={"username_contains": "xla"})
+
+            assert response.status_code == 200
+            assert [item["display_name"] for item in response.json()["items"]] == ["Пользователь 2: xlar"]
+
+
+@pytest.mark.asyncio
+async def test_router_supports_custom_list_filter_handler() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        session.add_all(
+            [
+                DemoUserORM(username="alpha", password="hashed::1"),
+                DemoUserORM(username="xlar", password="hashed::2"),
+            ],
+        )
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/users/items/", params={"username_prefix": "xla"})
+
+            assert response.status_code == 200
+            assert [item["display_name"] for item in response.json()["items"]] == ["Пользователь 2: xlar"]
+
+
+@pytest.mark.asyncio
+async def test_router_supports_select_option_specific_filter_handler() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        session.add_all(
+            [
+                DemoUserORM(username="alpha", password="hashed::1", is_active=True),
+                DemoUserORM(username="beta", password="hashed::2", is_active=False),
+            ],
+        )
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/users/items/", params={"audience": "inactive-only"})
+
+            assert response.status_code == 200
+            assert [item["display_name"] for item in response.json()["items"]] == ["Пользователь 2: beta"]
 
 
 @pytest.mark.asyncio

@@ -85,6 +85,9 @@ export function getListFieldWidthPx(field: AdminFieldMeta | undefined): number {
     if (normalizedInputKind === 'textarea' || normalizedType.includes('text')) {
         return 360;
     }
+    if (field.is_virtual && normalizedInputKind === 'text') {
+        return 360;
+    }
     if (field.is_primary_key || normalizedType.includes('uuid')) {
         return 240;
     }

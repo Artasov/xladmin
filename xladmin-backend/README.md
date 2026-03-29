@@ -16,6 +16,7 @@
 - `BulkActionConfig` — кастомное действие над несколькими объектами
 - `ObjectActionConfig` — кастомное действие над одним объектом
 - `ModelsBlock` — блок моделей для sidebar и overview
+- `ListFilterConfig` — декларативный фильтр списка модели
 - `HttpConfig` — контракт интеграции с проектом
 - `create_router(...)` — фабрика FastAPI-router
 
@@ -62,6 +63,8 @@ router = create_router(
 - model descriptions
 - model blocks
 - `query_for_list` для кастомизации list-query
+- `list_filters` для фильтров списка в отдельной правой панели на странице модели
+- option-specific `filter_handler` у select-фильтров для canned query scopes
 - `width_px` у `FieldConfig` для ширины колонок списка
 - авто-детект `JSON` полей
 - RU / EN locale

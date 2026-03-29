@@ -174,6 +174,19 @@ def get_model_meta(config: AdminModelConfig, *, locale: str = "ru") -> dict[str,
         "pk_field": get_pk_field_name(config),
         "display_field": config.display_field,
         "page_size": config.page_size,
+        "list_filters": [
+            {
+                "slug": list_filter.slug,
+                "label": list_filter.label,
+                "group": list_filter.group,
+                "field_name": list_filter.field_name,
+                "input_kind": _get_list_filter_input_kind(config, list_filter),
+                "placeholder": list_filter.placeholder,
+                "has_choices": _list_filter_has_choices(config, list_filter),
+                "options": _get_list_filter_options(normalized_locale, config, list_filter),
+            }
+            for list_filter in config.list_filters
+        ],
         "list_fields": get_visible_list_fields(config),
         "detail_fields": get_visible_detail_fields(config),
         "create_fields": get_create_fields(config),
@@ -374,3 +387,61 @@ def _serialize_related_pk(instance: Any) -> Any:
     mapper = sa_inspect(type(instance))
     pk_column = mapper.primary_key[0]
     return getattr(instance, pk_column.key)
+
+
+def _get_list_filter_input_kind(config: AdminModelConfig, list_filter: Any) -> str:
+    if list_filter.input_kind is not None:
+        return list_filter.input_kind
+
+    if list_filter.options:
+        return "select"
+
+    if list_filter.relation_model is not None:
+        return "select"
+
+    if list_filter.field_name is None:
+        return "text"
+
+    mapper = sa_inspect(config.model)
+    if list_filter.field_name in mapper.relationships:
+        return "select"
+    if list_filter.field_name not in mapper.columns:
+        return "text"
+
+    column = mapper.columns[list_filter.field_name]
+    try:
+        python_type = column.type.python_type
+    except NotImplementedError:
+        return "text"
+
+    if python_type is bool:
+        return "boolean"
+    return "text"
+
+
+def _list_filter_has_choices(config: AdminModelConfig, list_filter: Any) -> bool:
+    if list_filter.options:
+        return True
+
+    input_kind = _get_list_filter_input_kind(config, list_filter)
+    if input_kind == "boolean":
+        return True
+    if list_filter.relation_model is not None:
+        return True
+    if list_filter.field_name is None:
+        return False
+
+    mapper = sa_inspect(config.model)
+    return list_filter.field_name in mapper.relationships
+
+
+def _get_list_filter_options(locale: str, config: AdminModelConfig, list_filter: Any) -> list[dict[str, str]]:
+    input_kind = _get_list_filter_input_kind(config, list_filter)
+    if list_filter.options:
+        return [{"value": option.value, "label": option.label} for option in list_filter.options]
+    if input_kind == "boolean":
+        return [
+            {"value": "true", "label": translate(locale, "yes")},
+            {"value": "false", "label": translate(locale, "no")},
+        ]
+    return []

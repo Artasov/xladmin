@@ -97,6 +97,7 @@ from xladmin import (
     BulkActionConfig,
     FieldConfig,
     HttpConfig,
+    ListFilterConfig,
     ModelConfig,
     ModelsBlock,
     ObjectActionConfig,
@@ -192,6 +193,14 @@ xladmin_config = AdminConfig(
                 "new_password",
             ),
             search_query_builder=search_users,
+            list_filters=(
+                ListFilterConfig(
+                    slug="status",
+                    label="Status",
+                    field_name="is_active",
+                    input_kind="boolean",
+                ),
+            ),
             ordering=("-id",),
             fields={
                 "id": FieldConfig(label="ID", read_only=True),
@@ -355,6 +364,12 @@ router = create_router(
 
 - словарь переопределений `FieldConfig`
 
+`list_filters`
+
+- фильтры списка модели в правой панели страницы модели
+- каждый фильтр получает свой query param по `slug`
+- можно задать либо простое поле через `field_name`, либо полностью кастомный `filter_handler`
+
 `bulk_actions`
 
 - кастомные действия над несколькими объектами
@@ -456,6 +471,108 @@ ModelConfig(
 
 Синхронный и `async` варианты поддерживаются.
 
+## 8.2. ListFilterConfig
+
+Если проекту нужны фильтры на странице списка модели, они описываются прямо в `ModelConfig`.
+
+```python
+from xladmin import ListFilterConfig, ModelConfig
+
+
+def filter_users_by_prefix(query, value, session, user):
+    del session, user
+    return query.where(UserORM.username.ilike(f"{value}%"))
+
+
+ModelConfig(
+    model=UserORM,
+    list_filters=(
+        ListFilterConfig(
+            slug="status",
+            label="Status",
+            field_name="is_active",
+            input_kind="boolean",
+        ),
+        ListFilterConfig(
+            slug="username_prefix",
+            label="Username prefix",
+            filter_handler=filter_users_by_prefix,
+        ),
+    ),
+)
+```
+
+Что умеет `ListFilterConfig`:
+
+- `slug` — имя query param
+- `label` — подпись фильтра
+- `group` — секция фильтра в правой панели
+- `field_name` — ORM-поле для простого фильтра
+- `input_kind` — `text`, `select`, `boolean`
+- `options` — варианты для select
+- `ListFilterOptionConfig.filter_handler` — отдельный handler для конкретного select-варианта
+- `placeholder` — placeholder для text-фильтра
+- `value_parser` — кастомный parser входящего значения
+- `filter_handler` — полный контроль над SQL query
+- `relation_model` — ORM-модель для dynamic select options
+- `relation_label_field` — поле label у relation options
+
+Если `filter_handler` не задан:
+
+- `boolean` фильтр делает `IS true/false`
+- `text` фильтр делает `ILIKE %value%`
+- остальные фильтры делают точное сравнение по полю
+- для relation `many-to-many` библиотека сама использует `relationship.any(...)`
+
+Пример relation-фильтра:
+
+```python
+ListFilterConfig(
+    slug="role_id",
+    label="Role",
+    group="Access",
+    field_name="roles",
+    relation_model=RoleORM,
+    relation_label_field="name",
+)
+```
+
+Пример canned select-фильтра со своей SQL-логикой на каждом варианте:
+
+```python
+from decimal import Decimal
+
+from sqlalchemy import select
+from xladmin import ListFilterConfig, ListFilterOptionConfig
+
+
+def filter_users_with_winky_balance_over_100(query, _value, _session, _user):
+    balance_exists = (
+        select(UserTokenBalanceORM.id)
+        .join(TokenORM, TokenORM.id == UserTokenBalanceORM.token_id)
+        .where(
+            UserTokenBalanceORM.user_id == UserORM.id,
+            TokenORM.ticker == "WINKY",
+            UserTokenBalanceORM.amount > Decimal("100"),
+        )
+        .exists()
+    )
+    return query.where(balance_exists)
+
+
+ListFilterConfig(
+    slug="token_balance_scope",
+    label="По токенам",
+    options=(
+        ListFilterOptionConfig(
+            value="winky-over-100",
+            label="WINKY > 100",
+            filter_handler=filter_users_with_winky_balance_over_100,
+        ),
+    ),
+)
+```
+
 ## 8. Что настраивается в ModelsBlock
 
 `slug`
@@ -485,6 +602,7 @@ ModelConfig(
 `default_expanded`
 
 - состояние аккордеона по умолчанию
+- frontend дальше сам сохраняет последнее состояние блока в `localStorage`
 
 ## 9. Встроенные endpoints
 
@@ -500,6 +618,7 @@ ModelConfig(
 - `/xladmin/models/{slug}/bulk-actions/{action_slug}/`
 - `/xladmin/models/{slug}/items/{id}/actions/{action_slug}/`
 - `/xladmin/models/{slug}/fields/{field_name}/choices/`
+- `/xladmin/models/{slug}/filters/{filter_slug}/choices/`
 
 ## 10. Delete preview
 

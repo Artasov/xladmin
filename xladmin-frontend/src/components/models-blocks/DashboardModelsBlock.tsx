@@ -1,6 +1,5 @@
 'use client';
 
-import {useState} from 'react';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
     Accordion,
@@ -14,6 +13,7 @@ import {
 import type {NormalizedBlock} from './types';
 import {BlockTitle} from './BlockTitle';
 import {getBlockSurfaceSx} from './surface';
+import {useBlockExpandedState} from './useBlockExpandedState';
 import {NavLink} from '../NavLink';
 
 type DashboardModelsBlockProps = {
@@ -22,7 +22,7 @@ type DashboardModelsBlockProps = {
 };
 
 export function DashboardModelsBlock({block, basePath}: DashboardModelsBlockProps) {
-    const [isExpanded, setIsExpanded] = useState(block.default_expanded);
+    const [isExpanded, setIsExpanded] = useBlockExpandedState(block.slug, block.default_expanded);
 
     return (
         <Accordion

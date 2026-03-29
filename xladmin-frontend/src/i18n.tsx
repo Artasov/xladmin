@@ -17,7 +17,11 @@ type AdminTranslationKey =
     | 'object_delete_error'
     | 'object_action_error'
     | 'search'
+    | 'filters'
+    | 'active_filters'
+    | 'reset_filters'
     | 'create'
+    | 'all'
     | 'actions'
     | 'selected_count'
     | 'delete'
@@ -46,6 +50,7 @@ type AdminTranslationKey =
     | 'delete_effect_protect'
     | 'delete_effect_set_null'
     | 'invalid_json'
+    | 'back'
     | 'staff_only';
 
 const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
@@ -63,7 +68,11 @@ const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
         object_delete_error: 'Не удалось удалить объект.',
         object_action_error: 'Не удалось выполнить действие.',
         search: 'Поиск',
+        filters: 'Фильтры',
+        active_filters: 'Активно: {count}',
+        reset_filters: 'Сбросить',
         create: 'Создать',
+        all: 'Все',
         actions: 'Действия',
         selected_count: 'Выбрано: {count}',
         delete: 'Удалить',
@@ -92,6 +101,7 @@ const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
         delete_effect_protect: 'Блокирует',
         delete_effect_set_null: 'Будет отвязано',
         invalid_json: 'Некорректный JSON.',
+        back: 'Назад',
         staff_only: 'Доступ к админке есть только у staff-пользователей.',
     },
     en: {
@@ -108,7 +118,11 @@ const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
         object_delete_error: 'Failed to delete object.',
         object_action_error: 'Failed to execute action.',
         search: 'Search',
+        filters: 'Filters',
+        active_filters: 'Active: {count}',
+        reset_filters: 'Reset',
         create: 'Create',
+        all: 'All',
         actions: 'Actions',
         selected_count: 'Selected: {count}',
         delete: 'Delete',
@@ -137,6 +151,7 @@ const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
         delete_effect_protect: 'Blocks deletion',
         delete_effect_set_null: 'Will be detached',
         invalid_json: 'Invalid JSON.',
+        back: 'Back',
         staff_only: 'Only staff users can access the admin.',
     },
 };

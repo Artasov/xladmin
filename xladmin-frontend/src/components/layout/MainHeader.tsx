@@ -1,6 +1,7 @@
 'use client';
 
 import type {ReactNode} from 'react';
+import {Box} from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {Accordion, AccordionDetails, AccordionSummary, Alert, Paper, Skeleton, Stack, Typography} from '@mui/material';
 
@@ -15,6 +16,7 @@ type MainHeaderProps = {
     subtitle?: ReactNode;
     details?: ReactNode;
     error?: string | null;
+    beforeTitle?: ReactNode;
 };
 
 /**
@@ -23,7 +25,7 @@ type MainHeaderProps = {
  * Это именованный компонент, чтобы в DevTools был виден не анонимный `Paper`,
  * а понятный `MainHeader`.
  */
-export function MainHeader({title, subtitle, details, error}: MainHeaderProps) {
+export function MainHeader({title, subtitle, details, error, beforeTitle}: MainHeaderProps) {
     return (
         <Paper
             sx={{
@@ -38,9 +40,23 @@ export function MainHeader({title, subtitle, details, error}: MainHeaderProps) {
             }}
         >
             <Stack spacing={0.5}>
-                <Typography variant="h5" sx={{fontWeight: 600, lineHeight: '2.125rem'}}>
-                    {title}
-                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{minWidth: 0}}>
+                    {beforeTitle ? (
+                        <Box sx={{display: 'flex', alignItems: 'center', flexShrink: 0}}>
+                            {beforeTitle}
+                        </Box>
+                    ) : null}
+                    <Typography
+                        variant="h5"
+                        sx={{
+                            fontWeight: 600,
+                            lineHeight: '2.125rem',
+                            minWidth: 0,
+                        }}
+                    >
+                        {title}
+                    </Typography>
+                </Stack>
                 {subtitle && !details ? (
                     <Typography color="text.secondary" sx={{lineHeight: '1rem'}}>
                         {subtitle}

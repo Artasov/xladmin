@@ -33,6 +33,7 @@ import {getListFieldWidthPx} from '../utils/adminFields';
 import {DeletePreviewDialog} from './DeletePreviewDialog';
 import {FormDialog} from './FormDialog';
 import {MainHeader} from './layout/MainHeader';
+import {ListFiltersSidebar} from './model-page/ListFiltersBar';
 import {ListRow} from './model-page/ListRow';
 import {SearchField} from './model-page/SearchField';
 import {ModelPageSkeleton, ModelTableSkeleton} from './model-page/Skeletons';
@@ -50,6 +51,7 @@ type AdminListRequestParams = {
     offset?: number;
     q?: string;
     sort?: string;
+    [key: string]: unknown;
 };
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -67,12 +69,14 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
     const initialQuery = searchParams.get('q') ?? '';
     const initialSort = searchParams.get('sort') ?? '';
     const initialPage = parsePageParam(searchParams.get('page'));
+    const initialFilters = extractFilterParams(searchParams);
     const initialCachedResponse = findCachedListResponse(
         slug,
         initialQuery || undefined,
         initialSort || undefined,
         DEFAULT_PAGE_SIZE,
         (initialPage - 1) * DEFAULT_PAGE_SIZE,
+        initialFilters,
     );
 
     const [selectedIds, setSelectedIds] = useState<Array<string | number>>([]);
@@ -87,6 +91,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
     const [sortValue, setSortValue] = useState(initialSort);
     const [currentPage, setCurrentPage] = useState(initialPage);
     const [pageInput, setPageInput] = useState(String(initialPage));
+    const [appliedFilters, setAppliedFilters] = useState<Record<string, string>>(initialFilters);
     const [deletePreviewOpen, setDeletePreviewOpen] = useState(false);
     const [deletePreview, setDeletePreview] = useState<AdminDeletePreviewResponse | null>(null);
     const [deletePreviewError, setDeletePreviewError] = useState<string | null>(null);
@@ -109,6 +114,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
         [meta?.fields],
     );
     const listFields = meta?.list_fields ?? [];
+    const listFilters = meta?.list_filters ?? [];
     const bulkActions = meta?.bulk_actions ?? [];
     const selectedIdSet = useMemo(() => new Set(selectedIds.map((item) => String(item))), [selectedIds]);
     const allVisibleSelected = rows.length > 0 && rows.every((row) => selectedIdSet.has(String(row[meta?.pk_field ?? 'id'])));
@@ -128,10 +134,12 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
             const nextQuery = params.get('q') ?? '';
             const nextSort = params.get('sort') ?? '';
             const nextPage = parsePageParam(params.get('page'));
+            const nextFilters = extractFilterParams(params);
             setAppliedQuery(nextQuery);
             setSortValue(nextSort);
             setCurrentPage(nextPage);
             setPageInput(String(nextPage));
+            setAppliedFilters(nextFilters);
         };
 
         window.addEventListener('popstate', handlePopState);
@@ -150,6 +158,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
             sort: sortValue || undefined,
             limit: pageSizeRef.current,
             offset: (currentPage - 1) * pageSizeRef.current,
+            ...appliedFilters,
         };
 
         const cachedResponse = findCachedListResponse(
@@ -158,6 +167,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
             requestParams.sort,
             requestParams.limit ?? DEFAULT_PAGE_SIZE,
             requestParams.offset ?? 0,
+            appliedFilters,
         );
         if (cachedResponse) {
             setData(cachedResponse);
@@ -187,7 +197,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                 setIsLoading(false);
             }
         }
-    }, [appliedQuery, client, currentPage, slug, sortValue, t]);
+    }, [appliedFilters, appliedQuery, client, currentPage, slug, sortValue, t]);
 
     useEffect(() => {
         void loadItems();
@@ -204,15 +214,15 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
         setAppliedQuery(nextQuery);
         setCurrentPage(1);
         setPageInput('1');
-        replaceUrlParams(pathname, nextQuery, sortValue, 1);
-    }, [appliedQuery, pathname, sortValue]);
+        replaceUrlParams(pathname, nextQuery, sortValue, 1, appliedFilters);
+    }, [appliedFilters, appliedQuery, pathname, sortValue]);
 
     const handlePageChange = useCallback((nextPage: number) => {
         const safePage = Math.min(Math.max(nextPage, 1), totalPages);
         setCurrentPage(safePage);
         setPageInput(String(safePage));
-        replaceUrlParams(pathname, appliedQuery, sortValue, safePage);
-    }, [appliedQuery, pathname, sortValue, totalPages]);
+        replaceUrlParams(pathname, appliedQuery, sortValue, safePage, appliedFilters);
+    }, [appliedFilters, appliedQuery, pathname, sortValue, totalPages]);
 
     const handlePageInputCommit = useCallback(() => {
         const parsedPage = parsePageParam(pageInput);
@@ -235,8 +245,32 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
         setSortValue(nextSortValue);
         setCurrentPage(1);
         setPageInput('1');
-        replaceUrlParams(pathname, appliedQuery, nextSortValue, 1);
-    }, [appliedQuery, pathname, sortFields]);
+        replaceUrlParams(pathname, appliedQuery, nextSortValue, 1, appliedFilters);
+    }, [appliedFilters, appliedQuery, pathname, sortFields]);
+
+    const handleFilterChange = useCallback((filterSlug: string, value: string) => {
+        const nextFilters = {
+            ...appliedFilters,
+            [filterSlug]: value,
+        };
+        if (!value) {
+            delete nextFilters[filterSlug];
+        }
+        setAppliedFilters(nextFilters);
+        setCurrentPage(1);
+        setPageInput('1');
+        replaceUrlParams(pathname, appliedQuery, sortValue, 1, nextFilters);
+    }, [appliedFilters, appliedQuery, pathname, sortValue]);
+
+    const handleResetFilters = useCallback(() => {
+        if (Object.keys(appliedFilters).length === 0) {
+            return;
+        }
+        setAppliedFilters({});
+        setCurrentPage(1);
+        setPageInput('1');
+        replaceUrlParams(pathname, appliedQuery, sortValue, 1, {});
+    }, [appliedFilters, appliedQuery, pathname, sortValue]);
 
     const openSingleDeletePreview = useCallback(async (rowId: string | number) => {
         setPendingDeleteIds([rowId]);
@@ -385,12 +419,14 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                 }}
             >
                 <Stack direction={{xs: 'column', lg: 'row'}} spacing={1.5} alignItems={{lg: 'center'}}>
-                    <SearchField
-                        value={appliedQuery}
-                        onCommit={handleSearchCommit}
-                        debounceMs={SEARCH_DEBOUNCE_MS}
-                        placeholder={t('search')}
-                    />
+                    <Stack direction={{xs: 'column', xl: 'row'}} spacing={1.5} sx={{flex: 1, minWidth: 0}}>
+                        <SearchField
+                            value={appliedQuery}
+                            onCommit={handleSearchCommit}
+                            debounceMs={SEARCH_DEBOUNCE_MS}
+                            placeholder={t('search')}
+                        />
+                    </Stack>
 
                     <Button startIcon={<AddIcon/>} variant="contained" onClick={() => setCreateOpen(true)}>
                         {t('create')}
@@ -463,119 +499,132 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                 </Stack>
             </Paper>
 
-            <Paper
-                sx={{
-                    borderRadius: '10px',
-                    flex: 1,
-                    minHeight: 0,
-                    overflow: 'hidden',
-                }}
-            >
-                {isLoading ? (
-                    <ModelTableSkeleton/>
-                ) : (
-                    <Box sx={{height: '100%', overflow: 'auto'}}>
-                        <Table stickyHeader size="small" sx={{tableLayout: 'fixed'}}>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell
-                                        padding="none"
-                                        sx={{
-                                            backgroundColor: '#171719',
-                                            width: CHECKBOX_COLUMN_WIDTH,
-                                            minWidth: CHECKBOX_COLUMN_WIDTH,
-                                            maxWidth: CHECKBOX_COLUMN_WIDTH,
-                                            boxSizing: 'border-box',
-                                            textAlign: 'center',
-                                            px: 1,
-                                        }}
-                                    >
-                                        <Checkbox
-                                            checked={allVisibleSelected}
-                                            indeterminate={!allVisibleSelected && hasVisibleSelection}
-                                            onChange={(_, checked) => handleToggleAllVisible(checked)}
-                                        />
-                                    </TableCell>
-                                    {listFields.map((fieldName) => {
-                                        const field = fieldMap.get(fieldName);
-                                        const sortDirection = resolveSortDirection(sortFields, fieldName);
-                                        const isSortable = resolveFieldSortable(field);
+            <Stack direction={{xs: 'column', lg: 'row'}} spacing={1.5} sx={{flex: 1, minHeight: 0}}>
+                <Paper
+                    sx={{
+                        borderRadius: '10px',
+                        flex: 1,
+                        minWidth: 0,
+                        minHeight: 0,
+                        overflow: 'hidden',
+                    }}
+                >
+                    {isLoading ? (
+                        <ModelTableSkeleton/>
+                    ) : (
+                        <Box sx={{height: '100%', overflow: 'auto'}}>
+                            <Table stickyHeader size="small" sx={{tableLayout: 'fixed'}}>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell
+                                            padding="none"
+                                            sx={{
+                                                backgroundColor: '#171719',
+                                                width: CHECKBOX_COLUMN_WIDTH,
+                                                minWidth: CHECKBOX_COLUMN_WIDTH,
+                                                maxWidth: CHECKBOX_COLUMN_WIDTH,
+                                                boxSizing: 'border-box',
+                                                textAlign: 'center',
+                                                px: 1,
+                                            }}
+                                        >
+                                            <Checkbox
+                                                checked={allVisibleSelected}
+                                                indeterminate={!allVisibleSelected && hasVisibleSelection}
+                                                onChange={(_, checked) => handleToggleAllVisible(checked)}
+                                            />
+                                        </TableCell>
+                                        {listFields.map((fieldName) => {
+                                            const field = fieldMap.get(fieldName);
+                                            const sortDirection = resolveSortDirection(sortFields, fieldName);
+                                            const isSortable = resolveFieldSortable(field);
 
+                                            return (
+                                                <TableCell
+                                                    key={fieldName}
+                                                    sortDirection={sortDirection ?? false}
+                                                    sx={{
+                                                        backgroundColor: '#171719',
+                                                        cursor: isSortable ? 'pointer' : 'default',
+                                                        userSelect: 'none',
+                                                        width: getListFieldWidthPx(field),
+                                                        minWidth: getListFieldWidthPx(field),
+                                                        maxWidth: getListFieldWidthPx(field),
+                                                    }}
+                                                    onClick={isSortable ? () => toggleSort(fieldName) : undefined}
+                                                >
+                                                    {isSortable ? (
+                                                        <TableSortLabel
+                                                            active={Boolean(sortDirection)}
+                                                            direction={sortDirection ?? 'asc'}
+                                                            hideSortIcon={false}
+                                                            sx={{
+                                                                color: 'rgba(255, 255, 255, 0.96)',
+                                                                '&.Mui-active': {color: 'rgba(255, 255, 255, 0.96)'},
+                                                                '& .MuiTableSortLabel-icon': {color: 'rgba(255, 255, 255, 0.72) !important'},
+                                                                '&:hover': {color: '#ffffff'},
+                                                            }}
+                                                        >
+                                                            {field?.label ?? fieldName}
+                                                        </TableSortLabel>
+                                                    ) : (
+                                                        <Typography component="span" sx={{
+                                                            fontSize: 14,
+                                                            fontWeight: 700,
+                                                            color: 'rgba(255, 255, 255, 0.96)'
+                                                        }}>
+                                                            {field?.label ?? fieldName}
+                                                        </Typography>
+                                                    )}
+                                                </TableCell>
+                                            );
+                                        })}
+                                        <TableCell
+                                            align="right"
+                                            sx={{
+                                                backgroundColor: '#171719',
+                                                width: ACTIONS_COLUMN_WIDTH,
+                                                minWidth: ACTIONS_COLUMN_WIDTH,
+                                                maxWidth: ACTIONS_COLUMN_WIDTH,
+                                            }}
+                                        />
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {rows.map((row) => {
+                                        const rowId = row[meta.pk_field] as string | number;
                                         return (
-                                            <TableCell
-                                                key={fieldName}
-                                                sortDirection={sortDirection ?? false}
-                                                sx={{
-                                                    backgroundColor: '#171719',
-                                                    cursor: isSortable ? 'pointer' : 'default',
-                                                    userSelect: 'none',
-                                                    width: getListFieldWidthPx(field),
-                                                    minWidth: getListFieldWidthPx(field),
-                                                    maxWidth: getListFieldWidthPx(field),
-                                                }}
-                                                onClick={isSortable ? () => toggleSort(fieldName) : undefined}
-                                            >
-                                                {isSortable ? (
-                                                    <TableSortLabel
-                                                        active={Boolean(sortDirection)}
-                                                        direction={sortDirection ?? 'asc'}
-                                                        hideSortIcon={false}
-                                                        sx={{
-                                                            color: 'rgba(255, 255, 255, 0.96)',
-                                                            '&.Mui-active': {color: 'rgba(255, 255, 255, 0.96)'},
-                                                            '& .MuiTableSortLabel-icon': {color: 'rgba(255, 255, 255, 0.72) !important'},
-                                                            '&:hover': {color: '#ffffff'},
-                                                        }}
-                                                    >
-                                                        {field?.label ?? fieldName}
-                                                    </TableSortLabel>
-                                                ) : (
-                                                    <Typography component="span" sx={{
-                                                        fontSize: 14,
-                                                        fontWeight: 700,
-                                                        color: 'rgba(255, 255, 255, 0.96)'
-                                                    }}>
-                                                        {field?.label ?? fieldName}
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
+                                            <ListRow
+                                                key={String(rowId)}
+                                                row={row}
+                                                pkField={meta.pk_field}
+                                                listFields={listFields}
+                                                basePath={basePath}
+                                                slug={slug}
+                                                locale={locale}
+                                                fieldMap={fieldMap}
+                                                isSelected={selectedIdSet.has(String(rowId))}
+                                                onToggleSelection={handleToggleSelection}
+                                                onOpenMenu={handleOpenRowMenu}
+                                            />
                                         );
                                     })}
-                                    <TableCell
-                                        align="right"
-                                        sx={{
-                                            backgroundColor: '#171719',
-                                            width: ACTIONS_COLUMN_WIDTH,
-                                            minWidth: ACTIONS_COLUMN_WIDTH,
-                                            maxWidth: ACTIONS_COLUMN_WIDTH,
-                                        }}
-                                    />
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {rows.map((row) => {
-                                    const rowId = row[meta.pk_field] as string | number;
-                                    return (
-                                        <ListRow
-                                            key={String(rowId)}
-                                            row={row}
-                                            pkField={meta.pk_field}
-                                            listFields={listFields}
-                                            basePath={basePath}
-                                            slug={slug}
-                                            locale={locale}
-                                            fieldMap={fieldMap}
-                                            isSelected={selectedIdSet.has(String(rowId))}
-                                            onToggleSelection={handleToggleSelection}
-                                            onOpenMenu={handleOpenRowMenu}
-                                        />
-                                    );
-                                })}
-                            </TableBody>
-                        </Table>
-                    </Box>
-                )}
-            </Paper>
+                                </TableBody>
+                            </Table>
+                        </Box>
+                    )}
+                </Paper>
+
+                <ListFiltersSidebar
+                    client={client}
+                    slug={slug}
+                    filters={listFilters}
+                    values={appliedFilters}
+                    onChange={handleFilterChange}
+                    onReset={handleResetFilters}
+                    debounceMs={SEARCH_DEBOUNCE_MS}
+                />
+            </Stack>
 
             <Menu
                 anchorEl={bulkActionMenuAnchor}
@@ -660,29 +709,6 @@ function resolveFieldSortable(field: AdminFieldMeta | undefined): boolean {
     );
 }
 
-function replaceUrlParams(pathname: string | null, query: string, sort: string, page: number): void {
-    const params = new URLSearchParams(window.location.search);
-    if (query) {
-        params.set('q', query);
-    } else {
-        params.delete('q');
-    }
-    if (sort) {
-        params.set('sort', sort);
-    } else {
-        params.delete('sort');
-    }
-    if (page > 1) {
-        params.set('page', String(page));
-    } else {
-        params.delete('page');
-    }
-
-    const nextPath = pathname ?? window.location.pathname;
-    const nextUrl = params.toString() ? `${nextPath}?${params.toString()}` : nextPath;
-    window.history.replaceState(window.history.state, '', nextUrl);
-}
-
 function requestListItems(client: XLAdminClient, slug: string, params: AdminListRequestParams) {
     const requestKey = buildListRequestKey(slug, params);
     const cachedResponse = listResponseCache.get(requestKey);
@@ -709,12 +735,18 @@ function requestListItems(client: XLAdminClient, slug: string, params: AdminList
 }
 
 function buildListRequestKey(slug: string, params: AdminListRequestParams): string {
+    const {q, sort, limit, offset, ...filters} = params;
     return JSON.stringify({
         slug,
-        q: params.q ?? null,
-        sort: params.sort ?? null,
-        limit: params.limit ?? DEFAULT_PAGE_SIZE,
-        offset: params.offset ?? 0,
+        q: q ?? null,
+        sort: sort ?? null,
+        limit: limit ?? DEFAULT_PAGE_SIZE,
+        offset: offset ?? 0,
+        filters: Object.fromEntries(
+            Object.entries(filters)
+                .filter(([, value]) => value !== undefined && value !== null && value !== '')
+                .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey)),
+        ),
     });
 }
 
@@ -724,8 +756,9 @@ function findCachedListResponse(
     sort: string | undefined,
     limit: number,
     offset: number,
+    filters: Record<string, string>,
 ): AdminListResponse | null {
-    return listResponseCache.get(buildListRequestKey(slug, {q: query, sort, limit, offset})) ?? null;
+    return listResponseCache.get(buildListRequestKey(slug, {q: query, sort, limit, offset, ...filters})) ?? null;
 }
 
 function parsePageParam(value: string | null): number {
@@ -734,4 +767,45 @@ function parsePageParam(value: string | null): number {
         return 1;
     }
     return Math.floor(parsedValue);
+}
+
+function extractFilterParams(params: URLSearchParams | ReturnType<typeof useSearchParams>): Record<string, string> {
+    const result: Record<string, string> = {};
+    for (const [key, value] of params.entries()) {
+        if (key === 'q' || key === 'sort' || key === 'page') {
+            continue;
+        }
+        if (value) {
+            result[key] = value;
+        }
+    }
+    return result;
+}
+
+function replaceUrlParams(
+    pathname: string | null,
+    query: string,
+    sort: string,
+    page: number,
+    filters: Record<string, string>,
+): void {
+    const params = new URLSearchParams();
+    if (query) {
+        params.set('q', query);
+    }
+    if (sort) {
+        params.set('sort', sort);
+    }
+    if (page > 1) {
+        params.set('page', String(page));
+    }
+    for (const [key, value] of Object.entries(filters)) {
+        if (value) {
+            params.set(key, value);
+        }
+    }
+
+    const nextPath = pathname ?? window.location.pathname;
+    const nextUrl = params.toString() ? `${nextPath}?${params.toString()}` : nextPath;
+    window.history.replaceState(window.history.state, '', nextUrl);
 }

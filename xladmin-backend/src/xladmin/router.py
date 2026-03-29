@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect as sa_inspect
@@ -63,6 +63,7 @@ def create_router(config: HttpConfig) -> APIRouter:
     @router.get("/models/{slug}/items/")
     async def list_items(
             slug: str,
+            request: Request,
             limit: int = Query(default=50, ge=1, le=500),
             offset: int = Query(default=0, ge=0),
             q: str | None = None,
@@ -72,12 +73,20 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> dict[str, Any]:
         _check_access(user)
         model_config = await _get_model_config(slug)
+        request_query_params = request.query_params if request is not None else {}
+        list_filter_values: dict[str, str] = {}
+        for list_filter in model_config.list_filters:
+            raw_value = request_query_params.get(list_filter.slug)
+            if raw_value in (None, ""):
+                continue
+            list_filter_values[list_filter.slug] = str(raw_value)
         query = select(model_config.model)
         if model_config.query_for_list is not None:
             custom_query = model_config.query_for_list(query, session, user)
             query = await custom_query if inspect.isawaitable(custom_query) else custom_query
         query = _apply_eager_loads(model_config, query)
         query = _apply_search(model_config, query, q, session)
+        query = await _apply_list_filters(model_config, query, list_filter_values, session, user)
         query = _apply_ordering(model_config, query, sort)
         total_query = select(func.count()).select_from(query.subquery())
         total = int((await session.execute(total_query)).scalar_one())
@@ -347,6 +356,78 @@ def create_router(config: HttpConfig) -> APIRouter:
             ],
         }
 
+    @router.get("/models/{slug}/filters/{filter_slug}/choices/")
+    async def filter_choices(
+            slug: str,
+            filter_slug: str,
+            q: str | None = None,
+            ids: str | None = None,
+            limit: int = Query(default=25, ge=1, le=100),
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> dict[str, Any]:
+        _check_access(user)
+        model_config = await _get_model_config(slug)
+        list_filter = next((item for item in model_config.list_filters if item.slug == filter_slug), None)
+        if list_filter is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=translate(registry.locale, "list_filter_not_found"),
+            )
+
+        input_kind = list_filter.input_kind or _resolve_list_filter_input_kind_for_meta(model_config, list_filter)
+        if input_kind == "boolean":
+            return {
+                "items": [
+                    {"id": "true", "label": translate(registry.locale, "yes")},
+                    {"id": "false", "label": translate(registry.locale, "no")},
+                ],
+            }
+        if list_filter.options:
+            return {
+                "items": [
+                    {"id": option.value, "label": option.label}
+                    for option in list_filter.options
+                ],
+            }
+
+        relation_model = _resolve_list_filter_relation_model(model_config, list_filter, locale=registry.locale)
+        if relation_model is None:
+            return {"items": []}
+
+        relation_config = registry.find_by_model(relation_model)
+        label_field = list_filter.relation_label_field or _resolve_label_field(relation_model)
+        query = select(relation_model)
+        relation_pk_name = sa_inspect(relation_model).primary_key[0].key
+        selected_ids = [_convert_pk(item_id) for item_id in ids.split(",") if item_id] if ids else []
+
+        if relation_config is not None and relation_config.query_for_list is not None:
+            custom_query = relation_config.query_for_list(query, session, user)
+            query = await custom_query if inspect.isawaitable(custom_query) else custom_query
+
+        if selected_ids:
+            query = query.where(getattr(relation_model, relation_pk_name).in_(selected_ids))
+
+        if q:
+            if relation_config is not None:
+                query = _apply_search(relation_config, query, q, session)
+            elif hasattr(relation_model, label_field):
+                query = query.where(getattr(relation_model, label_field).ilike(f"%{q}%"))
+
+        if hasattr(relation_model, label_field):
+            query = query.order_by(getattr(relation_model, label_field).asc())
+
+        items = list((await session.execute(query.limit(limit))).scalars())
+        return {
+            "items": [
+                {
+                    "id": getattr(item, relation_pk_name),
+                    "label": str(getattr(item, label_field, None) or getattr(item, relation_pk_name)),
+                }
+                for item in items
+            ],
+        }
+
     return router
 
 
@@ -419,6 +500,68 @@ def _apply_search(model_config: ModelConfig, query, q: str | None, session: Asyn
     return query.where(or_(*conditions))
 
 
+async def _apply_list_filters(
+        model_config: ModelConfig,
+        query,
+        values: dict[str, str],
+        session: AsyncSession,
+        user: Any,
+):
+    if not values:
+        return query
+
+    mapper = sa_inspect(model_config.model)
+    for list_filter in model_config.list_filters:
+        raw_value = values.get(list_filter.slug)
+        if raw_value in (None, ""):
+            continue
+
+        filter_value = str(raw_value)
+        parsed_value = list_filter.value_parser(filter_value) if list_filter.value_parser is not None else filter_value
+        option_config = next((item for item in list_filter.options if item.value == filter_value), None)
+        filter_handler = option_config.filter_handler if option_config is not None else list_filter.filter_handler
+        if filter_handler is not None:
+            custom_query = filter_handler(query, parsed_value, session, user)
+            query = await custom_query if inspect.isawaitable(custom_query) else custom_query
+            continue
+
+        if list_filter.field_name is None:
+            continue
+
+        if list_filter.field_name in mapper.relationships:
+            relationship = mapper.relationships[list_filter.field_name]
+            related_pk_name = relationship.mapper.primary_key[0].key
+            related_pk_attr = getattr(relationship.mapper.class_, related_pk_name)
+            if relationship.uselist:
+                query = query.where(
+                    getattr(model_config.model, list_filter.field_name).any(
+                        related_pk_attr == _convert_pk(parsed_value),
+                    ),
+                )
+                continue
+            local_columns = list(relationship.local_columns)
+            if not local_columns:
+                continue
+            query = query.where(getattr(model_config.model, local_columns[0].key) == _convert_pk(parsed_value))
+            continue
+
+        if list_filter.field_name not in mapper.columns:
+            continue
+
+        column = mapper.columns[list_filter.field_name]
+        column_attr = getattr(model_config.model, list_filter.field_name)
+        input_kind = list_filter.input_kind or _resolve_list_filter_input_kind(column, list_filter)
+        if input_kind == "boolean":
+            query = query.where(column_attr.is_(_parse_boolean_value(parsed_value)))
+            continue
+        if input_kind == "text":
+            query = query.where(column_attr.ilike(f"%{parsed_value}%"))
+            continue
+        query = query.where(column_attr == convert_value_for_column(column, parsed_value))
+
+    return query
+
+
 def _apply_eager_loads(model_config: ModelConfig, query):
     mapper = sa_inspect(model_config.model)
     relation_names = set(mapper.relationships.keys())
@@ -434,6 +577,41 @@ def _apply_eager_loads(model_config: ModelConfig, query):
     for field_name in dict.fromkeys(relation_fields):
         query = query.options(selectinload(getattr(model_config.model, field_name)))
     return query
+
+
+def _resolve_list_filter_input_kind(column: Any, list_filter: Any) -> str:
+    if list_filter.options:
+        return "select"
+    try:
+        python_type = column.type.python_type
+    except NotImplementedError:
+        return "text"
+    if python_type is bool:
+        return "boolean"
+    return "text"
+
+
+def _resolve_list_filter_input_kind_for_meta(model_config: ModelConfig, list_filter: Any) -> str:
+    if list_filter.input_kind is not None:
+        return list_filter.input_kind
+    if list_filter.options or list_filter.relation_model is not None:
+        return "select"
+    if list_filter.field_name is None:
+        return "text"
+
+    mapper = sa_inspect(model_config.model)
+    if list_filter.field_name in mapper.relationships:
+        return "select"
+    if list_filter.field_name not in mapper.columns:
+        return "text"
+    return _resolve_list_filter_input_kind(mapper.columns[list_filter.field_name], list_filter)
+
+
+def _parse_boolean_value(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized_value = str(value).strip().lower()
+    return normalized_value in {"1", "true", "yes", "y", "on"}
 
 
 def _resolve_relation_model(model_config: ModelConfig, field_name: str, *, locale: str | None = None) -> type[Any]:
@@ -460,6 +638,25 @@ def _resolve_relation_model(model_config: ModelConfig, field_name: str, *, local
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=translate(locale, "related_model_not_found"),
     )
+
+
+def _resolve_list_filter_relation_model(
+        model_config: ModelConfig,
+        list_filter: Any,
+        *,
+        locale: str | None = None,
+) -> type[Any] | None:
+    if list_filter.relation_model is not None:
+        return list_filter.relation_model
+    if list_filter.field_name is None:
+        return None
+
+    mapper = sa_inspect(model_config.model)
+    if list_filter.field_name in mapper.relationships:
+        return mapper.relationships[list_filter.field_name].mapper.class_
+    if list_filter.field_name in mapper.columns and mapper.columns[list_filter.field_name].foreign_keys:
+        return _resolve_relation_model(model_config, list_filter.field_name, locale=locale)
+    return None
 
 
 def _resolve_label_field(model: type[Any]) -> str:

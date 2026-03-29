@@ -2,7 +2,23 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
+
+FieldInputKind = Literal[
+    "text",
+    "textarea",
+    "password",
+    "number",
+    "decimal",
+    "boolean",
+    "date",
+    "datetime",
+    "json",
+    "relation",
+    "relation-multiple",
+]
+
+ListFilterInputKind = Literal["text", "select", "boolean"]
 
 
 @dataclass(slots=True)
@@ -14,11 +30,33 @@ class FieldConfig:
     hidden_in_detail: bool = False
     hidden_in_form: bool = False
     read_only: bool = False
-    input_kind: str | None = None
+    input_kind: FieldInputKind | None = None
     ordering_field: str | None = None
     value_getter: Callable[[Any], Any] | None = None
     value_parser: Callable[[Any], Any] | None = None
     value_setter: Callable[[Any, Any, dict[str, Any], str], None] | None = None
+    relation_label_field: str | None = None
+    relation_model: type[Any] | None = None
+
+
+@dataclass(slots=True)
+class ListFilterOptionConfig:
+    value: str
+    label: str
+    filter_handler: Callable[[Any, Any, Any, Any], Awaitable[Any] | Any] | None = None
+
+
+@dataclass(slots=True)
+class ListFilterConfig:
+    slug: str
+    label: str
+    group: str | None = None
+    field_name: str | None = None
+    input_kind: ListFilterInputKind | None = None
+    placeholder: str | None = None
+    options: tuple[ListFilterOptionConfig, ...] = ()
+    value_parser: Callable[[str], Any] | None = None
+    filter_handler: Callable[[Any, Any, Any, Any], Awaitable[Any] | Any] | None = None
     relation_label_field: str | None = None
     relation_model: type[Any] | None = None
 
@@ -67,6 +105,7 @@ class ModelConfig:
     search_fields: tuple[str, ...] = ()
     search_query_builder: Callable[[Any, str, Any], Any] | None = None
     query_for_list: Callable[[Any, Any, Any], Awaitable[Any] | Any] | None = None
+    list_filters: tuple[ListFilterConfig, ...] = ()
     list_display: tuple[str, ...] | None = None
     list_fields: tuple[str, ...] | None = None
     detail_fields: tuple[str, ...] | None = None
@@ -97,6 +136,8 @@ class HttpConfig:
 
 
 AdminFieldConfig = FieldConfig
+AdminListFilterConfig = ListFilterConfig
+AdminListFilterOptionConfig = ListFilterOptionConfig
 AdminBulkActionConfig = BulkActionConfig
 AdminObjectActionConfig = ObjectActionConfig
 AdminModelsBlockConfig = ModelsBlockConfig

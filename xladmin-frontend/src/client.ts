@@ -11,7 +11,7 @@ import type {
 export type XLAdminClient = {
     getModels: () => Promise<AdminModelsResponse>;
     getModel: (slug: string) => Promise<AdminModelMeta>;
-    getItems: (slug: string, params?: {limit?: number; offset?: number; q?: string; sort?: string}) => Promise<AdminListResponse>;
+    getItems: (slug: string, params?: {limit?: number; offset?: number; q?: string; sort?: string} & Record<string, unknown>) => Promise<AdminListResponse>;
     getItem: (slug: string, id: string | number) => Promise<AdminDetailResponse>;
     createItem: (slug: string, payload: Record<string, unknown>) => Promise<AdminDetailResponse>;
     patchItem: (slug: string, id: string | number, payload: Record<string, unknown>) => Promise<AdminDetailResponse>;
@@ -22,6 +22,7 @@ export type XLAdminClient = {
     runBulkAction: (slug: string, actionSlug: string, ids: Array<string | number>, payload?: Record<string, unknown>) => Promise<{processed: number} & Record<string, unknown>>;
     runObjectAction: (slug: string, id: string | number, actionSlug: string, payload?: Record<string, unknown>) => Promise<AdminObjectActionResponse>;
     getChoices: (slug: string, fieldName: string, q?: string, ids?: Array<string | number>) => Promise<AdminChoicesResponse>;
+    getFilterChoices: (slug: string, filterSlug: string, q?: string, ids?: Array<string | number>) => Promise<AdminChoicesResponse>;
 };
 
 type XLAdminTransportResponse<T> = T | {data: T};
@@ -92,6 +93,18 @@ export function createXLAdminClient(transport: XLAdminTransport): XLAdminClient 
             return await transportGet<AdminChoicesResponse>(
                 transport,
                 `/xladmin/models/${slug}/fields/${fieldName}/choices/`,
+                {
+                    params: {
+                        ...(q ? {q} : {}),
+                        ...(ids && ids.length > 0 ? {ids: ids.join(',')} : {}),
+                    },
+                },
+            );
+        },
+        async getFilterChoices(slug, filterSlug, q, ids) {
+            return await transportGet<AdminChoicesResponse>(
+                transport,
+                `/xladmin/models/${slug}/filters/${filterSlug}/choices/`,
                 {
                     params: {
                         ...(q ? {q} : {}),
