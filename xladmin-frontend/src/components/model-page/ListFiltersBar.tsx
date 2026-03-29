@@ -1,10 +1,12 @@
 'use client';
 
 import {memo, useCallback, useEffect, useMemo, useState} from 'react';
-import {Button, Divider, MenuItem, Paper, Stack, TextField, Typography} from '@mui/material';
+import {Button, CircularProgress, Divider, MenuItem, Paper, Stack, TextField, Typography} from '@mui/material';
 import type {XLAdminClient} from '../../client';
 import {useAdminTranslation} from '../../i18n';
 import type {AdminListFilterMeta} from '../../types';
+
+const inFlightFilterChoicesRequests = new Map<string, Promise<Array<{value: string; label: string}>>>();
 
 type ListFiltersSidebarProps = {
     client: XLAdminClient;
@@ -161,6 +163,7 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
     const [draftValue, setDraftValue] = useState(value);
     const [options, setOptions] = useState(filter.options);
     const [isChoicesLoaded, setIsChoicesLoaded] = useState(filter.options.length > 0);
+    const [isLoadingChoices, setIsLoadingChoices] = useState(false);
 
     useEffect(() => {
         setDraftValue(value);
@@ -169,6 +172,14 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
     useEffect(() => {
         setOptions(filter.options);
         setIsChoicesLoaded(filter.options.length > 0);
+    }, [filter.slug]);
+
+    useEffect(() => {
+        if (filter.options.length === 0) {
+            return;
+        }
+        setOptions(filter.options);
+        setIsChoicesLoaded(true);
     }, [filter.options]);
 
     const loadChoices = useCallback(async () => {
@@ -176,12 +187,29 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
             return;
         }
 
-        const response = await client.getFilterChoices(slug, filter.slug);
-        setOptions(response.items.map((item) => ({
-            value: String(item.id),
-            label: item.label,
-        })));
-        setIsChoicesLoaded(true);
+        const requestKey = `${slug}:${filter.slug}`;
+        const existingRequest = inFlightFilterChoicesRequests.get(requestKey);
+        const request = existingRequest ?? client.getFilterChoices(slug, filter.slug)
+            .then((response) => response.items.map((item) => ({
+                value: String(item.id),
+                label: item.label,
+            })))
+            .finally(() => {
+                inFlightFilterChoicesRequests.delete(requestKey);
+            });
+
+        if (!existingRequest) {
+            inFlightFilterChoicesRequests.set(requestKey, request);
+        }
+
+        setIsLoadingChoices(true);
+        try {
+            const nextOptions = await request;
+            setOptions(nextOptions);
+            setIsChoicesLoaded(true);
+        } finally {
+            setIsLoadingChoices(false);
+        }
     }, [client, filter.has_choices, filter.input_kind, filter.slug, isChoicesLoaded, slug]);
 
     useEffect(() => {
@@ -199,19 +227,14 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
     }, [debounceMs, draftValue, filter.input_kind, filter.slug, onChange, value]);
 
     useEffect(() => {
-        if (!filter.has_choices || filter.input_kind !== 'select' || isChoicesLoaded) {
+        if (!value || !filter.has_choices || filter.input_kind !== 'select' || isChoicesLoaded) {
             return;
         }
 
         let isCancelled = false;
-        void client.getFilterChoices(slug, filter.slug)
-            .then((response) => {
+        void loadChoices()
+            .then(() => {
                 if (isCancelled) return;
-                setOptions(response.items.map((item) => ({
-                    value: String(item.id),
-                    label: item.label,
-                })));
-                setIsChoicesLoaded(true);
             })
             .catch(() => {
                 if (isCancelled) return;
@@ -222,7 +245,7 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
         return () => {
             isCancelled = true;
         };
-    }, [client, filter.has_choices, filter.input_kind, filter.slug, isChoicesLoaded, slug]);
+    }, [filter.has_choices, filter.input_kind, isChoicesLoaded, loadChoices, value]);
 
     if (filter.input_kind === 'boolean' || filter.input_kind === 'select') {
         return (
@@ -238,6 +261,14 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
                 }}
             >
                 <MenuItem value="">{t('all')}</MenuItem>
+                {isLoadingChoices ? (
+                    <MenuItem disabled value="__loading__">
+                        <Stack direction="row" spacing={1} alignItems="center">
+                            <CircularProgress size={14} thickness={5} />
+                            <Typography variant="body2">{t('loading')}</Typography>
+                        </Stack>
+                    </MenuItem>
+                ) : null}
                 {options.map((option) => (
                     <MenuItem key={`${filter.slug}-${option.value}`} value={option.value}>
                         {option.label}

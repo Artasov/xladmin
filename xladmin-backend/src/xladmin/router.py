@@ -29,6 +29,15 @@ from xladmin.serializer import serialize_model_instance
 def create_router(config: HttpConfig) -> APIRouter:
     registry = build_registry(config.registry)
     router = APIRouter(prefix="/xladmin", tags=["XLAdmin"])
+    model_meta_by_slug = {
+        model_config.slug: get_model_meta(model_config, locale=registry.locale)
+        for model_config in registry.list()
+    }
+    models_response = {
+        "locale": registry.locale,
+        "items": list(model_meta_by_slug.values()),
+        "blocks": get_model_blocks_meta(registry),
+    }
 
     def _check_access(user: Any) -> None:
         if not config.is_allowed(user):
@@ -46,11 +55,7 @@ def create_router(config: HttpConfig) -> APIRouter:
     @router.get("/models/")
     async def list_models(user: Any = Depends(config.get_current_user_dependency)) -> dict[str, Any]:
         _check_access(user)
-        return {
-            "locale": registry.locale,
-            "items": [get_model_meta(model_config, locale=registry.locale) for model_config in registry.list()],
-            "blocks": get_model_blocks_meta(registry),
-        }
+        return models_response
 
     @router.get("/models/{slug}/")
     async def get_model(
@@ -58,7 +63,11 @@ def create_router(config: HttpConfig) -> APIRouter:
             user: Any = Depends(config.get_current_user_dependency),
     ) -> dict[str, Any]:
         _check_access(user)
-        return get_model_meta(await _get_model_config(slug), locale=registry.locale)
+        try:
+            return model_meta_by_slug[slug]
+        except KeyError:
+            await _get_model_config(slug)
+            raise
 
     @router.get("/models/{slug}/items/")
     async def list_items(
@@ -92,7 +101,7 @@ def create_router(config: HttpConfig) -> APIRouter:
         total = int((await session.execute(total_query)).scalar_one())
         items = list((await session.execute(query.limit(limit).offset(offset))).scalars())
         return {
-            "meta": get_model_meta(model_config, locale=registry.locale),
+            "meta": model_meta_by_slug[model_config.slug],
             "pagination": {"limit": limit, "offset": offset, "total": total},
             "items": [serialize_model_instance(model_config, item, mode="list") for item in items],
         }
@@ -112,7 +121,7 @@ def create_router(config: HttpConfig) -> APIRouter:
                 status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"),
             )
         return {
-            "meta": get_model_meta(model_config, locale=registry.locale),
+            "meta": model_meta_by_slug[model_config.slug],
             "item": serialize_model_instance(model_config, item, mode="detail"),
         }
 

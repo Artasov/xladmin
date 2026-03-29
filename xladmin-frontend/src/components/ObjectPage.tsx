@@ -17,6 +17,7 @@ import {AdapterDayjs} from '@mui/x-date-pickers/AdapterDayjs';
 import 'dayjs/locale/en.js';
 import 'dayjs/locale/ru.js';
 import type {XLAdminClient} from '../client';
+import {useAdminDocumentTitle} from '../hooks/useAdminDocumentTitle';
 import {useAdminLocale, useAdminTranslation} from '../i18n';
 import type {AdminDeletePreviewResponse, AdminDetailResponse} from '../types';
 import {buildAdminPayload, formatAdminValue, resolveAdminMediaUrl} from '../utils/adminFields';
@@ -118,6 +119,12 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
         () => new Set(editableFields.map((field) => field.name)),
         [editableFields],
     );
+    const objectTitle = useMemo(
+        () => String(data?.item._display ?? (meta ? `${meta.title} #${id}` : id)),
+        [data, id, meta],
+    );
+
+    useAdminDocumentTitle(t('admin_title'), meta?.title ?? slug, objectTitle);
     const currentPayload = useMemo(
         () => buildAdminPayload(values, editableFields),
         [editableFields, values],
@@ -241,7 +248,7 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
         <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={locale}>
             <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
                 <MainHeader
-                    title={String(data.item._display ?? `${meta.title} #${id}`)}
+                    title={objectTitle}
                     subtitle={meta.slug}
                     beforeTitle={(
                         <IconButton

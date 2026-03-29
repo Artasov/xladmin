@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
-SUPPORTED_LOCALES = {"ru", "en"}
-DEFAULT_LOCALE = "ru"
+from xladmin.config import AdminLocale
+
+SUPPORTED_LOCALES: set[AdminLocale] = {"ru", "en"}
+DEFAULT_LOCALE: AdminLocale = "ru"
 
 _MESSAGES: dict[str, dict[str, str]] = {
     "ru": {
@@ -37,9 +39,9 @@ _MESSAGES: dict[str, dict[str, str]] = {
 }
 
 
-def normalize_locale(locale: str | None) -> str:
-    if locale in SUPPORTED_LOCALES:
-        return locale
+def normalize_locale(locale: str | None) -> AdminLocale:
+    if locale == "ru" or locale == "en":
+        return cast(AdminLocale, locale)
     return DEFAULT_LOCALE
 
 

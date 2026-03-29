@@ -21,6 +21,7 @@ FieldInputKind = Literal[
 FieldDisplayKind = Literal["text", "image"]
 
 ListFilterInputKind = Literal["text", "select", "boolean"]
+AdminLocale = Literal["ru", "en"]
 
 
 @dataclass(slots=True)
@@ -128,7 +129,7 @@ class ModelConfig:
 class AdminConfig:
     models: tuple[ModelConfig, ...] = ()
     models_blocks: tuple[ModelsBlockConfig, ...] = ()
-    locale: str = "ru"
+    locale: AdminLocale = "ru"
 
 
 @dataclass(slots=True)

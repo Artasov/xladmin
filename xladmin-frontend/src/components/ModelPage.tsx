@@ -34,6 +34,7 @@ import {
 } from '@mui/material';
 import {useTheme} from '@mui/material/styles';
 import type {XLAdminClient} from '../client';
+import {useAdminDocumentTitle} from '../hooks/useAdminDocumentTitle';
 import {useAdminLocale, useAdminTranslation} from '../i18n';
 import type {AdminDeletePreviewResponse, AdminFieldMeta, AdminListResponse} from '../types';
 import {getListFieldWidthPx} from '../utils/adminFields';
@@ -130,6 +131,8 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
     const selectedIdSet = useMemo(() => new Set(selectedIds.map((item) => String(item))), [selectedIds]);
     const allVisibleSelected = rows.length > 0 && rows.every((row) => selectedIdSet.has(String(row[meta?.pk_field ?? 'id'])));
     const hasVisibleSelection = rows.some((row) => selectedIdSet.has(String(row[meta?.pk_field ?? 'id'])));
+
+    useAdminDocumentTitle(t('admin_title'), meta?.title ?? slug);
 
     useEffect(() => {
         dataRef.current = data;

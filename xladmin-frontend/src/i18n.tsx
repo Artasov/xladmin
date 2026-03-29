@@ -4,6 +4,7 @@ import {createContext, type ReactNode, useContext, useMemo} from 'react';
 import type {AdminLocale} from './types';
 
 type AdminTranslationKey =
+    | 'admin_title'
     | 'loading'
     | 'overview'
     | 'overview_title'
@@ -56,6 +57,7 @@ type AdminTranslationKey =
 
 const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
     ru: {
+        admin_title: 'Admin',
         loading: 'Загрузка...',
         overview: 'Обзор',
         overview_title: 'Обзор',
@@ -107,6 +109,7 @@ const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
         staff_only: 'Доступ к админке есть только у staff-пользователей.',
     },
     en: {
+        admin_title: 'Admin',
         loading: 'Loading...',
         overview: 'Overview',
         overview_title: 'Overview',

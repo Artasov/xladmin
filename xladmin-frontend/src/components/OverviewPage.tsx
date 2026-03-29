@@ -1,10 +1,12 @@
 'use client';
 
-import {useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {Alert, Box, Grid, Paper, Skeleton, Stack} from '@mui/material';
 import type {XLAdminClient} from '../client';
+import {useAdminDocumentTitle} from '../hooks/useAdminDocumentTitle';
 import {useAdminTranslation} from '../i18n';
 import type {AdminModelsResponse} from '../types';
+import {useAdminData} from './layout/AdminDataContext';
 import {ModelsBlocks} from './ModelsBlocks';
 import {MainHeader, MainHeaderSkeleton} from './layout/MainHeader';
 
@@ -20,12 +22,33 @@ let inFlightModelsRequest: Promise<AdminModelsResponse> | null = null;
 
 export function OverviewPage({client, basePath}: OverviewPageProps) {
     const t = useAdminTranslation();
-    const [data, setData] = useState<AdminModelsResponse | null>(cachedModelsResponse);
+    useAdminDocumentTitle(t('admin_title'), t('overview_title'));
+    const adminData = useAdminData();
+    const shellModelsResponse = useMemo<AdminModelsResponse | null>(() => {
+        if (adminData.models.length === 0 && adminData.blocks.length === 0) {
+            return null;
+        }
+        return {
+            locale: adminData.locale,
+            items: adminData.models,
+            blocks: adminData.blocks,
+        };
+    }, [adminData.blocks, adminData.locale, adminData.models]);
+    const [data, setData] = useState<AdminModelsResponse | null>(shellModelsResponse ?? cachedModelsResponse);
     const [error, setError] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(cachedModelsResponse === null);
+    const [isLoading, setIsLoading] = useState(shellModelsResponse === null && cachedModelsResponse === null);
 
     useEffect(() => {
         let isMounted = true;
+
+        if (shellModelsResponse !== null) {
+            cachedModelsResponse = shellModelsResponse;
+            setData(shellModelsResponse);
+            setIsLoading(false);
+            return () => {
+                isMounted = false;
+            };
+        }
 
         if (cachedModelsResponse !== null) {
             setData(cachedModelsResponse);
@@ -62,7 +85,7 @@ export function OverviewPage({client, basePath}: OverviewPageProps) {
         return () => {
             isMounted = false;
         };
-    }, [client, t]);
+    }, [client, shellModelsResponse, t]);
 
     if (isLoading && !data) {
         return <OverviewPageSkeleton />;
