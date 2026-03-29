@@ -7,11 +7,15 @@ import AddIcon from '@mui/icons-material/Add';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import {
     Alert,
     Box,
     Button,
     Checkbox,
+    Dialog,
+    DialogContent,
+    DialogTitle,
     IconButton,
     InputBase,
     Menu,
@@ -24,8 +28,11 @@ import {
     TableHead,
     TableRow,
     TableSortLabel,
+    Tooltip,
     Typography,
+    useMediaQuery,
 } from '@mui/material';
+import {useTheme} from '@mui/material/styles';
 import type {XLAdminClient} from '../client';
 import {useAdminLocale, useAdminTranslation} from '../i18n';
 import type {AdminDeletePreviewResponse, AdminFieldMeta, AdminListResponse} from '../types';
@@ -99,9 +106,12 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
     const [isDeleteSubmitting, setIsDeleteSubmitting] = useState(false);
     const [pendingDeleteIds, setPendingDeleteIds] = useState<Array<string | number>>([]);
     const [pendingDeleteMode, setPendingDeleteMode] = useState<'single' | 'bulk'>('single');
+    const [filtersOpen, setFiltersOpen] = useState(false);
     const requestIdRef = useRef(0);
     const dataRef = useRef<AdminListResponse | null>(initialCachedResponse);
     const pageSizeRef = useRef<number>(initialCachedResponse?.meta.page_size ?? DEFAULT_PAGE_SIZE);
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
     const sortFields = useMemo(() => sortValue.split(',').filter(Boolean), [sortValue]);
     const meta = data?.meta ?? null;
@@ -115,6 +125,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
     );
     const listFields = meta?.list_fields ?? [];
     const listFilters = meta?.list_filters ?? [];
+    const hasListFilters = listFilters.length > 0;
     const bulkActions = meta?.bulk_actions ?? [];
     const selectedIdSet = useMemo(() => new Set(selectedIds.map((item) => String(item))), [selectedIds]);
     const allVisibleSelected = rows.length > 0 && rows.every((row) => selectedIdSet.has(String(row[meta?.pk_field ?? 'id'])));
@@ -403,6 +414,26 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
         <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
             <MainHeader
                 title={meta.title}
+                actions={(
+                    <Tooltip title={t('create')}>
+                        <IconButton
+                            aria-label={t('create')}
+                            onClick={() => setCreateOpen(true)}
+                            sx={{
+                                width: 30,
+                                height: 30,
+                                p: 0.5,
+                                backgroundColor: 'primary.main',
+                                color: 'primary.contrastText',
+                                '&:hover': {
+                                    backgroundColor: 'primary.dark',
+                                },
+                            }}
+                        >
+                            <AddIcon fontSize="small"/>
+                        </IconButton>
+                    </Tooltip>
+                )}
                 subtitle={`${meta.slug} · ${t('objects_count', {count: total})}`}
                 details={meta.description ? (
                     <Typography color="text.secondary" sx={{fontSize: 14, lineHeight: 1.45}}>
@@ -428,12 +459,8 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                         />
                     </Stack>
 
-                    <Button startIcon={<AddIcon/>} variant="contained" onClick={() => setCreateOpen(true)}>
-                        {t('create')}
-                    </Button>
-
                     {selectedIds.length > 0 ? (
-                        <Stack direction="row" spacing={1} sx={{flex: 1, minWidth: 0}}>
+                        <Stack direction="row" spacing={1} sx={{flex: {lg: 1}, minWidth: 0}}>
                             <Button
                                 variant="outlined"
                                 endIcon={<ExpandMoreIcon/>}
@@ -445,9 +472,20 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                                 {t('selected_count', {count: selectedIds.length})}
                             </Typography>
                         </Stack>
-                    ) : <Box sx={{flex: 1}}/>}
+                    ) : null}
 
-                    <Stack direction="row" spacing={0} alignItems="center" sx={{marginLeft: 'auto'}}>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{marginLeft: 'auto'}}>
+                        {isMobile && hasListFilters ? (
+                            <Tooltip title={t('filters')}>
+                                <IconButton
+                                    size="small"
+                                    aria-label={t('filters')}
+                                    onClick={() => setFiltersOpen(true)}
+                                >
+                                    <FilterListIcon fontSize="small"/>
+                                </IconButton>
+                            </Tooltip>
+                        ) : null}
                         <IconButton
                             size="small"
                             onClick={() => handlePageChange(currentPage - 1)}
@@ -615,15 +653,17 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                     )}
                 </Paper>
 
-                <ListFiltersSidebar
-                    client={client}
-                    slug={slug}
-                    filters={listFilters}
-                    values={appliedFilters}
-                    onChange={handleFilterChange}
-                    onReset={handleResetFilters}
-                    debounceMs={SEARCH_DEBOUNCE_MS}
-                />
+                {!isMobile && hasListFilters ? (
+                    <ListFiltersSidebar
+                        client={client}
+                        slug={slug}
+                        filters={listFilters}
+                        values={appliedFilters}
+                        onChange={handleFilterChange}
+                        onReset={handleResetFilters}
+                        debounceMs={SEARCH_DEBOUNCE_MS}
+                    />
+                ) : null}
             </Stack>
 
             <Menu
@@ -667,6 +707,41 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                 meta={meta}
                 client={client}
             />
+
+            <Dialog
+                open={filtersOpen}
+                onClose={() => setFiltersOpen(false)}
+                fullWidth
+                maxWidth="xs"
+                slotProps={{
+                    paper: {
+                        sx: {
+                            m: {xs: 1, sm: 2},
+                            width: {xs: 'calc(100% - 16px)', sm: undefined},
+                            maxWidth: {xs: 'calc(100% - 16px)', sm: 444},
+                            maxHeight: {
+                                xs: 'calc(100% - 16px)',
+                                sm: 'calc(100% - 32px)',
+                            },
+                        },
+                    },
+                }}
+            >
+                <DialogTitle>{t('filters')}</DialogTitle>
+                <DialogContent sx={{px: 2, pb: 2}}>
+                    {hasListFilters ? (
+                        <ListFiltersSidebar
+                            client={client}
+                            slug={slug}
+                            filters={listFilters}
+                            values={appliedFilters}
+                            onChange={handleFilterChange}
+                            onReset={handleResetFilters}
+                            debounceMs={SEARCH_DEBOUNCE_MS}
+                        />
+                    ) : null}
+                </DialogContent>
+            </Dialog>
 
             <DeletePreviewDialog
                 open={deletePreviewOpen}

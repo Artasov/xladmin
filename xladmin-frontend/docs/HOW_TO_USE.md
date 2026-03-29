@@ -273,7 +273,10 @@ export function XLAdminObjectPageClient({
 
 - JSON и большие тексты получают более широкую колонку
 - `date` / `datetime` и `boolean` — более узкую
+- `display_kind="image"` рендерится как image-preview с компактной колонкой
 - длинные строки в list-view обрезаются примерно до 200 символов и показываются через ellipsis
+
+Если image-поле хранит относительный путь, backend может передать `field.image_url_prefix`, и frontend соберёт итоговый URL из prefix + path.
 
 ## 5. Delete preview
 

@@ -19,7 +19,7 @@ import 'dayjs/locale/ru.js';
 import type {XLAdminClient} from '../client';
 import {useAdminLocale, useAdminTranslation} from '../i18n';
 import type {AdminDeletePreviewResponse, AdminDetailResponse} from '../types';
-import {buildAdminPayload, formatAdminValue} from '../utils/adminFields';
+import {buildAdminPayload, formatAdminValue, resolveAdminMediaUrl} from '../utils/adminFields';
 import {DeletePreviewDialog} from './DeletePreviewDialog';
 import {MainHeader} from './layout/MainHeader';
 import {ObjectField} from './object-page/ObjectField';
@@ -296,6 +296,9 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
                                             key={field.name}
                                             field={field}
                                             value={formatAdminValue(values[field.name], {locale, field, pretty: true})}
+                                            imageUrl={field.display_kind === 'image'
+                                                ? resolveAdminMediaUrl(values[field.name], field)
+                                                : null}
                                         />
                                     );
                                 })}

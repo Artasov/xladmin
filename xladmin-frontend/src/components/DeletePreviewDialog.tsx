@@ -28,7 +28,26 @@ export function DeletePreviewDialog({
     const t = useAdminTranslation();
 
     return (
-        <Dialog open={open} onClose={isSubmitting ? undefined : onClose} fullWidth maxWidth="sm">
+        <Dialog
+            open={open}
+            onClose={isSubmitting ? undefined : onClose}
+            fullWidth
+            maxWidth="sm"
+            slotProps={{
+                paper: {
+                    sx: {
+                        m: {xs: 1, sm: 2, md: 3},
+                        width: {xs: 'calc(100% - 16px)', sm: undefined},
+                        maxWidth: {xs: 'calc(100% - 16px)', sm: 600},
+                        maxHeight: {
+                            xs: 'calc(100% - 16px)',
+                            sm: 'calc(100% - 32px)',
+                            md: 'calc(100% - 48px)',
+                        },
+                    },
+                },
+            }}
+        >
             <DialogTitle>{title}</DialogTitle>
             <DialogContent dividers>
                 {isLoading ? (

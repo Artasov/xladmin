@@ -51,6 +51,7 @@ type AdminTranslationKey =
     | 'delete_effect_set_null'
     | 'invalid_json'
     | 'back'
+    | 'menu'
     | 'staff_only';
 
 const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
@@ -102,6 +103,7 @@ const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
         delete_effect_set_null: 'Будет отвязано',
         invalid_json: 'Некорректный JSON.',
         back: 'Назад',
+        menu: 'Меню',
         staff_only: 'Доступ к админке есть только у staff-пользователей.',
     },
     en: {
@@ -152,6 +154,7 @@ const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
         delete_effect_set_null: 'Will be detached',
         invalid_json: 'Invalid JSON.',
         back: 'Back',
+        menu: 'Menu',
         staff_only: 'Only staff users can access the admin.',
     },
 };

@@ -13,6 +13,8 @@ export type AdminFieldInputKind =
     | 'relation'
     | 'relation-multiple';
 
+export type AdminFieldDisplayKind = 'text' | 'image';
+
 export type AdminListFilterInputKind = 'text' | 'select' | 'boolean';
 
 export type AdminFieldMeta = {
@@ -20,6 +22,8 @@ export type AdminFieldMeta = {
     label: string;
     help_text: string | null;
     width_px?: number | null;
+    display_kind: AdminFieldDisplayKind;
+    image_url_prefix?: string | null;
     nullable: boolean;
     read_only: boolean;
     hidden_in_list: boolean;

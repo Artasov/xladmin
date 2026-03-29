@@ -3,9 +3,9 @@
 import {memo} from 'react';
 import type {MouseEvent} from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import {Checkbox, IconButton, TableCell, TableRow} from '@mui/material';
+import {Box, Checkbox, IconButton, TableCell, TableRow} from '@mui/material';
 import type {AdminFieldMeta, AdminLocale} from '../../types';
-import {formatAdminValue, getListFieldWidthPx} from '../../utils/adminFields';
+import {formatAdminValue, getListFieldWidthPx, resolveAdminMediaUrl} from '../../utils/adminFields';
 import {NavLink} from '../NavLink';
 
 export type ListRowProps = {
@@ -71,6 +71,9 @@ export const ListRow = memo(function ListRow({
                 const fullFieldValue = formatAdminValue(row[fieldName], {locale, field});
                 const fieldValue = formatAdminValue(row[fieldName], {locale, field, maxLength: 200});
                 const widthPx = getListFieldWidthPx(field);
+                const imageUrl = field?.display_kind === 'image'
+                    ? resolveAdminMediaUrl(row[fieldName], field)
+                    : null;
                 const commonCellSx = {
                     width: widthPx,
                     minWidth: widthPx,
@@ -79,6 +82,25 @@ export const ListRow = memo(function ListRow({
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                 };
+                if (imageUrl) {
+                    return (
+                        <TableCell key={fieldName} title={fullFieldValue} sx={{...commonCellSx, py: 0.75}}>
+                            <Box
+                                component="img"
+                                src={imageUrl}
+                                alt={field?.label ?? fieldName}
+                                sx={{
+                                    display: 'block',
+                                    width: 52,
+                                    height: 52,
+                                    objectFit: 'cover',
+                                    borderRadius: '8px',
+                                    backgroundColor: 'rgba(255,255,255,0.04)',
+                                }}
+                            />
+                        </TableCell>
+                    );
+                }
                 if (index === 0) {
                     return (
                         <TableCell

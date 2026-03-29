@@ -191,8 +191,8 @@ def create_router(config: HttpConfig) -> APIRouter:
         for related_item, attribute_names in set_null_items:
             for attribute_name in attribute_names:
                 setattr(related_item, attribute_name, None)
-        for delete_item in delete_items:
-            await session.delete(delete_item)
+        for related_delete_item in delete_items:
+            await session.delete(related_delete_item)
         await session.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 

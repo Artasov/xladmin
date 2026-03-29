@@ -27,6 +27,7 @@ from xladmin import (
 )
 
 
+# TODO: разбить огромный файл на мелкие
 class Base(DeclarativeBase):
     pass
 
@@ -521,7 +522,9 @@ async def test_router_uses_list_display_and_custom_search() -> None:
             assert response.status_code == 200
             payload = response.json()
             display_name_meta = next(
-                field for field in payload["meta"]["fields"] if field["name"] == "display_name"
+                field
+                for field in payload["meta"]["fields"]
+                if field["name"] == "display_name"
             )
             assert payload["meta"]["list_fields"] == ["id", "display_name", "joined_on", "is_active"]
             assert payload["meta"]["page_size"] == 120

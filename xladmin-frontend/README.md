@@ -19,6 +19,7 @@
 - форматирование `date` и `datetime`
 - форматирование и редактирование `JSON` полей
 - ширины колонок списка через `FieldConfig.width_px`
+- image-preview через `FieldConfig.display_kind="image"`
 - обрезка длинных текстов в list-view
 - delete preview dialog перед single delete и bulk delete
 - сохранение раскрытости `ModelsBlocks` в `localStorage`

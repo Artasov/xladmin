@@ -22,11 +22,23 @@ def get_mapper_field_names(config: AdminModelConfig) -> list[str]:
     """
 
     mapper = sa_inspect(config.model)
-    return [
-        prop.key
-        for prop in mapper.attrs
-        if isinstance(prop, ColumnProperty | RelationshipProperty)
-    ]
+    ordered_names: list[str] = []
+    declared_names = getattr(config.model, "__annotations__", {})
+
+    for field_name in declared_names:
+        if field_name not in mapper.attrs:
+            continue
+        prop = mapper.attrs[field_name]
+        if isinstance(prop, ColumnProperty | RelationshipProperty):
+            ordered_names.append(prop.key)
+
+    for prop in mapper.attrs:
+        if not isinstance(prop, ColumnProperty | RelationshipProperty):
+            continue
+        if prop.key not in ordered_names:
+            ordered_names.append(prop.key)
+
+    return ordered_names
 
 
 def get_column_names(config: AdminModelConfig) -> list[str]:
@@ -150,6 +162,8 @@ def get_model_meta(config: AdminModelConfig, *, locale: str = "ru") -> dict[str,
                 "label": field_config.label or name,
                 "help_text": field_config.help_text,
                 "width_px": field_config.width_px,
+                "display_kind": field_config.display_kind or "text",
+                "image_url_prefix": field_config.image_url_prefix,
                 "nullable": bool(column.nullable) if column is not None else True,
                 "read_only": _is_read_only(config, name),
                 "hidden_in_list": field_config.hidden_in_list,

@@ -86,6 +86,7 @@ xladmin_config = AdminConfig(
 - `title`
 - базовые `search_fields`
 - базовый `ordering`
+- порядок `list/detail/create/update` полей по порядку объявления ORM-модели
 
 ## 4. Полный пример
 
@@ -420,6 +421,30 @@ router = create_router(
 `width_px`
 
 - ширина колонки списка в пикселях для frontend
+
+`display_kind`
+
+- способ визуального рендера поля в админке
+- сейчас поддерживается:
+  - `text`
+  - `image`
+
+`image_url_prefix`
+
+- prefix для относительных путей image-поля
+- нужен, когда в БД хранится путь вроде `user/images/avatar.png`, а фронту нужно открыть `/media/user/images/avatar.png`
+
+Пример:
+
+```python
+FieldConfig(
+    label="Avatar",
+    width_px=92,
+    display_kind="image",
+    image_url_prefix="/media",
+    hidden_in_form=True,
+)
+```
 
 `value_getter`
 

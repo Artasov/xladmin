@@ -18,6 +18,8 @@ FieldInputKind = Literal[
     "relation-multiple",
 ]
 
+FieldDisplayKind = Literal["text", "image"]
+
 ListFilterInputKind = Literal["text", "select", "boolean"]
 
 
@@ -26,6 +28,8 @@ class FieldConfig:
     label: str | None = None
     help_text: str | None = None
     width_px: int | None = None
+    display_kind: FieldDisplayKind | None = None
+    image_url_prefix: str | None = None
     hidden_in_list: bool = False
     hidden_in_detail: bool = False
     hidden_in_form: bool = False

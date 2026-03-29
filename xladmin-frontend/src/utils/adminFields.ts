@@ -75,6 +75,9 @@ export function getListFieldWidthPx(field: AdminFieldMeta | undefined): number {
     if (!field) {
         return 180;
     }
+    if (field.display_kind === 'image') {
+        return 96;
+    }
 
     const normalizedType = field.type.toLowerCase();
     const normalizedInputKind = field.input_kind.toLowerCase();
@@ -104,6 +107,29 @@ export function getListFieldWidthPx(field: AdminFieldMeta | undefined): number {
         return 240;
     }
     return 220;
+}
+
+export function resolveAdminMediaUrl(
+    value: unknown,
+    field?: Pick<AdminFieldMeta, 'image_url_prefix'>,
+): string | null {
+    if (typeof value !== 'string' || !value.trim()) {
+        return null;
+    }
+
+    const normalizedValue = value.trim();
+    if (/^(?:https?:)?\/\//i.test(normalizedValue) || normalizedValue.startsWith('data:') || normalizedValue.startsWith('blob:')) {
+        return normalizedValue;
+    }
+
+    const imageUrlPrefix = field?.image_url_prefix?.trim();
+    if (imageUrlPrefix) {
+        const normalizedPrefix = imageUrlPrefix.endsWith('/') ? imageUrlPrefix.slice(0, -1) : imageUrlPrefix;
+        const normalizedPath = normalizedValue.startsWith('/') ? normalizedValue : `/${normalizedValue}`;
+        return `${normalizedPrefix}${normalizedPath}`;
+    }
+
+    return normalizedValue.startsWith('/') ? normalizedValue : `/${normalizedValue}`;
 }
 
 function formatDateLikeValue(

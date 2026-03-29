@@ -115,8 +115,6 @@ export const ListFiltersSidebar = memo(function ListFiltersSidebar({
     );
 });
 
-export const ListFiltersBar = ListFiltersSidebar;
-
 type FilterGroupSectionProps = {
     client: XLAdminClient;
     slug: string;
@@ -235,7 +233,9 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
                 label={filter.label}
                 value={value}
                 onChange={(event) => onChange(filter.slug, event.target.value)}
-                SelectProps={filter.input_kind === 'select' ? {onOpen: () => void loadChoices()} : undefined}
+                slotProps={{
+                    select: filter.input_kind === 'select' ? {onOpen: () => void loadChoices()} : undefined,
+                }}
             >
                 <MenuItem value="">{t('all')}</MenuItem>
                 {options.map((option) => (

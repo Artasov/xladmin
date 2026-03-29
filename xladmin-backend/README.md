@@ -66,10 +66,12 @@ router = create_router(
 - `list_filters` для фильтров списка в отдельной правой панели на странице модели
 - option-specific `filter_handler` у select-фильтров для canned query scopes
 - `width_px` у `FieldConfig` для ширины колонок списка
+- `display_kind="image"` у `FieldConfig` для image-preview в списке и на detail-странице
 - авто-детект `JSON` полей
 - RU / EN locale
 - delete preview для single delete и bulk delete
 - удаление обязательных дочерних `one-to-many` связей даже без явного ORM cascade
+- дефолтный порядок полей по порядку объявления в ORM-модели
 
 ## Совместимость
 

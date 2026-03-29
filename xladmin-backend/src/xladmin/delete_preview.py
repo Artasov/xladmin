@@ -178,7 +178,7 @@ def _iter_dependent_relations(model: type[Any]) -> list[_DependentRelation]:
     pk_column = mapper.primary_key[0]
     relations: list[_DependentRelation] = []
 
-    for candidate_mapper in model.registry.mappers:
+    for candidate_mapper in mapper.registry.mappers:
         candidate_model = candidate_mapper.class_
         if candidate_model is model:
             continue

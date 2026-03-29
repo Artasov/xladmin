@@ -69,7 +69,26 @@ export function FormDialog({
     };
 
     return (
-        <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+        <Dialog
+            open={open}
+            onClose={onClose}
+            fullWidth
+            maxWidth="md"
+            slotProps={{
+                paper: {
+                    sx: {
+                        m: {xs: 1, sm: 2, md: 3},
+                        width: {xs: 'calc(100% - 16px)', sm: undefined},
+                        maxWidth: {xs: 'calc(100% - 16px)', md: 900},
+                        maxHeight: {
+                            xs: 'calc(100% - 16px)',
+                            sm: 'calc(100% - 32px)',
+                            md: 'calc(100% - 48px)',
+                        },
+                    },
+                },
+            }}
+        >
             <DialogTitle>{title}</DialogTitle>
             <DialogContent>
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
