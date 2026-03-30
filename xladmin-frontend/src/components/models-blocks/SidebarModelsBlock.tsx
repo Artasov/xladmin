@@ -20,9 +20,10 @@ import {NavLink} from '../NavLink';
 type SidebarModelsBlockProps = {
     block: NormalizedBlock;
     basePath: string;
+    activeModelSlug: string | null;
 };
 
-export function SidebarModelsBlock({block, basePath}: SidebarModelsBlockProps) {
+export function SidebarModelsBlock({block, basePath, activeModelSlug}: SidebarModelsBlockProps) {
     const [isExpanded, setIsExpanded] = useBlockExpandedState(block.slug, block.default_expanded);
 
     if (block.collapsible) {
@@ -62,7 +63,7 @@ export function SidebarModelsBlock({block, basePath}: SidebarModelsBlockProps) {
                     <BlockTitle block={block} compact />
                 </AccordionSummary>
                 <AccordionDetails sx={{p: 0}}>
-                    <SidebarModelsList models={block.models} basePath={basePath} />
+                    <SidebarModelsList models={block.models} basePath={basePath} activeModelSlug={activeModelSlug} />
                 </AccordionDetails>
             </Accordion>
         );
@@ -79,7 +80,7 @@ export function SidebarModelsBlock({block, basePath}: SidebarModelsBlockProps) {
             <Box sx={{px: 1.25, py: 1}}>
                 <BlockTitle block={block} compact />
             </Box>
-            <SidebarModelsList models={block.models} basePath={basePath} />
+            <SidebarModelsList models={block.models} basePath={basePath} activeModelSlug={activeModelSlug} />
         </Paper>
     );
 }
@@ -87,22 +88,45 @@ export function SidebarModelsBlock({block, basePath}: SidebarModelsBlockProps) {
 type SidebarModelsListProps = {
     models: Array<{slug: string; title: string}>;
     basePath: string;
+    activeModelSlug: string | null;
 };
 
-function SidebarModelsList({models, basePath}: SidebarModelsListProps) {
+function SidebarModelsList({models, basePath, activeModelSlug}: SidebarModelsListProps) {
     return (
         <List dense disablePadding sx={{display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.35}}>
-            {models.map((model) => (
-                <NavLink
-                    key={model.slug}
-                    href={`${basePath}/${model.slug}`}
-                    style={{textDecoration: 'none', backgroundColor: '#ffffff0a'}}
-                >
-                    <ListItemButton sx={{borderRadius: '8px', px: 1.4}}>
+            {models.map((model) => {
+                const href = `${basePath}/${model.slug}`;
+                const isActive = activeModelSlug === model.slug;
+
+                return (
+                    <NavLink
+                        key={model.slug}
+                        href={href}
+                        style={{textDecoration: 'none', display: 'block'}}
+                    >
+                        <ListItemButton
+                            selected={isActive}
+                            sx={{
+                                borderRadius: '8px',
+                                px: 1.4,
+                                backgroundColor: isActive ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.04)',
+                                boxShadow: isActive ? 'inset 0 0 0 1px rgba(255, 255, 255, 0.08)' : 'none',
+                                '&:hover': {
+                                    backgroundColor: isActive ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                                },
+                                '&.Mui-selected': {
+                                    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                                },
+                                '&.Mui-selected:hover': {
+                                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                                },
+                            }}
+                        >
                         <ListItemText primary={model.title} />
-                    </ListItemButton>
-                </NavLink>
-            ))}
+                        </ListItemButton>
+                    </NavLink>
+                );
+            })}
         </List>
     );
 }

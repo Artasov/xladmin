@@ -6,13 +6,14 @@ import {useAdminTranslation} from '../i18n';
 import type {AdminModelMeta, AdminModelsBlockMeta} from '../types';
 import {DashboardModelsBlock} from './models-blocks/DashboardModelsBlock';
 import {SidebarModelsBlock} from './models-blocks/SidebarModelsBlock';
-import type {NormalizedBlock} from './models-blocks/types';
+import type {ActiveModelSlug, NormalizedBlock} from './models-blocks/types';
 
 type AdminModelsBlocksProps = {
     basePath: string;
     models: AdminModelMeta[];
     blocks: AdminModelsBlockMeta[];
     variant: 'sidebar' | 'dashboard';
+    activeModelSlug?: ActiveModelSlug;
 };
 
 export type ModelsBlocksProps = AdminModelsBlocksProps;
@@ -22,6 +23,7 @@ export const ModelsBlocks = memo(function ModelsBlocks({
     models,
     blocks,
     variant,
+    activeModelSlug = null,
 }: ModelsBlocksProps) {
     const t = useAdminTranslation();
     const theme = useTheme();
@@ -51,7 +53,12 @@ export const ModelsBlocks = memo(function ModelsBlocks({
         return (
             <Stack spacing={1}>
                 {normalizedBlocks.map((block) => (
-                    <SidebarModelsBlock key={block.slug} block={block} basePath={basePath} />
+                    <SidebarModelsBlock
+                        key={block.slug}
+                        block={block}
+                        basePath={basePath}
+                        activeModelSlug={activeModelSlug}
+                    />
                 ))}
             </Stack>
         );

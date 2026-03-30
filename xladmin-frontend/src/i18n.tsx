@@ -53,6 +53,8 @@ type AdminTranslationKey =
     | 'invalid_json'
     | 'back'
     | 'menu'
+    | 'show_details'
+    | 'hide_details'
     | 'staff_only';
 
 const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
@@ -106,6 +108,8 @@ const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
         invalid_json: 'Некорректный JSON.',
         back: 'Назад',
         menu: 'Меню',
+        show_details: 'Показать описание',
+        hide_details: 'Скрыть описание',
         staff_only: 'Доступ к админке есть только у staff-пользователей.',
     },
     en: {
@@ -158,6 +162,8 @@ const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
         invalid_json: 'Invalid JSON.',
         back: 'Back',
         menu: 'Menu',
+        show_details: 'Show details',
+        hide_details: 'Hide details',
         staff_only: 'Only staff users can access the admin.',
     },
 };

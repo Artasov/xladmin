@@ -3,17 +3,22 @@
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {usePathname, useRouter} from 'next/navigation.js';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {
     Alert,
     Box,
     Button,
     IconButton,
+    Menu,
+    MenuItem,
     Paper,
     Stack,
     Typography,
+    useMediaQuery,
 } from '@mui/material';
 import {LocalizationProvider} from '@mui/x-date-pickers';
 import {AdapterDayjs} from '@mui/x-date-pickers/AdapterDayjs';
+import {useTheme} from '@mui/material/styles';
 import 'dayjs/locale/en.js';
 import 'dayjs/locale/ru.js';
 import type {XLAdminClient} from '../client';
@@ -43,6 +48,8 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
     const t = useAdminTranslation();
     const router = useRouter();
     const pathname = usePathname();
+    const theme = useTheme();
+    const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
     const cacheKey = `${slug}:${id}`;
     const [data, setData] = useState<AdminDetailResponse | null>(() => detailResponseCache.get(cacheKey) ?? null);
     const [values, setValues] = useState<Record<string, unknown>>(() => detailResponseCache.get(cacheKey)?.item ?? {});
@@ -56,6 +63,7 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
     const [deletePreview, setDeletePreview] = useState<AdminDeletePreviewResponse | null>(null);
     const [isDeletePreviewLoading, setIsDeletePreviewLoading] = useState(false);
     const [deletePreviewError, setDeletePreviewError] = useState<string | null>(null);
+    const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
     const listPath = useMemo(() => pathname.split('/').slice(0, -1).join('/'), [pathname]);
     const adminRootPath = useMemo(() => listPath.split('/').slice(0, -1).join('/'), [listPath]);
 
@@ -123,6 +131,7 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
         () => String(data?.item._display ?? (meta ? `${meta.title} #${id}` : id)),
         [data, id, meta],
     );
+    const isActionsMenuOpen = actionsAnchorEl !== null;
 
     useAdminDocumentTitle(t('admin_title'), meta?.title ?? slug, objectTitle);
     const currentPayload = useMemo(
@@ -218,6 +227,7 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
     }, [cacheKey, client, data, id, slug, t]);
 
     const handleOpenDeletePreview = useCallback(async () => {
+        setActionsAnchorEl(null);
         setDeleteConfirmOpen(true);
         setDeletePreview(null);
         setDeletePreviewError(null);
@@ -250,7 +260,7 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
                 <MainHeader
                     title={objectTitle}
                     subtitle={meta.slug}
-                    beforeTitle={(
+                    beforeSubtitle={(
                         <IconButton
                             aria-label={t('back')}
                             onClick={handleNavigateBack}
@@ -260,6 +270,16 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
                             <ArrowBackIcon fontSize="small" />
                         </IconButton>
                     )}
+                    actions={isPhone ? (
+                        <IconButton
+                            aria-label={t('actions')}
+                            onClick={(event) => setActionsAnchorEl(event.currentTarget)}
+                            size="small"
+                            sx={{mr: -0.5}}
+                        >
+                            <MoreVertIcon fontSize="small" />
+                        </IconButton>
+                    ) : undefined}
                     details={meta.description ? (
                         <Typography color="text.secondary" sx={{fontSize: 14, lineHeight: 1.45}}>
                             {meta.description}
@@ -322,6 +342,7 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
                             alignSelf: 'flex-start',
                             position: {lg: 'sticky'},
                             top: {lg: 0},
+                            display: isPhone ? 'none' : undefined,
                         }}
                     >
                         <Stack spacing={1}>
@@ -355,6 +376,52 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
                     </Paper>
                 </Stack>
             </Stack>
+
+            <Menu
+                anchorEl={actionsAnchorEl}
+                open={isActionsMenuOpen}
+                onClose={() => setActionsAnchorEl(null)}
+                slotProps={{
+                    paper: {
+                        sx: {
+                            minWidth: 220,
+                        },
+                    },
+                }}
+                anchorOrigin={{vertical: 'bottom', horizontal: 'right'}}
+                transformOrigin={{vertical: 'top', horizontal: 'right'}}
+            >
+                {isDirty ? (
+                    <MenuItem
+                        onClick={() => {
+                            setActionsAnchorEl(null);
+                            void handleSave();
+                        }}
+                        disabled={isSaving}
+                    >
+                        {isSaving ? t('saving') : t('save')}
+                    </MenuItem>
+                ) : null}
+                <MenuItem
+                    onClick={() => void handleOpenDeletePreview()}
+                    disabled={isDeleting}
+                    sx={{color: 'error.main'}}
+                >
+                    {t('delete')}
+                </MenuItem>
+                {objectActions.map((action) => (
+                    <MenuItem
+                        key={action.slug}
+                        onClick={() => {
+                            setActionsAnchorEl(null);
+                            void handleRunObjectAction(action.slug);
+                        }}
+                        disabled={activeActionSlug !== null}
+                    >
+                        {activeActionSlug === action.slug ? t('executing') : action.label}
+                    </MenuItem>
+                ))}
+            </Menu>
 
             <DeletePreviewDialog
                 open={deleteConfirmOpen}

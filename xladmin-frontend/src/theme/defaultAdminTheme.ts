@@ -45,6 +45,12 @@ export const defaultAdminTheme = createTheme({
                     '&:hover': {
                         backgroundColor: 'rgba(255, 255, 255, 0.05)',
                     },
+                    '&.Mui-selected': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                    },
+                    '&.Mui-selected:hover': {
+                        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    },
                     '& .MuiListItemText-secondary': {
                         color: theme.palette.text.secondary,
                     },

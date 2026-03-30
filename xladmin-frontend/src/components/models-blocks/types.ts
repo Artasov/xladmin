@@ -10,3 +10,5 @@ export type NormalizedBlock = {
     models: AdminModelMeta[];
     isAllModels?: boolean;
 };
+
+export type ActiveModelSlug = string | null;
