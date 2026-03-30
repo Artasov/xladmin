@@ -8,13 +8,14 @@ type AdminNavLinkProps = {
     children: ReactNode;
     style?: CSSProperties;
     title?: string;
+    onClick?: () => void;
 };
 
 export type NavLinkProps = AdminNavLinkProps;
 
-export function NavLink({href, children, style, title}: NavLinkProps) {
+export function NavLink({href, children, style, title, onClick}: NavLinkProps) {
     return (
-        <Link href={href} style={style} title={title}>
+        <Link href={href} style={style} title={title} onClick={onClick}>
             {children}
         </Link>
     );

@@ -26,6 +26,11 @@ type AdminShellProps = {
 
 export type ShellProps = AdminShellProps;
 
+function normalizeAdminPath(path: string) {
+    const normalizedPath = path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path;
+    return normalizedPath.replace(/^\/(ru|en)(?=\/|$)/, '') || '/';
+}
+
 export function Shell({client, models, blocks, basePath, locale, children, theme}: ShellProps) {
     void client;
 
@@ -33,6 +38,8 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
     const pathname = usePathname();
     const isDesktopSidebar = useMediaQuery(activeTheme.breakpoints.up('lg'));
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+    const [pendingPath, setPendingPath] = useState<string | null>(null);
+    const [pendingView, setPendingView] = useState<'overview' | 'model' | 'generic' | null>(null);
 
     useEffect(() => {
         if (isDesktopSidebar) {
@@ -44,10 +51,30 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
         setIsMobileSidebarOpen(false);
     }, [pathname]);
 
+    useEffect(() => {
+        if (pendingPath === null) {
+            return;
+        }
+
+        if (normalizeAdminPath(pathname) === normalizeAdminPath(pendingPath)) {
+            setPendingPath(null);
+            setPendingView(null);
+        }
+    }, [pathname, pendingPath]);
+
     const shellContextValue = useMemo(() => ({
         isMobile: !isDesktopSidebar,
         openMobileSidebar: () => setIsMobileSidebarOpen(true),
-    }), [isDesktopSidebar]);
+        pendingPath,
+        pendingView,
+        startPendingNavigation: (path: string, view: 'overview' | 'model' | 'generic' = 'generic') => {
+            if (normalizeAdminPath(pathname) === normalizeAdminPath(path)) {
+                return;
+            }
+            setPendingPath(path);
+            setPendingView(view);
+        },
+    }), [isDesktopSidebar, pathname, pendingPath, pendingView]);
 
     return (
         <ThemeProvider theme={activeTheme}>

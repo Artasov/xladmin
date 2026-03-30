@@ -21,9 +21,10 @@ type SidebarModelsBlockProps = {
     block: NormalizedBlock;
     basePath: string;
     activeModelSlug: string | null;
+    onModelNavigate?: (href: string) => void;
 };
 
-export function SidebarModelsBlock({block, basePath, activeModelSlug}: SidebarModelsBlockProps) {
+export function SidebarModelsBlock({block, basePath, activeModelSlug, onModelNavigate}: SidebarModelsBlockProps) {
     const [isExpanded, setIsExpanded] = useBlockExpandedState(block.slug, block.default_expanded);
 
     if (block.collapsible) {
@@ -63,7 +64,12 @@ export function SidebarModelsBlock({block, basePath, activeModelSlug}: SidebarMo
                     <BlockTitle block={block} compact />
                 </AccordionSummary>
                 <AccordionDetails sx={{p: 0}}>
-                    <SidebarModelsList models={block.models} basePath={basePath} activeModelSlug={activeModelSlug} />
+                    <SidebarModelsList
+                        models={block.models}
+                        basePath={basePath}
+                        activeModelSlug={activeModelSlug}
+                        onModelNavigate={onModelNavigate}
+                    />
                 </AccordionDetails>
             </Accordion>
         );
@@ -80,7 +86,12 @@ export function SidebarModelsBlock({block, basePath, activeModelSlug}: SidebarMo
             <Box sx={{px: 1.25, py: 1}}>
                 <BlockTitle block={block} compact />
             </Box>
-            <SidebarModelsList models={block.models} basePath={basePath} activeModelSlug={activeModelSlug} />
+            <SidebarModelsList
+                models={block.models}
+                basePath={basePath}
+                activeModelSlug={activeModelSlug}
+                onModelNavigate={onModelNavigate}
+            />
         </Paper>
     );
 }
@@ -89,9 +100,10 @@ type SidebarModelsListProps = {
     models: Array<{slug: string; title: string}>;
     basePath: string;
     activeModelSlug: string | null;
+    onModelNavigate?: (href: string) => void;
 };
 
-function SidebarModelsList({models, basePath, activeModelSlug}: SidebarModelsListProps) {
+function SidebarModelsList({models, basePath, activeModelSlug, onModelNavigate}: SidebarModelsListProps) {
     return (
         <List dense disablePadding sx={{display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.35}}>
             {models.map((model) => {
@@ -103,6 +115,7 @@ function SidebarModelsList({models, basePath, activeModelSlug}: SidebarModelsLis
                         key={model.slug}
                         href={href}
                         style={{textDecoration: 'none', display: 'block'}}
+                        onClick={() => onModelNavigate?.(href)}
                     >
                         <ListItemButton
                             selected={isActive}

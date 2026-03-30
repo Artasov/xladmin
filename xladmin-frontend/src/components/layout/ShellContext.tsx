@@ -6,11 +6,17 @@ import {createContext, useContext} from 'react';
 type ShellContextValue = {
     isMobile: boolean;
     openMobileSidebar: () => void;
+    pendingPath: string | null;
+    pendingView: 'overview' | 'model' | 'generic' | null;
+    startPendingNavigation: (path: string, view?: 'overview' | 'model' | 'generic') => void;
 };
 
 const defaultShellContextValue: ShellContextValue = {
     isMobile: false,
     openMobileSidebar: () => {},
+    pendingPath: null,
+    pendingView: null,
+    startPendingNavigation: () => {},
 };
 
 const ShellContext = createContext<ShellContextValue>(defaultShellContextValue);

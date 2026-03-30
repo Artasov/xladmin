@@ -14,6 +14,7 @@ type AdminModelsBlocksProps = {
     blocks: AdminModelsBlockMeta[];
     variant: 'sidebar' | 'dashboard';
     activeModelSlug?: ActiveModelSlug;
+    onModelNavigate?: (href: string) => void;
 };
 
 export type ModelsBlocksProps = AdminModelsBlocksProps;
@@ -24,6 +25,7 @@ export const ModelsBlocks = memo(function ModelsBlocks({
     blocks,
     variant,
     activeModelSlug = null,
+    onModelNavigate,
 }: ModelsBlocksProps) {
     const t = useAdminTranslation();
     const theme = useTheme();
@@ -58,6 +60,7 @@ export const ModelsBlocks = memo(function ModelsBlocks({
                         block={block}
                         basePath={basePath}
                         activeModelSlug={activeModelSlug}
+                        onModelNavigate={onModelNavigate}
                     />
                 ))}
             </Stack>
