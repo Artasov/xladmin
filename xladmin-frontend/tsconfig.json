@@ -3,11 +3,16 @@
     "target": "ES2019",
     "lib": ["dom", "esnext"],
     "jsx": "react-jsx",
+    "baseUrl": ".",
     "module": "esnext",
     "moduleResolution": "bundler",
+    "paths": {
+      "xladmin": ["packages/xladmin-core/src/index.ts"],
+      "xladmin-next": ["packages/xladmin-next/src/index.tsx"],
+      "xladmin-react-router": ["packages/xladmin-react-router/src/index.tsx"]
+    },
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true
-  },
-  "include": ["src/**/*"]
+  }
 }

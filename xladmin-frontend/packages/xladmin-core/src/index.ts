@@ -6,6 +6,7 @@ export {
     type XLAdminAxiosLike,
     type XLAdminClient,
     type XLAdminFetchClientConfig,
+    type XLAdminRequestOptions,
     type XLAdminTransport,
 } from './client';
 export {

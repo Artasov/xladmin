@@ -1,7 +1,7 @@
 'use client';
 
 import type {CSSProperties, MouseEvent as ReactMouseEvent, ReactNode} from 'react';
-import {createContext, useContext, useEffect, useMemo, useState} from 'react';
+import {createContext, useContext, useMemo, useRef, useSyncExternalStore} from 'react';
 
 export type XLAdminLocation = {
     pathname: string;
@@ -83,16 +83,28 @@ export function useXLAdminRouter(router?: XLAdminRouter): XLAdminRouter {
 
 export function useXLAdminLocation(router?: XLAdminRouter): XLAdminLocation {
     const resolvedRouter = useXLAdminRouter(router);
-    const [location, setLocation] = useState<XLAdminLocation>(() => resolvedRouter.getLocation());
+    const snapshotRef = useRef<XLAdminLocation | null>(null);
+    const getSnapshot = useMemo(() => () => {
+        const nextLocation = resolvedRouter.getLocation();
+        const cachedLocation = snapshotRef.current;
 
-    useEffect(() => {
-        setLocation(resolvedRouter.getLocation());
-        return resolvedRouter.subscribe(() => {
-            setLocation(resolvedRouter.getLocation());
-        });
+        if (
+            cachedLocation !== null
+            && cachedLocation.pathname === nextLocation.pathname
+            && cachedLocation.search === nextLocation.search
+        ) {
+            return cachedLocation;
+        }
+
+        snapshotRef.current = nextLocation;
+        return nextLocation;
     }, [resolvedRouter]);
 
-    return location;
+    return useSyncExternalStore(
+        resolvedRouter.subscribe,
+        getSnapshot,
+        getSnapshot,
+    );
 }
 
 export function buildUrlWithParams(

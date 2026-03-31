@@ -1,0 +1,44 @@
+{
+  "name": "xladmin-react-router",
+  "version": "0.1.8",
+  "description": "React Router adapter for xladmin.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Artasov/xladmin.git",
+    "directory": "xladmin-frontend/packages/xladmin-react-router"
+  },
+  "homepage": "https://github.com/Artasov/xladmin/tree/main/xladmin-frontend/packages/xladmin-react-router",
+  "bugs": {
+    "url": "https://github.com/Artasov/xladmin/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node ../../scripts/clean.mjs && tsup src/index.tsx --format esm --dts",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --environment node --pool threads"
+  },
+  "peerDependencies": {
+    "react": ">=19.0.0 <20.0.0",
+    "react-dom": ">=19.0.0 <20.0.0",
+    "react-router-dom": ">=6.4.0 <8.0.0",
+    "xladmin": "^0.1.8"
+  }
+}

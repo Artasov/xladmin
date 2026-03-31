@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "paths": {
+      "xladmin": ["../xladmin-core/dist/index.d.ts"]
+    }
+  },
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+}

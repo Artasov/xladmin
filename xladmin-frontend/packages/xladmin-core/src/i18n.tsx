@@ -3,7 +3,7 @@
 import {createContext, type ReactNode, useContext, useMemo} from 'react';
 import type {AdminLocale} from './types';
 
-type AdminTranslationKey =
+export type AdminTranslationKey =
     | 'admin_title'
     | 'loading'
     | 'overview'

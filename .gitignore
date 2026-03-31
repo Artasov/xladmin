@@ -4,6 +4,9 @@ xladmin-frontend/dist/
 xladmin-frontend/.tmp-types/
 xladmin-frontend/tmp-types/
 xladmin-frontend/*.tgz
+xladmin-frontend/packages/*/dist/
+xladmin-frontend/packages/*/.tmp-types/
+xladmin-frontend/packages/*/*.tgz
 
 xladmin-backend/.venv/
 xladmin-backend/build/

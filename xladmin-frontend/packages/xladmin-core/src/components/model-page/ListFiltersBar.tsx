@@ -3,10 +3,9 @@
 import {memo, useCallback, useEffect, useMemo, useState} from 'react';
 import {Autocomplete, Button, CircularProgress, Divider, MenuItem, Paper, Stack, TextField, Typography} from '@mui/material';
 import type {XLAdminClient} from '../../client';
+import {useRemoteChoices} from '../../hooks/useRemoteChoices';
 import {useAdminTranslation} from '../../i18n';
 import type {AdminListFilterMeta} from '../../types';
-
-const inFlightFilterChoicesRequests = new Map<string, Promise<Array<{value: string; label: string}>>>();
 
 type ListFiltersSidebarProps = {
     client: XLAdminClient;
@@ -161,62 +160,44 @@ type ListFilterFieldProps = {
 function ListFilterField({client, slug, filter, value, onChange, debounceMs}: ListFilterFieldProps) {
     const t = useAdminTranslation();
     const [draftValue, setDraftValue] = useState(value);
-    const [options, setOptions] = useState(filter.options);
-    const [isLoadingChoices, setIsLoadingChoices] = useState(false);
     const [searchValue, setSearchValue] = useState('');
+    const loadChoices = useCallback(
+        async (signal: AbortSignal) => {
+            const response = await client.getFilterChoices(
+                slug,
+                filter.slug,
+                searchValue || undefined,
+                value ? [value] : undefined,
+                {signal},
+            );
+            return response.items.map((item) => ({
+                value: String(item.id),
+                label: item.label,
+            }));
+        },
+        [client, filter.slug, searchValue, slug, value],
+    );
+    const {items: options, isLoading: isLoadingChoices} = useRemoteChoices({
+        enabled: filter.has_choices && filter.input_kind === 'select',
+        debounceMs,
+        initialItems: filter.options,
+        resetKey: `${slug}:${filter.slug}`,
+        queryKey: `${slug}:${filter.slug}:${searchValue}:${value}`,
+        load: loadChoices,
+    });
 
     useEffect(() => {
         setDraftValue(value);
     }, [value]);
 
     useEffect(() => {
-        setOptions(filter.options);
         setSearchValue('');
     }, [filter.slug]);
 
     useEffect(() => {
-        if (filter.options.length === 0) {
+        if (filter.input_kind !== 'text') {
             return;
         }
-        setOptions(filter.options);
-    }, [filter.options]);
-
-    const loadChoices = useCallback(async (query: string) => {
-        if (!filter.has_choices || filter.input_kind !== 'select') {
-            return;
-        }
-
-        const requestKey = `${slug}:${filter.slug}:${query}:${value}`;
-        const existingRequest = inFlightFilterChoicesRequests.get(requestKey);
-        const request = existingRequest ?? client.getFilterChoices(
-            slug,
-            filter.slug,
-            query || undefined,
-            value ? [value] : undefined,
-        )
-            .then((response) => response.items.map((item) => ({
-                value: String(item.id),
-                label: item.label,
-            })))
-            .finally(() => {
-                inFlightFilterChoicesRequests.delete(requestKey);
-            });
-
-        if (!existingRequest) {
-            inFlightFilterChoicesRequests.set(requestKey, request);
-        }
-
-        setIsLoadingChoices(true);
-        try {
-            const nextOptions = await request;
-            setOptions(nextOptions);
-        } finally {
-            setIsLoadingChoices(false);
-        }
-    }, [client, filter.has_choices, filter.input_kind, filter.slug, slug, value]);
-
-    useEffect(() => {
-        if (filter.input_kind !== 'text') return;
 
         const timeoutId = window.setTimeout(() => {
             if (draftValue !== value) {
@@ -228,29 +209,6 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
             window.clearTimeout(timeoutId);
         };
     }, [debounceMs, draftValue, filter.input_kind, filter.slug, onChange, value]);
-
-    useEffect(() => {
-        if (!filter.has_choices || filter.input_kind !== 'select') {
-            return;
-        }
-
-        let isCancelled = false;
-        const timeoutId = window.setTimeout(() => {
-            void loadChoices(searchValue)
-                .then(() => {
-                    if (isCancelled) return;
-                })
-                .catch(() => {
-                    if (isCancelled) return;
-                    setOptions(filter.options);
-                });
-        }, debounceMs);
-
-        return () => {
-            isCancelled = true;
-            window.clearTimeout(timeoutId);
-        };
-    }, [debounceMs, filter.has_choices, filter.input_kind, filter.options, loadChoices, searchValue]);
 
     if (filter.input_kind === 'boolean') {
         return (
@@ -287,22 +245,27 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
                 onChange={(_, nextValue) => onChange(filter.slug, nextValue?.value ?? '')}
                 onInputChange={(_, nextInputValue) => setSearchValue(nextInputValue)}
                 renderInput={(params) => (
-                    <TextField
-                        {...params}
-                        label={filter.label}
-                        placeholder={filter.placeholder ?? t('search')}
-                        slotProps={{
-                            input: {
-                                ...params.InputProps,
-                                endAdornment: (
-                                    <>
-                                        {isLoadingChoices ? <CircularProgress color="inherit" size={16} /> : null}
-                                        {params.InputProps.endAdornment}
-                                    </>
-                                ),
-                            },
-                        }}
-                    />
+                    (() => {
+                        const {InputProps, inputProps, ...textFieldParams} = params;
+
+                        return (
+                            <TextField
+                                {...textFieldParams}
+                                label={filter.label}
+                                placeholder={filter.placeholder ?? t('search')}
+                                InputProps={{
+                                    ...InputProps,
+                                    endAdornment: (
+                                        <>
+                                            {isLoadingChoices ? <CircularProgress color="inherit" size={16} /> : null}
+                                            {InputProps.endAdornment}
+                                        </>
+                                    ),
+                                }}
+                                inputProps={inputProps}
+                            />
+                        );
+                    })()
                 )}
             />
         );

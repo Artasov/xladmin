@@ -1,6 +1,6 @@
 'use client';
 
-import {memo, useEffect, useMemo, useRef, useState} from 'react';
+import {memo, useCallback, useEffect, useMemo, useState} from 'react';
 import {
     Autocomplete,
     CircularProgress,
@@ -11,6 +11,7 @@ import {
 import {DatePicker, DateTimePicker} from '@mui/x-date-pickers';
 import dayjs from 'dayjs';
 import type {XLAdminClient} from '../client';
+import {useRemoteChoices} from '../hooks/useRemoteChoices';
 import {useAdminTranslation} from '../i18n';
 import type {AdminFieldMeta} from '../types';
 
@@ -39,13 +40,32 @@ export const FieldEditor = memo(function FieldEditor({
     readOnly = false,
 }: FieldEditorProps) {
     const t = useAdminTranslation();
-    const [choices, setChoices] = useState<RelationOption[]>([]);
     const [searchValue, setSearchValue] = useState('');
-    const [isLoadingChoices, setIsLoadingChoices] = useState(false);
     const [jsonTextValue, setJsonTextValue] = useState(() => stringifyJsonValue(value));
     const [jsonError, setJsonError] = useState<string | null>(null);
     const selectedIds = useMemo(() => normalizeSelectedIds(value, field.is_relation_many), [field.is_relation_many, value]);
-    const choicesRequestIdRef = useRef(0);
+    const loadChoices = useCallback(
+        async (signal: AbortSignal) => {
+            const response = await client.getChoices(
+                slug,
+                field.name,
+                searchValue || undefined,
+                selectedIds,
+                {signal},
+            );
+            return response.items;
+        },
+        [client, field.name, searchValue, selectedIds, slug],
+    );
+    const {items: choices, isLoading: isLoadingChoices} = useRemoteChoices<RelationOption>({
+        enabled: field.has_choices,
+        debounceMs: 250,
+        initialItems: [],
+        resetKey: `${slug}:${field.name}`,
+        queryKey: `${slug}:${field.name}:${searchValue}:${selectedIds.join(',')}`,
+        load: loadChoices,
+        merge: mergeChoices,
+    });
 
     useEffect(() => {
         if (field.input_kind !== 'json') {
@@ -54,38 +74,6 @@ export const FieldEditor = memo(function FieldEditor({
         setJsonTextValue(stringifyJsonValue(value));
         setJsonError(null);
     }, [field.input_kind, value]);
-
-    useEffect(() => {
-        if (!field.has_choices) {
-            setChoices([]);
-            return;
-        }
-
-        let isMounted = true;
-        const requestId = choicesRequestIdRef.current + 1;
-        choicesRequestIdRef.current = requestId;
-        const timeoutId = window.setTimeout(() => {
-            setIsLoadingChoices(true);
-            client.getChoices(slug, field.name, searchValue || undefined, selectedIds)
-                .then((response) => {
-                    if (!isMounted || requestId !== choicesRequestIdRef.current) return;
-                    setChoices((current) => mergeChoices(current, response.items));
-                })
-                .catch(() => {
-                    if (!isMounted || requestId !== choicesRequestIdRef.current) return;
-                    setChoices((current) => current);
-                })
-                .finally(() => {
-                    if (!isMounted || requestId !== choicesRequestIdRef.current) return;
-                    setIsLoadingChoices(false);
-                });
-        }, 250);
-
-        return () => {
-            isMounted = false;
-            window.clearTimeout(timeoutId);
-        };
-    }, [client, field.has_choices, field.name, searchValue, selectedIds, slug]);
 
     if (field.input_kind === 'boolean') {
         return (
@@ -265,28 +253,32 @@ function renderChoiceEditor({
                     listbox: {sx: {maxHeight: 240}},
                 }}
                 renderInput={(params) => (
-                    <TextField
-                        {...params}
-                        label={field.label}
-                        placeholder={searchPlaceholder}
-                        helperText={field.help_text ?? undefined}
-                        slotProps={{
-                            input: {
-                                ...params.InputProps,
-                                endAdornment: (
-                                    <>
-                                        {isLoadingChoices ? <CircularProgress color="inherit" size={16} /> : null}
-                                        {params.InputProps.endAdornment}
-                                    </>
-                                ),
-                            },
-                            htmlInput: {
-                                ...params.inputProps,
-                                autoComplete: 'new-password',
-                                name: `admin-choice-${field.name}`,
-                            },
-                        }}
-                    />
+                    (() => {
+                        const {InputProps, inputProps, ...textFieldParams} = params;
+
+                        return (
+                            <TextField
+                                {...textFieldParams}
+                                label={field.label}
+                                placeholder={searchPlaceholder}
+                                helperText={field.help_text ?? undefined}
+                                InputProps={{
+                                    ...InputProps,
+                                    endAdornment: (
+                                        <>
+                                            {isLoadingChoices ? <CircularProgress color="inherit" size={16} /> : null}
+                                            {InputProps.endAdornment}
+                                        </>
+                                    ),
+                                }}
+                                inputProps={{
+                                    ...inputProps,
+                                    autoComplete: 'new-password',
+                                    name: `admin-choice-${field.name}`,
+                                }}
+                            />
+                        );
+                    })()
                 )}
             />
         );
@@ -317,32 +309,37 @@ function renderChoiceEditor({
                 listbox: {sx: {maxHeight: 240}},
             }}
             renderInput={(params) => (
-                <TextField
-                    {...params}
-                    label={field.label}
-                    placeholder={searchPlaceholder}
-                    helperText={field.help_text ?? undefined}
-                    slotProps={{
-                        input: {
-                            ...params.InputProps,
-                            endAdornment: (
-                                <>
-                                    {isLoadingChoices ? <CircularProgress color="inherit" size={16} /> : null}
-                                    {params.InputProps.endAdornment}
-                                </>
-                            ),
-                        },
-                        htmlInput: {
-                            ...params.inputProps,
-                            autoComplete: 'new-password',
-                            name: `admin-choice-${field.name}`,
-                        },
-                    }}
-                />
+                (() => {
+                    const {InputProps, inputProps, ...textFieldParams} = params;
+
+                    return (
+                        <TextField
+                            {...textFieldParams}
+                            label={field.label}
+                            placeholder={searchPlaceholder}
+                            helperText={field.help_text ?? undefined}
+                            InputProps={{
+                                ...InputProps,
+                                endAdornment: (
+                                    <>
+                                        {isLoadingChoices ? <CircularProgress color="inherit" size={16} /> : null}
+                                        {InputProps.endAdornment}
+                                    </>
+                                ),
+                            }}
+                            inputProps={{
+                                ...inputProps,
+                                autoComplete: 'new-password',
+                                name: `admin-choice-${field.name}`,
+                            }}
+                        />
+                    );
+                })()
             )}
         />
     );
 }
+
 
 function normalizeSelectedIds(value: unknown, isMultiple: boolean): Array<string | number> {
     if (isMultiple) {

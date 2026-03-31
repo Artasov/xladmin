@@ -1,5 +1,5 @@
 name: XLAdmin Frontend
-run-name: Frontend Release · ${{ github.ref_name }}
+run-name: Frontend Release - ${{ github.ref_name }}
 
 on:
   push:
@@ -17,6 +17,10 @@ jobs:
   quality-checks:
     name: Quality Checks
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["20", "22"]
     defaults:
       run:
         working-directory: xladmin-frontend
@@ -26,7 +30,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: ${{ matrix.node-version }}
           cache: "npm"
           cache-dependency-path: xladmin-frontend/package-lock.json
 
@@ -39,11 +43,11 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Build package
+      - name: Build packages
         run: npm run build
 
-      - name: Pack package
-        run: npm pack --dry-run
+      - name: Pack packages
+        run: npm run pack:dry-run
 
   publish:
     name: Publish to npm
@@ -74,15 +78,26 @@ jobs:
       - name: Check tag version
         shell: bash
         run: |
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
           TAG_VERSION="${GITHUB_REF_NAME#frontend-v}"
-          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
-            echo "package.json version ($PACKAGE_VERSION) does not match tag ($TAG_VERSION)"
-            exit 1
-          fi
+          for package in packages/xladmin-core packages/xladmin-next packages/xladmin-react-router; do
+            PACKAGE_VERSION=$(node -p "require('./${package}/package.json').version")
+            if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+              echo "${package} version ($PACKAGE_VERSION) does not match tag ($TAG_VERSION)"
+              exit 1
+            fi
+          done
 
-      - name: Build package
+      - name: Build packages
         run: npm run build
 
-      - name: Publish package
+      - name: Publish xladmin
+        working-directory: xladmin-frontend/packages/xladmin-core
+        run: npm publish --access public
+
+      - name: Publish xladmin-next
+        working-directory: xladmin-frontend/packages/xladmin-next
+        run: npm publish --access public
+
+      - name: Publish xladmin-react-router
+        working-directory: xladmin-frontend/packages/xladmin-react-router
         run: npm publish --access public

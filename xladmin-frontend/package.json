@@ -1,63 +1,17 @@
 {
-  "name": "xladmin",
-  "version": "0.1.8",
-  "description": "Generic React + MUI admin frontend for xladmin.",
-  "license": "MIT",
+  "name": "xladmin-frontend-workspace",
+  "private": true,
   "type": "module",
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Artasov/xladmin.git",
-    "directory": "xladmin-frontend"
-  },
-  "homepage": "https://github.com/Artasov/xladmin/tree/main/xladmin-frontend",
-  "bugs": {
-    "url": "https://github.com/Artasov/xladmin/issues"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
-    },
-    "./next": {
-      "types": "./dist/next.d.ts",
-      "import": "./dist/next.js",
-      "default": "./dist/next.js"
-    }
-  },
-  "files": [
-    "dist"
+  "workspaces": [
+    "packages/xladmin-core",
+    "packages/xladmin-next",
+    "packages/xladmin-react-router"
   ],
-  "publishConfig": {
-    "access": "public"
-  },
   "scripts": {
-    "build": "node ./scripts/clean.mjs && tsup src/index.ts src/next.tsx --format esm && tsc --emitDeclarationOnly --declaration --outDir .tmp-types -p tsconfig.build.json && node ./scripts/postbuild.mjs",
-    "check": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --environment jsdom"
-  },
-  "peerDependencies": {
-    "@emotion/react": ">=11.14.0 <12.0.0",
-    "@emotion/styled": ">=11.14.0 <12.0.0",
-    "@mui/icons-material": ">=7.0.0 <8.0.0",
-    "@mui/material": ">=7.0.0 <8.0.0",
-    "@mui/x-date-pickers": ">=8.0.0 <9.0.0",
-    "axios": ">=1.0.0 <2.0.0",
-    "dayjs": ">=1.11.0 <2.0.0",
-    "next": ">=15.0.0 <17.0.0",
-    "react": ">=19.0.0 <20.0.0",
-    "react-dom": ">=19.0.0 <20.0.0"
-  },
-  "peerDependenciesMeta": {
-    "axios": {
-      "optional": true
-    },
-    "next": {
-      "optional": true
-    }
+    "build": "npm run build --workspace ./packages/xladmin-core && npm run build --workspace ./packages/xladmin-next && npm run build --workspace ./packages/xladmin-react-router",
+    "check": "npm run check --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "pack:dry-run": "cd packages/xladmin-core && npm pack --dry-run && cd ../xladmin-next && npm pack --dry-run && cd ../xladmin-react-router && npm pack --dry-run"
   },
   "devDependencies": {
     "@emotion/react": "^11.14.0",
@@ -70,12 +24,13 @@
     "@types/react-dom": "^19.1.9",
     "axios": "^1.12.2",
     "dayjs": "^1.11.19",
+    "jsdom": "^26.1.0",
     "next": "^15.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-router-dom": "^7.6.3",
     "tsup": "^8.5.0",
     "typescript": "^5.9.2",
-    "vitest": "^3.2.4",
-    "jsdom": "^26.1.0"
+    "vitest": "^3.2.4"
   }
 }
