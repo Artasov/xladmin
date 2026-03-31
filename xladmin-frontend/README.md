@@ -1,64 +1,42 @@
-# xladmin
+<div align="center">
+  <a href="./README.md">
+    <img src="https://img.shields.io/badge/English-blue?style=for-the-badge" alt="English">
+  </a>
+  <a href="./docs/README.ru.md">
+    <img src="https://img.shields.io/badge/%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-red?style=for-the-badge" alt="Russian">
+  </a>
+</div>
 
-`xladmin` это React + MUI frontend-пакет для admin UI поверх backend-пакета `xladmin`.
+# xladmin frontend workspace
 
-Важно:
+This workspace contains the frontend packages for `xladmin`.
 
-- имя пакета в npm: `xladmin`
-- импорт во frontend: `from 'xladmin'`
-- исходники монорепы: [Artasov/xladmin](https://github.com/Artasov/xladmin)
+## Packages
 
-## Что есть в библиотеке
+- [xladmin](./packages/xladmin-core/README.md) - framework-agnostic React + MUI admin UI
+- [xladmin-next](./packages/xladmin-next/README.md) - Next.js router adapter
+- [xladmin-react-router](./packages/xladmin-react-router/README.md) - React Router adapter
 
-- transport-agnostic `XLAdminClient`
-- helpers для `axios` и `fetch`
-- `Shell`, `OverviewPage`, `ModelPage`, `ObjectPage`
-- `ModelsBlocks`, `FieldEditor`, `FormDialog`
-- встроенный RU / EN i18n
-- right sidebar list filters from backend `list_filters`
-- форматирование `date` и `datetime`
-- форматирование и редактирование `JSON` полей
-- ширины колонок списка через `FieldConfig.width_px`
-- image-preview через `FieldConfig.display_kind="image"`
-- обрезка длинных текстов в list-view
-- delete preview dialog перед single delete и bulk delete
-- сохранение раскрытости `ModelsBlocks` в `localStorage`
-- встроенная MUI theme `defaultAdminTheme`
+## Workspace Commands
 
-Короткие имена считаются основными. Старые `Admin*` имена оставлены как alias для совместимости.
+```bash
+npm ci
+npm test
+npm run check
+npm run build
+npm run pack:dry-run
+```
 
-## Основной API
+## Notes
 
-- `createXLAdminClient(...)`
-- `createAxiosXLAdminClient(...)`
-- `createFetchXLAdminClient(...)`
-- `Shell`
-- `OverviewPage`
-- `ModelPage`
-- `ObjectPage`
-- `ModelsBlocks`
-- `DeletePreviewDialog`
-- `defaultAdminTheme`
+- the npm package name for `packages/xladmin-core` is still `xladmin`
+- adapters are published as separate npm packages
+- all frontend packages are published from the same workflow: `.github/workflows/frontend.yml`
 
-## Совместимость
+## Docs
 
-- `React >=19,<20`
-- `React DOM >=19,<20`
-- `Next >=15,<17`
-- `@mui/material >=7,<8`
-- `@mui/icons-material >=7,<8`
-- `@mui/x-date-pickers >=8,<9`
-- `dayjs >=1,<2`
-- `axios >=1,<2` — опционально, только если проект использует axios-helper
-
-## Как подключать
-
-Библиотека не требует именно `axios`.
-
-Можно использовать:
-
-- `createAxiosXLAdminClient(api)` — если проект уже живёт на `axios instance`
-- `createFetchXLAdminClient({...})` — если проект работает через `fetch`
-- свой `XLAdminClient` — если проекту нужен полностью свой transport
-
-Практическая интеграция вынесена в [docs/HOW_TO_USE.md](docs/HOW_TO_USE.md).
+- [Russian README](./docs/README.ru.md)
+- [xladmin package](./packages/xladmin-core/README.md)
+- [xladmin-next package](./packages/xladmin-next/README.md)
+- [xladmin-react-router package](./packages/xladmin-react-router/README.md)
+- [Root release guide](../docs/RELEASE_GUIDE.md)

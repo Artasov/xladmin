@@ -1,23 +1,23 @@
 <div align="center">
-  <a href="./README.md">
+  <a href="../README.md">
     <img src="https://img.shields.io/badge/English-blue?style=for-the-badge" alt="English">
   </a>
-  <a href="./docs/README.ru.md">
+  <a href="./README.ru.md">
     <img src="https://img.shields.io/badge/%D0%A0%D1%83%D1%81%D1%81%D0%BA%D0%B8%D0%B9-red?style=for-the-badge" alt="Russian">
   </a>
 </div>
 
 # xladmin backend
 
-`xladmin-backend` is the backend package published to PyPI as `xladmin`.
+`xladmin-backend` — backend-пакет, который публикуется в PyPI под именем `xladmin`.
 
-Important:
+Важно:
 
-- package name on PyPI: `xladmin`
-- Python import: `from xladmin import ...`
-- monorepo: [Artasov/xladmin](https://github.com/Artasov/xladmin)
+- имя пакета в PyPI: `xladmin`
+- импорт в Python: `from xladmin import ...`
+- монорепа: [Artasov/xladmin](https://github.com/Artasov/xladmin)
 
-## Public API
+## Публичный API
 
 - `AdminConfig` / `ModelConfig` / `FieldConfig`
 - `ListFilterConfig`
@@ -26,12 +26,12 @@ Important:
 - `HttpConfig`
 - `create_router(...)`
 
-Compatibility aliases are kept:
+Для совместимости оставлены alias:
 
-- `Admin*` config names
+- старые `Admin*` имена конфигов
 - `create_admin_router(...)`
 
-## Minimal Example
+## Минимальный пример
 
 ```python
 from xladmin import AdminConfig, HttpConfig, ModelConfig, create_router
@@ -57,26 +57,26 @@ router = create_router(
 )
 ```
 
-`ModelConfig(model=UserORM)` is enough for a basic admin. The library derives default `slug`, `title`, search fields, and ordering from the ORM model.
+`ModelConfig(model=UserORM)` уже достаточно для базовой админки. Библиотека сама выводит `slug`, `title`, базовые search fields и ordering из ORM-модели.
 
-## Features
+## Что есть в библиотеке
 
 - list / detail / create / patch / delete endpoints
-- bulk actions and object actions
-- relation choices and relation filters
-- overview metadata and model blocks
-- `query_for_list` and custom `search_query_builder`
-- delete preview for single and bulk delete
-- RU / EN locale metadata for the frontend
+- bulk actions и object actions
+- relation choices и relation filters
+- overview metadata и model blocks
+- `query_for_list` и кастомный `search_query_builder`
+- delete preview для single и bulk delete
+- RU / EN locale metadata для фронтенда
 
-## Compatibility
+## Совместимость
 
 - `FastAPI >=0.115,<1.0`
 - `Pydantic >=2.9,<3.0`
 - `SQLAlchemy >=2.0,<3.0`
 - `Python >=3.12`
 
-## Development
+## Разработка
 
 ```bash
 uv sync --extra dev
@@ -87,8 +87,8 @@ uv run python -m build
 uv run python -m twine check dist/*
 ```
 
-## Docs
+## Документация
 
-- [docs/HOW_TO_USE.md](./docs/HOW_TO_USE.md)
-- [Russian README](./docs/README.ru.md)
-- [Monorepo README](../README.md)
+- [docs/HOW_TO_USE.md](./HOW_TO_USE.md)
+- [English README](../README.md)
+- [README монорепы](../../README.md)

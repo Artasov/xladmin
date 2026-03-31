@@ -14,6 +14,9 @@ FRONTEND_DIR = ROOT_DIR / "xladmin-frontend"
 BACKEND_DIR = ROOT_DIR / "xladmin-backend"
 FRONTEND_PACKAGE_FILE = FRONTEND_DIR / "package.json"
 FRONTEND_LOCK_FILE = FRONTEND_DIR / "package-lock.json"
+FRONTEND_CORE_PACKAGE_FILE = FRONTEND_DIR / "packages" / "xladmin-core" / "package.json"
+FRONTEND_NEXT_PACKAGE_FILE = FRONTEND_DIR / "packages" / "xladmin-next" / "package.json"
+FRONTEND_REACT_ROUTER_PACKAGE_FILE = FRONTEND_DIR / "packages" / "xladmin-react-router" / "package.json"
 BACKEND_PYPROJECT_FILE = BACKEND_DIR / "pyproject.toml"
 VERSION_PATTERN = re.compile(r'(?P<prefix>version\s*=\s*")(?P<version>\d+\.\d+\.\d+)(?P<suffix>")')
 
@@ -41,6 +44,12 @@ PACKAGE_CONFIGS = {
         tag_prefix="backend-v",
     ),
 }
+
+FRONTEND_PACKAGE_FILES = (
+    FRONTEND_CORE_PACKAGE_FILE,
+    FRONTEND_NEXT_PACKAGE_FILE,
+    FRONTEND_REACT_ROUTER_PACKAGE_FILE,
+)
 
 
 class ReleaseService:
@@ -94,8 +103,18 @@ class ReleaseService:
 
     def get_current_version(self, config: PackageReleaseConfig) -> str:
         if config.package == "frontend":
-            content = json.loads(FRONTEND_PACKAGE_FILE.read_text(encoding="utf-8"))
-            return str(content["version"])
+            versions = {
+                package_file: str(json.loads(package_file.read_text(encoding="utf-8"))["version"])
+                for package_file in FRONTEND_PACKAGE_FILES
+            }
+            distinct_versions = set(versions.values())
+            if len(distinct_versions) != 1:
+                formatted_versions = ", ".join(
+                    f"{package_file.relative_to(ROOT_DIR)}={version}"
+                    for package_file, version in versions.items()
+                )
+                raise ReleaseError(f"Frontend package versions are out of sync: {formatted_versions}")
+            return next(iter(distinct_versions))
 
         content = BACKEND_PYPROJECT_FILE.read_text(encoding="utf-8")
         match = VERSION_PATTERN.search(content)
@@ -118,12 +137,19 @@ class ReleaseService:
         )
 
     def write_frontend_version(self, version: str) -> None:
-        package_data = json.loads(FRONTEND_PACKAGE_FILE.read_text(encoding="utf-8"))
-        package_data["version"] = version
-        FRONTEND_PACKAGE_FILE.write_text(
-            json.dumps(package_data, indent=2, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
+        for package_file in FRONTEND_PACKAGE_FILES:
+            package_data = json.loads(package_file.read_text(encoding="utf-8"))
+            package_data["version"] = version
+
+            if package_data.get("name") in {"xladmin-next", "xladmin-react-router"}:
+                peer_dependencies = package_data.get("peerDependencies")
+                if isinstance(peer_dependencies, dict) and "xladmin" in peer_dependencies:
+                    peer_dependencies["xladmin"] = f"^{version}"
+
+            package_file.write_text(
+                json.dumps(package_data, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
 
         if FRONTEND_LOCK_FILE.exists():
             lock_data = json.loads(FRONTEND_LOCK_FILE.read_text(encoding="utf-8"))
@@ -131,6 +157,27 @@ class ReleaseService:
             root_package = lock_data.get("packages", {}).get("")
             if isinstance(root_package, dict):
                 root_package["version"] = version
+
+            packages = lock_data.get("packages", {})
+            if isinstance(packages, dict):
+                core_package = packages.get("packages/xladmin-core")
+                if isinstance(core_package, dict):
+                    core_package["version"] = version
+
+                next_package = packages.get("packages/xladmin-next")
+                if isinstance(next_package, dict):
+                    next_package["version"] = version
+                    peer_dependencies = next_package.get("peerDependencies")
+                    if isinstance(peer_dependencies, dict) and "xladmin" in peer_dependencies:
+                        peer_dependencies["xladmin"] = f"^{version}"
+
+                react_router_package = packages.get("packages/xladmin-react-router")
+                if isinstance(react_router_package, dict):
+                    react_router_package["version"] = version
+                    peer_dependencies = react_router_package.get("peerDependencies")
+                    if isinstance(peer_dependencies, dict) and "xladmin" in peer_dependencies:
+                        peer_dependencies["xladmin"] = f"^{version}"
+
             FRONTEND_LOCK_FILE.write_text(
                 json.dumps(lock_data, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8",
@@ -138,7 +185,11 @@ class ReleaseService:
 
     def stage_version_files(self, config: PackageReleaseConfig) -> None:
         if config.package == "frontend":
-            self.git("add", self.to_git_path(FRONTEND_PACKAGE_FILE), self.to_git_path(FRONTEND_LOCK_FILE))
+            self.git(
+                "add",
+                self.to_git_path(FRONTEND_LOCK_FILE),
+                *(self.to_git_path(package_file) for package_file in FRONTEND_PACKAGE_FILES),
+            )
             return
 
         self.git("add", self.to_git_path(BACKEND_PYPROJECT_FILE))
