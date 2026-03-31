@@ -151,37 +151,11 @@ class ReleaseService:
                 encoding="utf-8",
             )
 
-        if FRONTEND_LOCK_FILE.exists():
-            lock_data = json.loads(FRONTEND_LOCK_FILE.read_text(encoding="utf-8"))
-            lock_data["version"] = version
-            root_package = lock_data.get("packages", {}).get("")
-            if isinstance(root_package, dict):
-                root_package["version"] = version
-
-            packages = lock_data.get("packages", {})
-            if isinstance(packages, dict):
-                core_package = packages.get("packages/xladmin-core")
-                if isinstance(core_package, dict):
-                    core_package["version"] = version
-
-                next_package = packages.get("packages/xladmin-next")
-                if isinstance(next_package, dict):
-                    next_package["version"] = version
-                    peer_dependencies = next_package.get("peerDependencies")
-                    if isinstance(peer_dependencies, dict) and "xladmin" in peer_dependencies:
-                        peer_dependencies["xladmin"] = f"^{version}"
-
-                react_router_package = packages.get("packages/xladmin-react-router")
-                if isinstance(react_router_package, dict):
-                    react_router_package["version"] = version
-                    peer_dependencies = react_router_package.get("peerDependencies")
-                    if isinstance(peer_dependencies, dict) and "xladmin" in peer_dependencies:
-                        peer_dependencies["xladmin"] = f"^{version}"
-
-            FRONTEND_LOCK_FILE.write_text(
-                json.dumps(lock_data, indent=2, ensure_ascii=False) + "\n",
-                encoding="utf-8",
-            )
+        self.npm(
+            "install",
+            "--package-lock-only",
+            cwd=FRONTEND_DIR,
+        )
 
     def stage_version_files(self, config: PackageReleaseConfig) -> None:
         if config.package == "frontend":
@@ -238,6 +212,21 @@ class ReleaseService:
         return subprocess.run(
             ["git", *args],
             cwd=self.root_dir,
+            check=check,
+            text=True,
+            capture_output=capture_output,
+        )
+
+    def npm(
+        self,
+        *args: str,
+        cwd: Path,
+        check: bool = True,
+        capture_output: bool = False,
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["npm", *args],
+            cwd=cwd,
             check=check,
             text=True,
             capture_output=capture_output,
