@@ -1,8 +1,8 @@
 'use client';
 
 import type {ReactNode} from 'react';
-import {usePathname} from 'next/navigation.js';
 import {Box} from '@mui/material';
+import {useXLAdminLocation} from '../../router';
 import {ModelPageSkeleton} from '../model-page/Skeletons';
 import {useShellContext} from './ShellContext';
 
@@ -16,7 +16,7 @@ type MainProps = {
  * Здесь живёт только текущий контент маршрута без дополнительной логики переходов.
  */
 export function Main({children}: MainProps) {
-    const pathname = usePathname();
+    const {pathname} = useXLAdminLocation();
     const {pendingPath, pendingView} = useShellContext();
     const normalizeAdminPath = (path: string) => {
         const normalizedPath = path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path;

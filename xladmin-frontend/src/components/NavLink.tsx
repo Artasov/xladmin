@@ -1,7 +1,8 @@
 'use client';
 
 import type {CSSProperties, ReactNode} from 'react';
-import Link from 'next/link.js';
+import type {XLAdminRouter} from '../router';
+import {handleNavLinkClick, useXLAdminRouter} from '../router';
 
 type AdminNavLinkProps = {
     href: string;
@@ -9,14 +10,22 @@ type AdminNavLinkProps = {
     style?: CSSProperties;
     title?: string;
     onClick?: () => void;
+    router?: XLAdminRouter;
 };
 
 export type NavLinkProps = AdminNavLinkProps;
 
-export function NavLink({href, children, style, title, onClick}: NavLinkProps) {
+export function NavLink({href, children, style, title, onClick, router}: NavLinkProps) {
+    const resolvedRouter = useXLAdminRouter(router);
+
     return (
-        <Link href={href} style={style} title={title} onClick={onClick}>
+        <a
+            href={href}
+            style={style}
+            title={title}
+            onClick={(event) => handleNavLinkClick(event, {href, onClick, router: resolvedRouter})}
+        >
             {children}
-        </Link>
+        </a>
     );
 }

@@ -21,6 +21,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.js",
+      "default": "./dist/next.js"
     }
   },
   "files": [
@@ -30,8 +35,9 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm && tsc --emitDeclarationOnly --declaration --outDir .tmp-types -p tsconfig.json && node ./scripts/postbuild.mjs",
-    "check": "tsc --noEmit -p tsconfig.json"
+    "build": "node ./scripts/clean.mjs && tsup src/index.ts src/next.tsx --format esm && tsc --emitDeclarationOnly --declaration --outDir .tmp-types -p tsconfig.build.json && node ./scripts/postbuild.mjs",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --environment jsdom"
   },
   "peerDependencies": {
     "@emotion/react": ">=11.14.0 <12.0.0",
@@ -47,6 +53,9 @@
   },
   "peerDependenciesMeta": {
     "axios": {
+      "optional": true
+    },
+    "next": {
       "optional": true
     }
   },
@@ -65,6 +74,8 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "tsup": "^8.5.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4",
+    "jsdom": "^26.1.0"
   }
 }

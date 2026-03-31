@@ -2,11 +2,12 @@
 
 import type {ReactNode} from 'react';
 import {useEffect, useMemo, useState} from 'react';
-import {usePathname} from 'next/navigation.js';
 import {Box, CssBaseline, Drawer, GlobalStyles, Stack, useMediaQuery} from '@mui/material';
 import {ThemeProvider, type Theme} from '@mui/material/styles';
 import type {XLAdminClient} from '../client';
 import {AdminLocaleProvider} from '../i18n';
+import type {XLAdminRouter} from '../router';
+import {XLAdminRouterProvider, useXLAdminLocation, useXLAdminRouter} from '../router';
 import type {AdminModelMeta, AdminModelsBlockMeta} from '../types';
 import {defaultAdminTheme} from '../theme/defaultAdminTheme';
 import {AdminDataProvider} from './layout/AdminDataContext';
@@ -22,6 +23,7 @@ type AdminShellProps = {
     locale?: string | null;
     children: ReactNode;
     theme?: Theme;
+    router?: XLAdminRouter;
 };
 
 export type ShellProps = AdminShellProps;
@@ -31,11 +33,13 @@ function normalizeAdminPath(path: string) {
     return normalizedPath.replace(/^\/(ru|en)(?=\/|$)/, '') || '/';
 }
 
-export function Shell({client, models, blocks, basePath, locale, children, theme}: ShellProps) {
+export function Shell({client, models, blocks, basePath, locale, children, theme, router}: ShellProps) {
     void client;
 
     const activeTheme = theme ?? defaultAdminTheme;
-    const pathname = usePathname();
+    const resolvedRouter = useXLAdminRouter(router);
+    const location = useXLAdminLocation(resolvedRouter);
+    const pathname = location.pathname;
     const isDesktopSidebar = useMediaQuery(activeTheme.breakpoints.up('lg'));
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [pendingPath, setPendingPath] = useState<string | null>(null);
@@ -77,13 +81,14 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
     }), [isDesktopSidebar, pathname, pendingPath, pendingView]);
 
     return (
-        <ThemeProvider theme={activeTheme}>
-            <AdminLocaleProvider locale={locale}>
-                <AdminDataProvider value={{locale: locale === 'en' ? 'en' : 'ru', models, blocks}}>
-                    <ShellContextProvider value={shellContextValue}>
-                        <CssBaseline />
-                        <GlobalStyles
-                            styles={(muiTheme) => ({
+        <XLAdminRouterProvider router={resolvedRouter}>
+            <ThemeProvider theme={activeTheme}>
+                <AdminLocaleProvider locale={locale}>
+                    <AdminDataProvider value={{locale: locale === 'en' ? 'en' : 'ru', models, blocks}}>
+                        <ShellContextProvider value={shellContextValue}>
+                            <CssBaseline />
+                            <GlobalStyles
+                                styles={(muiTheme) => ({
                                 'html, body': {
                                     backgroundColor: muiTheme.palette.background.default,
                                     backgroundImage: 'none',
@@ -117,10 +122,10 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
                                     fontSize: '14px',
                                 },
                             })}
-                        />
-                        <Box
-                            data-xladmin-root="true"
-                            sx={{
+                            />
+                            <Box
+                                data-xladmin-root="true"
+                                sx={{
                                 height: '100dvh',
                                 overflow: 'hidden',
                                 boxSizing: 'border-box',
@@ -162,13 +167,13 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
                                     <Main>{children}</Main>
                                 </Box>
                             </Stack>
-                        </Box>
-                        <Drawer
-                            anchor="left"
-                            open={isMobileSidebarOpen}
-                            onClose={() => setIsMobileSidebarOpen(false)}
-                            keepMounted
-                            slotProps={{
+                            </Box>
+                            <Drawer
+                                anchor="left"
+                                open={isMobileSidebarOpen}
+                                onClose={() => setIsMobileSidebarOpen(false)}
+                                keepMounted
+                                slotProps={{
                                 paper: {
                                     sx: {
                                         width: 320,
@@ -180,14 +185,15 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
                                     },
                                 },
                             }}
-                        >
-                            <Box sx={{height: '100%', minHeight: 0, pr: 1.5}}>
-                                <Sidebar models={models} blocks={blocks} basePath={basePath} />
-                            </Box>
-                        </Drawer>
-                    </ShellContextProvider>
-                </AdminDataProvider>
-            </AdminLocaleProvider>
-        </ThemeProvider>
+                            >
+                                <Box sx={{height: '100%', minHeight: 0, pr: 1.5}}>
+                                    <Sidebar models={models} blocks={blocks} basePath={basePath} />
+                                </Box>
+                            </Drawer>
+                        </ShellContextProvider>
+                    </AdminDataProvider>
+                </AdminLocaleProvider>
+            </ThemeProvider>
+        </XLAdminRouterProvider>
     );
 }

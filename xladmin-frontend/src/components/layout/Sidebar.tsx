@@ -1,9 +1,9 @@
 'use client';
 
 import {memo} from 'react';
-import {usePathname} from 'next/navigation.js';
 import {Box, ListItemButton, Typography} from '@mui/material';
 import {useAdminTranslation} from '../../i18n';
+import {useXLAdminLocation} from '../../router';
 import type {AdminModelMeta, AdminModelsBlockMeta} from '../../types';
 import {ModelsBlocks} from '../ModelsBlocks';
 import {NavLink} from '../NavLink';
@@ -17,7 +17,7 @@ type SidebarProps = {
 
 export const Sidebar = memo(function Sidebar({models, blocks, basePath}: SidebarProps) {
     const t = useAdminTranslation();
-    const pathname = usePathname();
+    const {pathname} = useXLAdminLocation();
     const {pendingPath, startPendingNavigation} = useShellContext();
     const effectivePathname = pendingPath ?? pathname;
     const normalizedBasePath = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;

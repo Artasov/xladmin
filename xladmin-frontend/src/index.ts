@@ -8,6 +8,17 @@ export {
     type XLAdminFetchClientConfig,
     type XLAdminTransport,
 } from './client';
+export {
+    XLAdminRouterProvider,
+    buildUrlWithParams,
+    createBrowserXLAdminRouter,
+    handleNavLinkClick,
+    type XLAdminAnchorProps,
+    type XLAdminLocation,
+    type XLAdminRouter,
+    useXLAdminLocation,
+    useXLAdminRouter,
+} from './router';
 export {FormDialog, type FormDialogProps} from './components/FormDialog';
 export {OverviewPage, type OverviewPageProps} from './components/OverviewPage';
 export {ModelPage, type ModelPageProps} from './components/ModelPage';
