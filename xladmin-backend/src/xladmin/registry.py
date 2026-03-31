@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import re
+from dataclasses import replace
 from typing import Any
 
 from xladmin.config import AdminConfig, ModelConfig, ModelsBlockConfig
@@ -85,15 +86,13 @@ def build_registry(registry_or_config: Registry | AdminConfig) -> Registry:
 def normalize_config(config: ModelConfig) -> ModelConfig:
     """Fill base defaults for minimal `ModelConfig(model=SomeORM)`."""
 
-    if config.slug is None:
-        config.slug = get_default_model_slug(config.model)
-    if config.title is None:
-        config.title = get_default_model_title(config.model)
-    if not config.search_fields:
-        config.search_fields = get_default_search_fields(config.model)
-    if not config.ordering:
-        config.ordering = get_default_ordering(config.model)
-    return config
+    return replace(
+        config,
+        slug=config.slug or get_default_model_slug(config.model),
+        title=config.title or get_default_model_title(config.model),
+        search_fields=config.search_fields or get_default_search_fields(config.model),
+        ordering=config.ordering or get_default_ordering(config.model),
+    )
 
 
 def get_default_model_slug(model: type[Any]) -> str:

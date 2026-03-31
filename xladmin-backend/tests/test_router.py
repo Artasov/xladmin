@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import date
 from types import SimpleNamespace
 from typing import Any
@@ -202,12 +204,23 @@ class DemoHardChildORM(Base):
     parent_id: Mapped[int] = mapped_column(ForeignKey("demo_hard_parents.id", ondelete="CASCADE"), nullable=False)
 
 
+TEST_DATABASE_URL = os.getenv(
+    "XLADMIN_TEST_DATABASE_URL",
+    "postgresql+asyncpg://postgres:adminadmin@localhost:5432/xladmin_test",
+)
+
+
 async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[FastAPI, async_sessionmaker[AsyncSession]]:
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        poolclass=StaticPool,
-    )
+    engine_kwargs: dict[str, Any] = {}
+    if TEST_DATABASE_URL.startswith("sqlite"):
+        engine_kwargs["poolclass"] = StaticPool
+    engine = create_async_engine(TEST_DATABASE_URL, **engine_kwargs)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        yield
+        await engine.dispose()
 
     async def get_session() -> AsyncIterator[AsyncSession]:
         async with session_factory() as session:
@@ -458,7 +471,7 @@ async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[Fast
         ),
     )
 
-    app = FastAPI()
+    app = FastAPI(lifespan=lifespan)
     app.include_router(
         create_admin_router(
             AdminHTTPConfig(
@@ -471,6 +484,7 @@ async def _build_app(locale: str = "ru", *, is_staff: bool = True) -> tuple[Fast
     )
 
     async with engine.begin() as connection:  # noqa
+        await connection.run_sync(Base.metadata.drop_all)
         await connection.run_sync(Base.metadata.create_all)
 
     return app, session_factory
@@ -499,6 +513,45 @@ async def test_router_supports_virtual_fields_and_custom_setter() -> None:
     async with session_factory() as session:
         item = (await session.execute(select(DemoUserORM))).scalar_one()
         assert item.password == "hashed::secret"
+
+
+@pytest.mark.asyncio
+async def test_router_parses_string_boolean_payloads_correctly() -> None:
+    app, session_factory = await _build_app()
+    transport = ASGITransport(app=app)
+
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            create_response = await client.post(
+                "/xladmin/models/users/items/",
+                json={
+                    "username": "tester",
+                    "is_active": "false",
+                },
+            )
+
+            assert create_response.status_code == 201
+            assert create_response.json()["item"]["is_active"] is False
+
+    async with session_factory() as session:
+        item = (await session.execute(select(DemoUserORM))).scalar_one()
+        assert item.is_active is False
+
+
+@pytest.mark.asyncio
+async def test_router_rejects_unknown_relation_ids() -> None:
+    app, _session_factory = await _build_app()
+    transport = ASGITransport(app=app)
+
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.post(
+                "/xladmin/models/audits/items/",
+                json={"role_id": 999},
+            )
+
+            assert response.status_code == 400
+            assert response.json()["detail"] == "Invalid value for field 'role_id'."
 
 
 @pytest.mark.asyncio
@@ -553,6 +606,29 @@ async def test_router_supports_custom_query_for_list() -> None:
 
             assert response.status_code == 200
             assert [item["name"] for item in response.json()["items"]] == ["admin"]
+
+
+@pytest.mark.asyncio
+async def test_router_applies_query_for_list_scope_to_detail_endpoints() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        session.add_all(
+            [
+                DemoRoleORM(name="admin"),
+                DemoRoleORM(name="hidden"),
+            ],
+        )
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            detail_response = await client.get("/xladmin/models/roles/items/2/")
+            delete_response = await client.delete("/xladmin/models/roles/items/2/")
+
+            assert detail_response.status_code == 404
+            assert delete_response.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -656,6 +732,7 @@ async def test_router_returns_relation_filter_choices() -> None:
             [
                 DemoRoleORM(name="admin"),
                 DemoRoleORM(name="manager"),
+                DemoRoleORM(name="hidden"),
             ],
         )
         await session.commit()
@@ -810,6 +887,28 @@ async def test_router_reuses_related_model_search_for_choices() -> None:
                 "/xladmin/models/audits/fields/role_id/choices/",
                 params={"q": "ad"},
             )
+
+            assert response.status_code == 200
+            assert response.json()["items"] == [{"id": 1, "label": "admin"}]
+
+
+@pytest.mark.asyncio
+async def test_router_applies_relation_scope_to_field_choices() -> None:
+    app, session_factory = await _build_app()
+
+    async with session_factory() as session:
+        session.add_all(
+            [
+                DemoRoleORM(name="admin"),
+                DemoRoleORM(name="hidden"),
+            ],
+        )
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with transport:
+        async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/xladmin/models/audits/fields/role_id/choices/")
 
             assert response.status_code == 200
             assert response.json()["items"] == [{"id": 1, "label": "admin"}]

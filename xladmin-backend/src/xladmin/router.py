@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from pydantic import BaseModel, Field, RootModel
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect as sa_inspect
@@ -24,6 +25,14 @@ from xladmin.introspection import (
 )
 from xladmin.registry import build_registry
 from xladmin.serializer import serialize_model_instance
+
+
+class ItemPayload(RootModel[dict[str, Any]]):
+    pass
+
+
+class IdsPayload(BaseModel):
+    ids: list[Any] = Field(default_factory=list)
 
 
 def create_router(config: HttpConfig) -> APIRouter:
@@ -89,17 +98,12 @@ def create_router(config: HttpConfig) -> APIRouter:
             if raw_value in (None, ""):
                 continue
             list_filter_values[list_filter.slug] = str(raw_value)
-        query = select(model_config.model)
-        if model_config.query_for_list is not None:
-            custom_query = model_config.query_for_list(query, session, user)
-            query = await custom_query if inspect.isawaitable(custom_query) else custom_query
-        query = _apply_eager_loads(model_config, query)
+        query = await _build_model_query(session, model_config, user, mode="list")
         query = _apply_search(model_config, query, q, session)
         query = await _apply_list_filters(model_config, query, list_filter_values, session, user)
         query = _apply_ordering(model_config, query, sort)
-        total_query = select(func.count()).select_from(query.subquery())
-        total = int((await session.execute(total_query)).scalar_one())
-        items = list((await session.execute(query.limit(limit).offset(offset))).scalars())
+        total = await _count_total_items(session, model_config, query)
+        items = list((await session.execute(query.limit(limit).offset(offset))).scalars().unique())
         return {
             "meta": model_meta_by_slug[model_config.slug],
             "pagination": {"limit": limit, "offset": offset, "total": total},
@@ -115,7 +119,7 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> dict[str, Any]:
         _check_access(user)
         model_config = await _get_model_config(slug)
-        item = await _get_item_by_pk(session, model_config, item_id)
+        item = await _get_item_by_pk(session, model_config, item_id, user, mode="detail")
         if item is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"),
@@ -128,14 +132,14 @@ def create_router(config: HttpConfig) -> APIRouter:
     @router.post("/models/{slug}/items/", status_code=status.HTTP_201_CREATED)
     async def create_item(
             slug: str,
-            payload: dict[str, Any],
+            payload: ItemPayload,
             session: AsyncSession = Depends(config.get_db_session_dependency),
             user: Any = Depends(config.get_current_user_dependency),
     ) -> dict[str, Any]:
         _check_access(user)
         model_config = await _get_model_config(slug)
         item = model_config.model()
-        await _apply_payload_to_item(session, model_config, item, payload, mode="create")
+        await _apply_payload_to_item(session, model_config, item, payload.root, mode="create")
         session.add(item)
         await session.commit()
         await session.refresh(item)
@@ -145,21 +149,22 @@ def create_router(config: HttpConfig) -> APIRouter:
     async def patch_item(
             slug: str,
             item_id: str,
-            payload: dict[str, Any],
+            payload: ItemPayload,
             session: AsyncSession = Depends(config.get_db_session_dependency),
             user: Any = Depends(config.get_current_user_dependency),
     ) -> dict[str, Any]:
         _check_access(user)
         model_config = await _get_model_config(slug)
-        item = await _get_item_by_pk(session, model_config, item_id)
+        item = await _get_item_by_pk(session, model_config, item_id, user, mode="detail")
         if item is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"),
             )
-        await _apply_payload_to_item(session, model_config, item, payload, mode="update")
+        await _apply_payload_to_item(session, model_config, item, payload.root, mode="update")
         await session.commit()
         await session.refresh(item)
-        return {"item": serialize_model_instance(model_config, item, mode="detail")}
+        refreshed_item = await _get_item_by_pk(session, model_config, item_id, user, mode="detail")
+        return {"item": serialize_model_instance(model_config, refreshed_item or item, mode="detail")}
 
     @router.get("/models/{slug}/items/{item_id}/delete-preview/")
     async def get_delete_preview(
@@ -170,7 +175,7 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> dict[str, Any]:
         _check_access(user)
         model_config = await _get_model_config(slug)
-        item = await _get_item_by_pk(session, model_config, item_id)
+        item = await _get_item_by_pk(session, model_config, item_id, user, mode="detail")
         if item is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"),
@@ -186,7 +191,7 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> Response:
         _check_access(user)
         model_config = await _get_model_config(slug)
-        item = await _get_item_by_pk(session, model_config, item_id)
+        item = await _get_item_by_pk(session, model_config, item_id, user, mode="detail")
         if item is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"),
@@ -210,13 +215,13 @@ def create_router(config: HttpConfig) -> APIRouter:
             slug: str,
             item_id: str,
             action_slug: str,
-            payload: dict[str, Any] | None = None,
+            payload: ItemPayload | None = None,
             session: AsyncSession = Depends(config.get_db_session_dependency),
             user: Any = Depends(config.get_current_user_dependency),
     ) -> dict[str, Any]:
         _check_access(user)
         model_config = await _get_model_config(slug)
-        item = await _get_item_by_pk(session, model_config, item_id)
+        item = await _get_item_by_pk(session, model_config, item_id, user, mode="detail")
         if item is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail=translate(registry.locale, "object_not_found"),
@@ -229,12 +234,12 @@ def create_router(config: HttpConfig) -> APIRouter:
                 detail=translate(registry.locale, "object_action_not_found"),
             )
 
-        result = action.handler(session, model_config, item, payload or {}, user)
+        result = action.handler(session, model_config, item, payload.root if payload is not None else {}, user)
         if inspect.isawaitable(result):
             result = await result
         await session.commit()
         await session.refresh(item)
-        item = await _get_item_by_pk(session, model_config, item_id)
+        item = await _get_item_by_pk(session, model_config, item_id, user, mode="detail")
         return {
             "item": serialize_model_instance(model_config, item, mode="detail"),
             "result": result or {},
@@ -243,18 +248,15 @@ def create_router(config: HttpConfig) -> APIRouter:
     @router.post("/models/{slug}/bulk-delete/")
     async def bulk_delete(
             slug: str,
-            payload: dict[str, list[Any]],
+            payload: IdsPayload,
             session: AsyncSession = Depends(config.get_db_session_dependency),
             user: Any = Depends(config.get_current_user_dependency),
     ) -> dict[str, int]:
         _check_access(user)
         model_config = await _get_model_config(slug)
-        ids = payload.get("ids", [])
-        if not ids:
+        if not payload.ids:
             return {"deleted": 0}
-        pk_attr = getattr(model_config.model, get_pk_field_name(model_config))
-        query = select(model_config.model).where(pk_attr.in_([_convert_pk(item_id) for item_id in ids]))
-        items = list((await session.execute(query)).scalars())
+        items = await _get_items_by_ids(session, model_config, payload.ids, user, mode="detail")
         preview, delete_items, set_null_items = await build_delete_plan(session, registry, model_config, items)
         if not preview["can_delete"]:
             raise HTTPException(
@@ -272,39 +274,36 @@ def create_router(config: HttpConfig) -> APIRouter:
     @router.post("/models/{slug}/bulk-delete-preview/")
     async def bulk_delete_preview(
             slug: str,
-            payload: dict[str, list[Any]],
+            payload: IdsPayload,
             session: AsyncSession = Depends(config.get_db_session_dependency),
             user: Any = Depends(config.get_current_user_dependency),
     ) -> dict[str, Any]:
         _check_access(user)
         model_config = await _get_model_config(slug)
-        ids = payload.get("ids", [])
-        if not ids:
+        if not payload.ids:
             return {
                 "can_delete": True,
                 "summary": {"roots": 0, "delete": 0, "protect": 0, "set_null": 0, "total": 0},
                 "roots": [],
             }
-        pk_attr = getattr(model_config.model, get_pk_field_name(model_config))
-        query = select(model_config.model).where(pk_attr.in_([_convert_pk(item_id) for item_id in ids]))
-        items = list((await session.execute(_apply_eager_loads(model_config, query))).scalars())
+        items = await _get_items_by_ids(session, model_config, payload.ids, user, mode="detail")
         return await build_delete_preview(session, registry, model_config, items)
 
     @router.post("/models/{slug}/bulk-actions/{action_slug}/")
     async def bulk_action(
             slug: str,
             action_slug: str,
-            payload: dict[str, Any],
+            payload: ItemPayload,
             session: AsyncSession = Depends(config.get_db_session_dependency),
             user: Any = Depends(config.get_current_user_dependency),
     ) -> dict[str, Any]:
         _check_access(user)
         model_config = await _get_model_config(slug)
-        ids = payload.get("ids", [])
+        ids = payload.root.get("ids", [])
         if not ids:
             return {"processed": 0}
         if action_slug == "delete":
-            deleted_response = await bulk_delete(slug, {"ids": ids}, session, user)
+            deleted_response = await bulk_delete(slug, IdsPayload(ids=list(ids)), session, user)
             return {"processed": deleted_response["deleted"]}
 
         action = next((item for item in model_config.bulk_actions if item.slug == action_slug), None)
@@ -314,10 +313,8 @@ def create_router(config: HttpConfig) -> APIRouter:
                 detail=translate(registry.locale, "bulk_action_not_found"),
             )
 
-        pk_attr = getattr(model_config.model, get_pk_field_name(model_config))
-        query = select(model_config.model).where(pk_attr.in_([_convert_pk(item_id) for item_id in ids]))
-        items = list((await session.execute(_apply_eager_loads(model_config, query))).scalars())
-        result = action.handler(session, model_config, items, payload, user)
+        items = await _get_items_by_ids(session, model_config, list(ids), user, mode="detail")
+        result = action.handler(session, model_config, items, payload.root, user)
         if inspect.isawaitable(result):
             result = await result
         await session.commit()
@@ -342,6 +339,8 @@ def create_router(config: HttpConfig) -> APIRouter:
                 or _resolve_label_field(relation_model)
         )
         query = select(relation_model)
+        if relation_config is not None:
+            query = await _apply_scoped_query(query, relation_config, session, user)
         relation_pk_name = sa_inspect(relation_model).primary_key[0].key
         selected_ids = [_convert_pk(item_id) for item_id in ids.split(",") if item_id] if ids else []
 
@@ -354,7 +353,10 @@ def create_router(config: HttpConfig) -> APIRouter:
             elif hasattr(relation_model, label_field):
                 query = query.where(getattr(relation_model, label_field).ilike(f"%{q}%"))
 
-        items = list((await session.execute(query.limit(limit))).scalars())
+        if hasattr(relation_model, label_field):
+            query = query.order_by(getattr(relation_model, label_field).asc())
+
+        items = list((await session.execute(query.limit(limit))).scalars().unique())
         return {
             "items": [
                 {
@@ -426,7 +428,7 @@ def create_router(config: HttpConfig) -> APIRouter:
         if hasattr(relation_model, label_field):
             query = query.order_by(getattr(relation_model, label_field).asc())
 
-        items = list((await session.execute(query.limit(limit))).scalars())
+        items = list((await session.execute(query.limit(limit))).scalars().unique())
         return {
             "items": [
                 {
@@ -456,21 +458,35 @@ async def _apply_payload_to_item(
         if field_name not in allowed_fields:
             continue
         field_config = model_config.get_field_config(field_name)
-        value = field_config.value_parser(raw_value) if field_config.value_parser is not None else raw_value
+        try:
+            value = field_config.value_parser(raw_value) if field_config.value_parser is not None else raw_value
 
-        if field_config.value_setter is not None:
-            field_config.value_setter(item, value, payload, mode)
-            continue
+            if field_config.value_setter is not None:
+                field_config.value_setter(item, value, payload, mode)
+                continue
 
-        if field_name in relationship_names:
-            await _assign_relationship_value(session, model_config, item, field_name, value)
-            continue
+            if field_name in relationship_names:
+                await _assign_relationship_value(session, model_config, item, field_name, value)
+                continue
 
-        if field_name not in column_names:
-            continue
+            if field_name not in column_names:
+                continue
 
-        column = mapper.columns[field_name]
-        setattr(item, field_name, convert_value_for_column(column, value))
+            column = mapper.columns[field_name]
+            if column.foreign_keys and value not in (None, ""):
+                relation_model = _resolve_relation_model(model_config, field_name)
+                relation_pk_name = sa_inspect(relation_model).primary_key[0].key
+                related_item = await session.get(relation_model, _convert_pk(value))
+                if related_item is None:
+                    raise ValueError(f"Unknown related id for field '{field_name}'.")
+                setattr(item, field_name, getattr(related_item, relation_pk_name))
+                continue
+            setattr(item, field_name, convert_value_for_column(column, value))
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid value for field '{field_name}'.",
+            ) from exc
 
 
 def _apply_ordering(model_config: ModelConfig, query, sort: str | None = None):
@@ -571,16 +587,20 @@ async def _apply_list_filters(
     return query
 
 
-def _apply_eager_loads(model_config: ModelConfig, query):
+def _apply_eager_loads(model_config: ModelConfig, query, *, mode: Literal["list", "detail"]):
     mapper = sa_inspect(model_config.model)
     relation_names = set(mapper.relationships.keys())
-    relation_fields = [
-        field_name
-        for field_name in (
-            *(model_config.list_display or ()),
+    configured_fields = (
+        tuple(model_config.list_display or ())
+        if mode == "list"
+        else (
             *(model_config.detail_fields or ()),
             *model_config.fields.keys(),
         )
+    )
+    relation_fields = [
+        field_name
+        for field_name in configured_fields
         if field_name in relation_names
     ]
     for field_name in dict.fromkeys(relation_fields):
@@ -620,7 +640,11 @@ def _parse_boolean_value(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     normalized_value = str(value).strip().lower()
-    return normalized_value in {"1", "true", "yes", "y", "on"}
+    if normalized_value in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized_value in {"0", "false", "no", "n", "off", ""}:
+        return False
+    raise ValueError(f"Cannot convert value '{value}' to boolean.")
 
 
 def _resolve_relation_model(model_config: ModelConfig, field_name: str, *, locale: str | None = None) -> type[Any]:
@@ -700,9 +724,13 @@ async def _assign_relationship_value(
         if not raw_ids:
             setattr(item, field_name, [])
             return
-        normalized_ids = [_convert_pk(str(item_id)) for item_id in raw_ids]
-        query = select(relation_model).where(getattr(relation_model, relation_pk_name).in_(normalized_ids))
-        related_items = list((await session.execute(query)).scalars())
+        normalized_ids = [_convert_pk(item_id) for item_id in raw_ids]
+        unique_ids = {item_id for item_id in normalized_ids}
+        query = select(relation_model).where(getattr(relation_model, relation_pk_name).in_(list(unique_ids)))
+        related_items = list((await session.execute(query)).scalars().unique())
+        found_ids = {getattr(related_item, relation_pk_name) for related_item in related_items}
+        if found_ids != unique_ids:
+            raise ValueError(f"Unknown related ids for field '{field_name}'.")
         setattr(item, field_name, related_items)
         return
 
@@ -710,19 +738,69 @@ async def _assign_relationship_value(
         setattr(item, field_name, None)
         return
 
-    related_item = await session.get(relation_model, _convert_pk(str(value)))
+    related_item = await session.get(relation_model, _convert_pk(value))
+    if related_item is None:
+        raise ValueError(f"Unknown related id for field '{field_name}'.")
     setattr(item, field_name, related_item)
+
+
+async def _apply_scoped_query(query, model_config: ModelConfig, session: AsyncSession, user: Any):
+    if model_config.query_for_list is None:
+        return query
+    custom_query = model_config.query_for_list(query, session, user)
+    return await custom_query if inspect.isawaitable(custom_query) else custom_query
+
+
+async def _build_model_query(
+        session: AsyncSession,
+        model_config: ModelConfig,
+        user: Any,
+        *,
+        mode: Literal["list", "detail"],
+):
+    query = select(model_config.model)
+    query = await _apply_scoped_query(query, model_config, session, user)
+    return _apply_eager_loads(model_config, query, mode=mode)
 
 
 async def _get_item_by_pk(
         session: AsyncSession,
         model_config: ModelConfig,
         item_id: str,
+        user: Any,
+        *,
+        mode: Literal["list", "detail"] = "detail",
 ) -> Any:
     pk_attr = getattr(model_config.model, get_pk_field_name(model_config))
-    query = select(model_config.model).where(pk_attr == _convert_pk(item_id))
-    query = _apply_eager_loads(model_config, query)
-    return (await session.execute(query)).scalar_one_or_none()
+    query = await _build_model_query(session, model_config, user, mode=mode)
+    query = query.where(pk_attr == _convert_pk(item_id))
+    return (await session.execute(query)).scalars().unique().one_or_none()
+
+
+async def _get_items_by_ids(
+        session: AsyncSession,
+        model_config: ModelConfig,
+        ids: list[Any],
+        user: Any,
+        *,
+        mode: Literal["list", "detail"] = "detail",
+) -> list[Any]:
+    normalized_ids = [_convert_pk(item_id) for item_id in ids]
+    if not normalized_ids:
+        return []
+    pk_attr = getattr(model_config.model, get_pk_field_name(model_config))
+    query = await _build_model_query(session, model_config, user, mode=mode)
+    query = query.where(pk_attr.in_(normalized_ids))
+    items = list((await session.execute(query)).scalars().unique())
+    items_by_pk = {getattr(item, pk_attr.key): item for item in items}
+    return [items_by_pk[item_id] for item_id in normalized_ids if item_id in items_by_pk]
+
+
+async def _count_total_items(session: AsyncSession, model_config: ModelConfig, query) -> int:
+    pk_name = get_pk_field_name(model_config)
+    query_subquery = query.order_by(None).subquery()
+    total_query = select(func.count(func.distinct(getattr(query_subquery.c, pk_name))))
+    return int((await session.execute(total_query)).scalar_one())
 
 
 create_admin_router = create_router

@@ -13,6 +13,7 @@ from xladmin.registry import Registry
 from xladmin.serializer import serialize_scalar
 
 DeleteEffect = Literal["delete", "protect", "set-null"]
+_DEPENDENT_RELATIONS_CACHE: dict[type[Any], list[_DependentRelation]] = {}
 
 
 async def build_delete_plan(
@@ -174,6 +175,10 @@ def _build_dependent_query(item_id: Any, dependent_relation: _DependentRelation)
 
 
 def _iter_dependent_relations(model: type[Any]) -> list[_DependentRelation]:
+    cached_relations = _DEPENDENT_RELATIONS_CACHE.get(model)
+    if cached_relations is not None:
+        return cached_relations
+
     mapper = sa_inspect(model)
     pk_column = mapper.primary_key[0]
     relations: list[_DependentRelation] = []
@@ -205,6 +210,7 @@ def _iter_dependent_relations(model: type[Any]) -> list[_DependentRelation]:
             ),
         )
 
+    _DEPENDENT_RELATIONS_CACHE[model] = relations
     return relations
 
 

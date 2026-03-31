@@ -246,7 +246,7 @@ def convert_value_for_column(column, value: Any) -> Any:
     if python_type is None:
         return value
     if python_type is bool:
-        return bool(value)
+        return _convert_boolean_scalar(value)
     if python_type is int:
         return int(value)
     if python_type is float:
@@ -262,6 +262,19 @@ def convert_value_for_column(column, value: Any) -> Any:
     if python_type is str:
         return str(value)
     return value
+
+
+def _convert_boolean_scalar(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    normalized_value = str(value).strip().lower()
+    if normalized_value in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized_value in {"0", "false", "no", "n", "off", ""}:
+        return False
+    raise ValueError(f"Cannot convert value '{value}' to boolean.")
 
 
 def get_field_value(config: AdminModelConfig, instance: Any, field_name: str) -> Any:

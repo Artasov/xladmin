@@ -24,15 +24,19 @@ Issues = "https://github.com/Artasov/xladmin/issues"
 [project.optional-dependencies]
 test = [
     "aiosqlite>=0.20.0",
+    "asyncpg>=0.30.0",
     "httpx>=0.28.0",
+    "python-dotenv>=1.0.1",
     "pytest>=8.0.0",
     "pytest-asyncio>=1.0.0",
 ]
 dev = [
     "aiosqlite>=0.20.0",
+    "asyncpg>=0.30.0",
     "build>=1.2.2",
     "httpx>=0.28.0",
     "mypy>=1.11.0",
+    "python-dotenv>=1.0.1",
     "pytest>=8.0.0",
     "pytest-asyncio>=1.0.0",
     "ruff>=0.11.0",

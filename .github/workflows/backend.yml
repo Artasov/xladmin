@@ -17,9 +17,25 @@ jobs:
   quality-checks:
     name: Quality Checks
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: xladmin_test
+          POSTGRES_USER: xladmin_test
+          POSTGRES_PASSWORD: xladmin_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U xladmin_test -d xladmin_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: xladmin-backend
+    env:
+      XLADMIN_TEST_DATABASE_URL: postgresql+asyncpg://xladmin_test:xladmin_test@127.0.0.1:5432/xladmin_test
 
     steps:
       - uses: actions/checkout@v6
