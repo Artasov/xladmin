@@ -8,7 +8,6 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import RelationshipDirection
-
 from xladmin.config import ModelConfig
 from xladmin.introspection import get_display_value, get_pk_value
 from xladmin.registry import Registry
@@ -20,10 +19,10 @@ _DEPENDENT_RELATIONS_CACHE: dict[type[Any], list[_DependentRelation]] = {}
 
 
 async def build_delete_plan(
-    session: AsyncSession,
-    registry: Registry,
-    model_config: ModelConfig,
-    items: list[Any],
+        session: AsyncSession,
+        registry: Registry,
+        model_config: ModelConfig,
+        items: list[Any],
 ) -> tuple[dict[str, Any], list[Any], list[tuple[Any, list[str]]]]:
     ordered_items: list[Any] = []
     ordered_keys: set[NodeKey] = set()
@@ -67,23 +66,23 @@ async def build_delete_plan(
 
 
 async def build_delete_preview(
-    session: AsyncSession,
-    registry: Registry,
-    model_config: ModelConfig,
-    items: list[Any],
+        session: AsyncSession,
+        registry: Registry,
+        model_config: ModelConfig,
+        items: list[Any],
 ) -> dict[str, Any]:
     preview, _ordered_items, _set_null_items = await build_delete_plan(session, registry, model_config, items)
     return preview
 
 
 async def _build_dependency_graph(
-    *,
-    session: AsyncSession,
-    registry: Registry,
-    root_model_config: ModelConfig,
-    root_items: list[Any],
-    set_null_items: list[tuple[Any, list[str]]],
-    set_null_index: dict[NodeKey, int],
+        *,
+        session: AsyncSession,
+        registry: Registry,
+        root_model_config: ModelConfig,
+        root_items: list[Any],
+        set_null_items: list[tuple[Any, list[str]]],
+        set_null_index: dict[NodeKey, int],
 ) -> dict[NodeKey, list[_PreviewEdge]]:
     edges_by_parent: dict[NodeKey, list[_PreviewEdge]] = defaultdict(list)
     expanded_keys: set[NodeKey] = set()
@@ -147,11 +146,11 @@ async def _build_dependency_graph(
 
 
 def _build_preview_edge(
-    *,
-    registry: Registry,
-    model_config: ModelConfig | None,
-    related_item: Any,
-    dependent_relation: _DependentRelation,
+        *,
+        registry: Registry,
+        model_config: ModelConfig | None,
+        related_item: Any,
+        dependent_relation: _DependentRelation,
 ) -> _PreviewEdge:
     if model_config is None:
         return _PreviewEdge(
@@ -174,9 +173,9 @@ def _build_preview_edge(
 
 
 def _append_pending_items(
-    pending_groups: dict[str, tuple[ModelConfig, list[Any]]],
-    model_config: ModelConfig,
-    items: list[Any],
+        pending_groups: dict[str, tuple[ModelConfig, list[Any]]],
+        model_config: ModelConfig,
+        items: list[Any],
 ) -> None:
     if not items:
         return
@@ -191,10 +190,10 @@ def _append_pending_items(
 
 
 def _append_set_null_item(
-    set_null_items: list[tuple[Any, list[str]]],
-    set_null_index: dict[NodeKey, int],
-    item: Any,
-    attribute_names: list[str],
+        set_null_items: list[tuple[Any, list[str]]],
+        set_null_index: dict[NodeKey, int],
+        item: Any,
+        attribute_names: list[str],
 ) -> None:
     item_key = (type(item), _get_raw_pk_value(item))
     existing_index = set_null_index.get(item_key)
@@ -210,9 +209,9 @@ def _append_set_null_item(
 
 
 async def _fetch_dependent_items(
-    session: AsyncSession,
-    dependent_relation: _DependentRelation,
-    parent_ids: set[Any],
+        session: AsyncSession,
+        dependent_relation: _DependentRelation,
+        parent_ids: set[Any],
 ) -> list[Any]:
     if not parent_ids:
         return []
@@ -221,10 +220,12 @@ async def _fetch_dependent_items(
 
 def _build_dependent_query(parent_ids: set[Any], dependent_relation: _DependentRelation) -> Any:
     return select(dependent_relation.model).where(
-        or_(*[
-            getattr(dependent_relation.model, attribute_name).in_(parent_ids)
-            for attribute_name in dependent_relation.attribute_names
-        ]),
+        or_(
+            *[
+                getattr(dependent_relation.model, attribute_name).in_(parent_ids)
+                for attribute_name in dependent_relation.attribute_names
+            ]
+        ),
     )
 
 
@@ -238,16 +239,16 @@ def _resolve_matching_parent_ids(item: Any, attribute_names: list[str], parent_i
 
 
 def _build_preview_node(
-    *,
-    registry: Registry,
-    model_config: ModelConfig,
-    item: Any,
-    relation_name: str | None,
-    effect: DeleteEffect,
-    path_seen: set[NodeKey],
-    edges_by_parent: dict[NodeKey, list[_PreviewEdge]],
-    ordered_items: list[Any],
-    ordered_keys: set[NodeKey],
+        *,
+        registry: Registry,
+        model_config: ModelConfig,
+        item: Any,
+        relation_name: str | None,
+        effect: DeleteEffect,
+        path_seen: set[NodeKey],
+        edges_by_parent: dict[NodeKey, list[_PreviewEdge]],
+        ordered_items: list[Any],
+        ordered_keys: set[NodeKey],
 ) -> dict[str, Any]:
     item_id = get_pk_value(model_config, item)
     node_key = (type(item), item_id)
@@ -363,9 +364,9 @@ def _iter_dependent_relations(model: type[Any]) -> list[_DependentRelation]:
 
 
 def _resolve_dependent_effect(
-    parent_model: type[Any],
-    candidate_model: type[Any],
-    columns: list[Any],
+        parent_model: type[Any],
+        candidate_model: type[Any],
+        columns: list[Any],
 ) -> DeleteEffect:
     relationship_effect = _get_relationship_effect(parent_model, candidate_model, columns)
     if relationship_effect is not None:
@@ -378,9 +379,9 @@ def _resolve_dependent_effect(
 
 
 def _get_relationship_effect(
-    parent_model: type[Any],
-    candidate_model: type[Any],
-    columns: list[Any],
+        parent_model: type[Any],
+        candidate_model: type[Any],
+        columns: list[Any],
 ) -> DeleteEffect | None:
     parent_mapper = sa_inspect(parent_model)
     column_keys = {column.key for column in columns}
@@ -433,14 +434,14 @@ def _accumulate_effects(node: dict[str, Any], counts: dict[DeleteEffect, int]) -
 
 
 def _build_node_payload(
-    *,
-    model_slug: str | None,
-    model_title: str,
-    relation_name: str | None,
-    item_id: Any,
-    label: str,
-    children: list[dict[str, Any]],
-    effect: DeleteEffect,
+        *,
+        model_slug: str | None,
+        model_title: str,
+        relation_name: str | None,
+        item_id: Any,
+        label: str,
+        children: list[dict[str, Any]],
+        effect: DeleteEffect,
 ) -> dict[str, Any]:
     return {
         "model_slug": model_slug,

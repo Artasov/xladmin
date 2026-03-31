@@ -6,7 +6,6 @@ from dataclasses import replace
 from typing import Any
 
 from sqlalchemy import inspect as sa_inspect
-
 from xladmin.config import AdminConfig, ModelConfig, ModelsBlockConfig
 from xladmin.i18n import normalize_locale
 
@@ -170,11 +169,11 @@ def _validate_model_config(config: ModelConfig) -> None:
     configured_field_names = mapper_field_names | set(config.fields)
 
     for group_name, field_names in (
-        ("list_display", config.list_display),
-        ("list_fields", config.list_fields),
-        ("detail_fields", config.detail_fields),
-        ("create_fields", config.create_fields),
-        ("update_fields", config.update_fields),
+            ("list_display", config.list_display),
+            ("list_fields", config.list_fields),
+            ("detail_fields", config.detail_fields),
+            ("create_fields", config.create_fields),
+            ("update_fields", config.update_fields),
     ):
         if field_names is None:
             continue

@@ -34,17 +34,17 @@ type AdminFormDialogProps = {
 export type FormDialogProps = AdminFormDialogProps;
 
 export function FormDialog({
-    open,
-    onClose,
-    onSuccess,
-    title,
-    slug,
-    mode,
-    meta,
-    client,
-    initialValues,
-    itemId,
-}: FormDialogProps) {
+                               open,
+                               onClose,
+                               onSuccess,
+                               title,
+                               slug,
+                               mode,
+                               meta,
+                               client,
+                               initialValues,
+                               itemId,
+                           }: FormDialogProps) {
     const t = useAdminTranslation();
     const [values, setValues] = useState<Record<string, unknown>>({});
     const [error, setError] = useState<string | null>(null);

@@ -20,13 +20,13 @@ type AdminModelsBlocksProps = {
 export type ModelsBlocksProps = AdminModelsBlocksProps;
 
 export const ModelsBlocks = memo(function ModelsBlocks({
-    basePath,
-    models,
-    blocks,
-    variant,
-    activeModelSlug = null,
-    onModelNavigate,
-}: ModelsBlocksProps) {
+                                                           basePath,
+                                                           models,
+                                                           blocks,
+                                                           variant,
+                                                           activeModelSlug = null,
+                                                           onModelNavigate,
+                                                       }: ModelsBlocksProps) {
     const t = useAdminTranslation();
     const theme = useTheme();
     const isMdUp = useMediaQuery(theme.breakpoints.up('md'));
@@ -73,7 +73,7 @@ export const ModelsBlocks = memo(function ModelsBlocks({
                 <Box key={columnIndex} sx={{flex: 1, minWidth: 0}}>
                     <Stack spacing={2}>
                         {column.map((block) => (
-                            <DashboardModelsBlock key={block.slug} block={block} basePath={basePath} />
+                            <DashboardModelsBlock key={block.slug} block={block} basePath={basePath}/>
                         ))}
                     </Stack>
                 </Box>

@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect as sa_inspect
-
 from xladmin.config import HttpConfig, ModelConfig
 from xladmin.delete_preview import build_delete_plan, build_delete_preview
 from xladmin.i18n import translate
@@ -75,10 +74,10 @@ def create_router(config: HttpConfig) -> APIRouter:
             ) from exc
 
     async def get_existing_item(
-        slug: str,
-        item_id: str,
-        session: AsyncSession,
-        user: Any,
+            slug: str,
+            item_id: str,
+            session: AsyncSession,
+            user: Any,
     ) -> tuple[ModelConfig, Any]:
         model_config = await get_model_config(slug)
         item = await get_item_by_pk(session, model_config, item_id, user, mode="detail")
@@ -90,9 +89,9 @@ def create_router(config: HttpConfig) -> APIRouter:
         return model_config, item
 
     async def execute_delete_plan(
-        model_config: ModelConfig,
-        items: list[Any],
-        session: AsyncSession,
+            model_config: ModelConfig,
+            items: list[Any],
+            session: AsyncSession,
     ) -> int:
         preview, delete_items, set_null_items = await build_delete_plan(session, registry, model_config, items)
         if not preview["can_delete"]:
@@ -115,8 +114,8 @@ def create_router(config: HttpConfig) -> APIRouter:
 
     @router.get("/models/{slug}/", response_model=ModelResponse)
     async def get_model(
-        slug: str,
-        user: Any = Depends(config.get_current_user_dependency),
+            slug: str,
+            user: Any = Depends(config.get_current_user_dependency),
     ) -> dict[str, Any]:
         check_access(user)
         try:
@@ -127,14 +126,14 @@ def create_router(config: HttpConfig) -> APIRouter:
 
     @router.get("/models/{slug}/items/", response_model=ListResponse)
     async def list_items(
-        slug: str,
-        request: Request,
-        limit: int = Query(default=50, ge=1, le=500),
-        offset: int = Query(default=0, ge=0),
-        q: str | None = None,
-        sort: str | None = None,
-        session: AsyncSession = Depends(config.get_db_session_dependency),
-        user: Any = Depends(config.get_current_user_dependency),
+            slug: str,
+            request: Request,
+            limit: int = Query(default=50, ge=1, le=500),
+            offset: int = Query(default=0, ge=0),
+            q: str | None = None,
+            sort: str | None = None,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
     ) -> ListResponse:
         check_access(user)
         model_config = await get_model_config(slug)
@@ -157,10 +156,10 @@ def create_router(config: HttpConfig) -> APIRouter:
 
     @router.get("/models/{slug}/items/{item_id}/", response_model=DetailResponse)
     async def get_item(
-        slug: str,
-        item_id: str,
-        session: AsyncSession = Depends(config.get_db_session_dependency),
-        user: Any = Depends(config.get_current_user_dependency),
+            slug: str,
+            item_id: str,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
     ) -> DetailResponse:
         check_access(user)
         model_config, item = await get_existing_item(slug, item_id, session, user)
@@ -171,10 +170,10 @@ def create_router(config: HttpConfig) -> APIRouter:
 
     @router.post("/models/{slug}/items/", status_code=status.HTTP_201_CREATED, response_model=ItemOnlyResponse)
     async def create_item(
-        slug: str,
-        payload: ItemPayload,
-        session: AsyncSession = Depends(config.get_db_session_dependency),
-        user: Any = Depends(config.get_current_user_dependency),
+            slug: str,
+            payload: ItemPayload,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
     ) -> ItemOnlyResponse:
         check_access(user)
         model_config = await get_model_config(slug)
@@ -187,11 +186,11 @@ def create_router(config: HttpConfig) -> APIRouter:
 
     @router.patch("/models/{slug}/items/{item_id}/", response_model=ItemOnlyResponse)
     async def patch_item(
-        slug: str,
-        item_id: str,
-        payload: ItemPayload,
-        session: AsyncSession = Depends(config.get_db_session_dependency),
-        user: Any = Depends(config.get_current_user_dependency),
+            slug: str,
+            item_id: str,
+            payload: ItemPayload,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
     ) -> ItemOnlyResponse:
         check_access(user)
         model_config, item = await get_existing_item(slug, item_id, session, user)
@@ -205,10 +204,10 @@ def create_router(config: HttpConfig) -> APIRouter:
 
     @router.get("/models/{slug}/items/{item_id}/delete-preview/", response_model=DeletePreviewResponse)
     async def get_delete_preview(
-        slug: str,
-        item_id: str,
-        session: AsyncSession = Depends(config.get_db_session_dependency),
-        user: Any = Depends(config.get_current_user_dependency),
+            slug: str,
+            item_id: str,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
     ) -> dict[str, Any]:
         check_access(user)
         model_config, item = await get_existing_item(slug, item_id, session, user)
@@ -216,10 +215,10 @@ def create_router(config: HttpConfig) -> APIRouter:
 
     @router.delete("/models/{slug}/items/{item_id}/", status_code=status.HTTP_204_NO_CONTENT)
     async def delete_item(
-        slug: str,
-        item_id: str,
-        session: AsyncSession = Depends(config.get_db_session_dependency),
-        user: Any = Depends(config.get_current_user_dependency),
+            slug: str,
+            item_id: str,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
     ) -> Response:
         check_access(user)
         model_config, item = await get_existing_item(slug, item_id, session, user)
@@ -231,12 +230,12 @@ def create_router(config: HttpConfig) -> APIRouter:
         response_model=ObjectActionResponse,
     )
     async def object_action(
-        slug: str,
-        item_id: str,
-        action_slug: str,
-        payload: ItemPayload | None = None,
-        session: AsyncSession = Depends(config.get_db_session_dependency),
-        user: Any = Depends(config.get_current_user_dependency),
+            slug: str,
+            item_id: str,
+            action_slug: str,
+            payload: ItemPayload | None = None,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
     ) -> ObjectActionResponse:
         check_access(user)
         model_config, item = await get_existing_item(slug, item_id, session, user)
@@ -261,10 +260,10 @@ def create_router(config: HttpConfig) -> APIRouter:
 
     @router.post("/models/{slug}/bulk-delete/", response_model=DeleteResultResponse)
     async def bulk_delete(
-        slug: str,
-        payload: IdsPayload,
-        session: AsyncSession = Depends(config.get_db_session_dependency),
-        user: Any = Depends(config.get_current_user_dependency),
+            slug: str,
+            payload: IdsPayload,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
     ) -> DeleteResultResponse:
         check_access(user)
         model_config = await get_model_config(slug)
@@ -276,10 +275,10 @@ def create_router(config: HttpConfig) -> APIRouter:
 
     @router.post("/models/{slug}/bulk-delete-preview/", response_model=DeletePreviewResponse)
     async def bulk_delete_preview(
-        slug: str,
-        payload: IdsPayload,
-        session: AsyncSession = Depends(config.get_db_session_dependency),
-        user: Any = Depends(config.get_current_user_dependency),
+            slug: str,
+            payload: IdsPayload,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
     ) -> dict[str, Any]:
         check_access(user)
         model_config = await get_model_config(slug)
@@ -294,11 +293,11 @@ def create_router(config: HttpConfig) -> APIRouter:
 
     @router.post("/models/{slug}/bulk-actions/{action_slug}/", response_model=FlexibleProcessedResponse)
     async def bulk_action(
-        slug: str,
-        action_slug: str,
-        payload: BulkActionPayload,
-        session: AsyncSession = Depends(config.get_db_session_dependency),
-        user: Any = Depends(config.get_current_user_dependency),
+            slug: str,
+            action_slug: str,
+            payload: BulkActionPayload,
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
     ) -> FlexibleProcessedResponse:
         check_access(user)
         model_config = await get_model_config(slug)
@@ -324,21 +323,21 @@ def create_router(config: HttpConfig) -> APIRouter:
 
     @router.get("/models/{slug}/fields/{field_name}/choices/", response_model=ChoicesResponse)
     async def field_choices(
-        slug: str,
-        field_name: str,
-        q: str | None = None,
-        ids: str | None = None,
-        limit: int = Query(default=25, ge=1, le=100),
-        session: AsyncSession = Depends(config.get_db_session_dependency),
-        user: Any = Depends(config.get_current_user_dependency),
+            slug: str,
+            field_name: str,
+            q: str | None = None,
+            ids: str | None = None,
+            limit: int = Query(default=25, ge=1, le=100),
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
     ) -> ChoicesResponse:
         check_access(user)
         model_config = await get_model_config(slug)
         relation_model = resolve_relation_model(model_config, field_name, locale=registry.locale)
         relation_config = registry.find_by_model(relation_model)
         label_field = (
-            model_config.get_field_config(field_name).relation_label_field
-            or resolve_label_field(relation_model)
+                model_config.get_field_config(field_name).relation_label_field
+                or resolve_label_field(relation_model)
         )
         return await load_relation_choices(
             session=session,
@@ -353,13 +352,13 @@ def create_router(config: HttpConfig) -> APIRouter:
 
     @router.get("/models/{slug}/filters/{filter_slug}/choices/", response_model=ChoicesResponse)
     async def filter_choices(
-        slug: str,
-        filter_slug: str,
-        q: str | None = None,
-        ids: str | None = None,
-        limit: int = Query(default=25, ge=1, le=100),
-        session: AsyncSession = Depends(config.get_db_session_dependency),
-        user: Any = Depends(config.get_current_user_dependency),
+            slug: str,
+            filter_slug: str,
+            q: str | None = None,
+            ids: str | None = None,
+            limit: int = Query(default=25, ge=1, le=100),
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
     ) -> ChoicesResponse:
         check_access(user)
         model_config = await get_model_config(slug)
@@ -407,15 +406,15 @@ def create_router(config: HttpConfig) -> APIRouter:
 
 
 async def load_relation_choices(
-    *,
-    session: AsyncSession,
-    relation_model: type[Any],
-    relation_config: ModelConfig | None,
-    label_field: str,
-    q: str | None,
-    ids: str | None,
-    limit: int,
-    user: Any,
+        *,
+        session: AsyncSession,
+        relation_model: type[Any],
+        relation_config: ModelConfig | None,
+        label_field: str,
+        q: str | None,
+        ids: str | None,
+        limit: int,
+        user: Any,
 ) -> ChoicesResponse:
     relation_pk_name = sa_inspect(relation_model).primary_key[0].key
     relation_pk_attr = getattr(relation_model, relation_pk_name)

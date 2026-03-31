@@ -46,7 +46,8 @@ export function Main({children}: MainProps) {
                         backgroundColor: 'background.default',
                     }}
                 >
-                    {pendingView === 'model' || pendingView === 'overview' ? <ModelPageSkeleton /> : <ModelPageSkeleton />}
+                    {pendingView === 'model' || pendingView === 'overview' ? <ModelPageSkeleton/> :
+                        <ModelPageSkeleton/>}
                 </Box>
             ) : null}
         </Box>

@@ -6,7 +6,6 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import inspect as sa_inspect
-
 from xladmin.config import AdminModelConfig
 from xladmin.i18n import normalize_locale, translate
 from xladmin.introspection_fields import (
@@ -114,9 +113,9 @@ def get_model_blocks_meta(registry: AdminRegistry) -> list[dict[str, Any]]:
 
 
 def has_relation_choice_endpoint(
-    config: AdminModelConfig,
-    field_name: str,
-    relation_names: set[str],
+        config: AdminModelConfig,
+        field_name: str,
+        relation_names: set[str],
 ) -> bool:
     field_config = config.get_field_config(field_name)
     if field_config.relation_model is not None:

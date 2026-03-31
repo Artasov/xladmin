@@ -13,18 +13,20 @@ type ShellContextValue = {
 
 const defaultShellContextValue: ShellContextValue = {
     isMobile: false,
-    openMobileSidebar: () => {},
+    openMobileSidebar: () => {
+    },
     pendingPath: null,
     pendingView: null,
-    startPendingNavigation: () => {},
+    startPendingNavigation: () => {
+    },
 };
 
 const ShellContext = createContext<ShellContextValue>(defaultShellContextValue);
 
 export function ShellContextProvider({
-    value,
-    children,
-}: {
+                                         value,
+                                         children,
+                                     }: {
     value: ShellContextValue;
     children: ReactNode;
 }) {

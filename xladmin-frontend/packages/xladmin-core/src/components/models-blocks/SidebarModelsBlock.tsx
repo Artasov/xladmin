@@ -44,7 +44,7 @@ export function SidebarModelsBlock({block, basePath, activeModelSlug, onModelNav
                 }}
             >
                 <AccordionSummary
-                    expandIcon={<ExpandMoreIcon fontSize="small" />}
+                    expandIcon={<ExpandMoreIcon fontSize="small"/>}
                     sx={{
                         minHeight: '42px',
                         pr: 1.25,
@@ -61,7 +61,7 @@ export function SidebarModelsBlock({block, basePath, activeModelSlug, onModelNav
                         },
                     }}
                 >
-                    <BlockTitle block={block} compact />
+                    <BlockTitle block={block} compact/>
                 </AccordionSummary>
                 <AccordionDetails sx={{p: 0}}>
                     <SidebarModelsList
@@ -84,7 +84,7 @@ export function SidebarModelsBlock({block, basePath, activeModelSlug, onModelNav
             }}
         >
             <Box sx={{px: 1.25, py: 1}}>
-                <BlockTitle block={block} compact />
+                <BlockTitle block={block} compact/>
             </Box>
             <SidebarModelsList
                 models={block.models}
@@ -97,7 +97,7 @@ export function SidebarModelsBlock({block, basePath, activeModelSlug, onModelNav
 }
 
 type SidebarModelsListProps = {
-    models: Array<{slug: string; title: string}>;
+    models: Array<{ slug: string; title: string }>;
     basePath: string;
     activeModelSlug: string | null;
     onModelNavigate?: (href: string) => void;
@@ -135,7 +135,7 @@ function SidebarModelsList({models, basePath, activeModelSlug, onModelNavigate}:
                                 },
                             }}
                         >
-                        <ListItemText primary={model.title} />
+                            <ListItemText primary={model.title}/>
                         </ListItemButton>
                     </NavLink>
                 );

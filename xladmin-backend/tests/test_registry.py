@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-
 from xladmin import AdminConfig, AdminFieldConfig, AdminModelConfig, AdminRegistry, ModelConfig
 from xladmin.introspection import get_model_meta, get_visible_list_fields
 

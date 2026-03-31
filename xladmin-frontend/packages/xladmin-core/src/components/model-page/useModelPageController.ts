@@ -34,13 +34,13 @@ type AdminListRequestParams = {
 };
 
 export function useModelPageController({
-    client,
-    slug,
-    pathname,
-    locationSearch,
-    router,
-    t,
-}: UseModelPageControllerOptions) {
+                                           client,
+                                           slug,
+                                           pathname,
+                                           locationSearch,
+                                           router,
+                                           t,
+                                       }: UseModelPageControllerOptions) {
     const searchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
     const initialQuery = searchParams.get('q') ?? '';
     const initialSort = searchParams.get('sort') ?? '';
@@ -357,7 +357,7 @@ export function useModelPageController({
         setSelectedIds([]);
     }, [meta, rows]);
 
-    const handleOpenRowMenu = useCallback((event: {currentTarget: HTMLElement}, rowId: string | number) => {
+    const handleOpenRowMenu = useCallback((event: { currentTarget: HTMLElement }, rowId: string | number) => {
         setRowActionMenuAnchor(event.currentTarget as HTMLElement);
         setRowActionMenuId(rowId);
     }, []);

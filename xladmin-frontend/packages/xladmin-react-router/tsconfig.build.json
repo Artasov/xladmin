@@ -3,8 +3,13 @@
   "compilerOptions": {
     "rootDir": "./src",
     "paths": {
-      "xladmin": ["../xladmin-core/dist/index.d.ts"]
+      "xladmin": [
+        "../xladmin-core/dist/index.d.ts"
+      ]
     }
   },
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
+  ]
 }

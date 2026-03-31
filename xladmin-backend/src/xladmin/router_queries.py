@@ -8,7 +8,6 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect as sa_inspect
 from sqlalchemy.orm import selectinload
-
 from xladmin.config import ModelConfig
 from xladmin.i18n import translate
 from xladmin.introspection import (
@@ -56,11 +55,11 @@ def apply_search(model_config: ModelConfig, query: Any, q: str | None, session: 
 
 
 async def apply_list_filters(
-    model_config: ModelConfig,
-    query: Any,
-    values: dict[str, str],
-    session: AsyncSession,
-    user: Any,
+        model_config: ModelConfig,
+        query: Any,
+        values: dict[str, str],
+        session: AsyncSession,
+        user: Any,
 ) -> Any:
     if not values:
         return query
@@ -170,10 +169,10 @@ def resolve_relation_model(model_config: ModelConfig, field_name: str, *, locale
 
 
 def resolve_list_filter_relation_model(
-    model_config: ModelConfig,
-    list_filter: Any,
-    *,
-    locale: str | None = None,
+        model_config: ModelConfig,
+        list_filter: Any,
+        *,
+        locale: str | None = None,
 ) -> type[Any] | None:
     if list_filter.relation_model is not None:
         return list_filter.relation_model
@@ -211,11 +210,11 @@ async def apply_scoped_query(query: Any, model_config: ModelConfig, session: Asy
 
 
 async def build_model_query(
-    session: AsyncSession,
-    model_config: ModelConfig,
-    user: Any,
-    *,
-    mode: Literal["list", "detail"],
+        session: AsyncSession,
+        model_config: ModelConfig,
+        user: Any,
+        *,
+        mode: Literal["list", "detail"],
 ) -> Any:
     query = select(model_config.model)
     query = await apply_scoped_query(query, model_config, session, user)
@@ -223,12 +222,12 @@ async def build_model_query(
 
 
 async def get_item_by_pk(
-    session: AsyncSession,
-    model_config: ModelConfig,
-    item_id: str,
-    user: Any,
-    *,
-    mode: Literal["list", "detail"] = "detail",
+        session: AsyncSession,
+        model_config: ModelConfig,
+        item_id: str,
+        user: Any,
+        *,
+        mode: Literal["list", "detail"] = "detail",
 ) -> Any:
     pk_attr = getattr(model_config.model, get_pk_field_name(model_config))
     query = await build_model_query(session, model_config, user, mode=mode)
@@ -237,12 +236,12 @@ async def get_item_by_pk(
 
 
 async def get_items_by_ids(
-    session: AsyncSession,
-    model_config: ModelConfig,
-    ids: list[Any],
-    user: Any,
-    *,
-    mode: Literal["list", "detail"] = "detail",
+        session: AsyncSession,
+        model_config: ModelConfig,
+        ids: list[Any],
+        user: Any,
+        *,
+        mode: Literal["list", "detail"] = "detail",
 ) -> list[Any]:
     normalized_ids = [convert_pk(item_id) for item_id in ids]
     if not normalized_ids:

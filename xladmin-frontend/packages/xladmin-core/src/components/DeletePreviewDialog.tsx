@@ -1,6 +1,17 @@
 'use client';
 
-import {Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography} from '@mui/material';
+import {
+    Alert,
+    Box,
+    Button,
+    CircularProgress,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogTitle,
+    Stack,
+    Typography
+} from '@mui/material';
 import {useAdminTranslation} from '../i18n';
 import type {AdminDeletePreviewNode, AdminDeletePreviewResponse} from '../types';
 
@@ -16,15 +27,15 @@ type DeletePreviewDialogProps = {
 };
 
 export function DeletePreviewDialog({
-    open,
-    title,
-    preview,
-    error,
-    isLoading,
-    isSubmitting,
-    onClose,
-    onConfirm,
-}: DeletePreviewDialogProps) {
+                                        open,
+                                        title,
+                                        preview,
+                                        error,
+                                        isLoading,
+                                        isSubmitting,
+                                        onClose,
+                                        onConfirm,
+                                    }: DeletePreviewDialogProps) {
     const t = useAdminTranslation();
 
     return (
@@ -52,7 +63,7 @@ export function DeletePreviewDialog({
             <DialogContent dividers>
                 {isLoading ? (
                     <Stack spacing={1.5} alignItems="center" justifyContent="center" sx={{minHeight: 180}}>
-                        <CircularProgress size={28} thickness={4.2} color="inherit" />
+                        <CircularProgress size={28} thickness={4.2} color="inherit"/>
                         <Typography color="text.secondary">{t('delete_preview_loading')}</Typography>
                     </Stack>
                 ) : null}
@@ -90,11 +101,13 @@ export function DeletePreviewDialog({
                         {preview.roots.length > 0 ? (
                             <Stack spacing={1}>
                                 {preview.roots.map((rootNode, index) => (
-                                    <DeletePreviewNode key={`${rootNode.model_slug ?? 'model'}:${rootNode.id}:${index}`} node={rootNode} depth={0} />
+                                    <DeletePreviewNode key={`${rootNode.model_slug ?? 'model'}:${rootNode.id}:${index}`}
+                                                       node={rootNode} depth={0}/>
                                 ))}
                             </Stack>
                         ) : (
-                            <Typography variant="body2" color="text.secondary">{t('delete_preview_no_selection')}</Typography>
+                            <Typography variant="body2"
+                                        color="text.secondary">{t('delete_preview_no_selection')}</Typography>
                         )}
                     </Stack>
                 ) : null}

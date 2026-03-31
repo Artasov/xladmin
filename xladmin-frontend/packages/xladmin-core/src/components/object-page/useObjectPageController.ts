@@ -25,13 +25,13 @@ type UseObjectPageControllerOptions = {
 };
 
 export function useObjectPageController({
-    client,
-    slug,
-    id,
-    listPath,
-    router,
-    t,
-}: UseObjectPageControllerOptions) {
+                                            client,
+                                            slug,
+                                            id,
+                                            listPath,
+                                            router,
+                                            t,
+                                        }: UseObjectPageControllerOptions) {
     const cacheKey = buildDetailCacheKey(slug, id);
     const [data, setData] = useState<AdminDetailResponse | null>(() => getClientCacheBucket(client).detailResponseCache.get(cacheKey) ?? null);
     const [values, setValues] = useState<Record<string, unknown>>(() => getClientCacheBucket(client).detailResponseCache.get(cacheKey)?.item ?? {});

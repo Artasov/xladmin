@@ -50,7 +50,8 @@ export function MainHeader({title, subtitle, details, error, beforeTitle, before
             }}
         >
             <Stack spacing={0.5}>
-                <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="space-between" sx={{minWidth: 0}}>
+                <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="space-between"
+                       sx={{minWidth: 0}}>
                     <Stack direction="row" spacing={1} alignItems="center" sx={{minWidth: 0, flex: 1}}>
                         {isMobile ? (
                             <Box sx={{display: 'flex', alignItems: 'center', flexShrink: 0}}>
@@ -60,7 +61,7 @@ export function MainHeader({title, subtitle, details, error, beforeTitle, before
                                     size="small"
                                     sx={{ml: -0.5}}
                                 >
-                                    <MenuIcon fontSize="small" />
+                                    <MenuIcon fontSize="small"/>
                                 </IconButton>
                             </Box>
                         ) : null}
@@ -100,7 +101,8 @@ export function MainHeader({title, subtitle, details, error, beforeTitle, before
                 ) : null}
                 {details ? (
                     <Stack spacing={0.5}>
-                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="space-between" sx={{minWidth: 0}}>
+                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="space-between"
+                               sx={{minWidth: 0}}>
                             <Stack direction="row" spacing={0.5} alignItems="center" sx={{minWidth: 0, flex: 1}}>
                                 {beforeSubtitle ? (
                                     <Box sx={{display: 'flex', alignItems: 'center', flexShrink: 0}}>

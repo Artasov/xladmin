@@ -199,7 +199,8 @@ export function ModelPage({client, basePath, slug, router}: ModelPageProps) {
                                     },
                                 }}
                             />
-                            <Typography color="text.secondary" sx={{minWidth: 'auto', fontSize: '1rem', lineHeight: '1rem'}}>
+                            <Typography color="text.secondary"
+                                        sx={{minWidth: 'auto', fontSize: '1rem', lineHeight: '1rem'}}>
                                 / {controller.totalPages}
                             </Typography>
                             <IconButton
@@ -349,7 +350,8 @@ export function ModelPage({client, basePath, slug, router}: ModelPageProps) {
                     onClose={() => controller.setBulkActionMenuAnchor(null)}
                 >
                     {controller.bulkActions.map((action) => (
-                        <MenuItem key={action.slug} onClick={() => void controller.handleRunNamedBulkAction(action.slug)}>
+                        <MenuItem key={action.slug}
+                                  onClick={() => void controller.handleRunNamedBulkAction(action.slug)}>
                             {action.label}
                         </MenuItem>
                     ))}

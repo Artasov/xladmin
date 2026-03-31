@@ -14,12 +14,12 @@ type ObjectFieldProps = {
 };
 
 export const ObjectField = memo(function ObjectField({
-    field,
-    value,
-    slug,
-    client,
-    onFieldChange,
-}: ObjectFieldProps) {
+                                                         field,
+                                                         value,
+                                                         slug,
+                                                         client,
+                                                         onFieldChange,
+                                                     }: ObjectFieldProps) {
     const handleChange = useCallback((nextValue: unknown) => {
         onFieldChange(field.name, nextValue);
     }, [field.name, onFieldChange]);

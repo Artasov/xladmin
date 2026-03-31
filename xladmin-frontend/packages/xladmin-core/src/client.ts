@@ -15,15 +15,22 @@ export type XLAdminRequestOptions = {
 export type XLAdminClient = {
     getModels: () => Promise<AdminModelsResponse>;
     getModel: (slug: string) => Promise<AdminModelMeta>;
-    getItems: (slug: string, params?: {limit?: number; offset?: number; q?: string; sort?: string} & Record<string, unknown>) => Promise<AdminListResponse>;
+    getItems: (slug: string, params?: {
+        limit?: number;
+        offset?: number;
+        q?: string;
+        sort?: string
+    } & Record<string, unknown>) => Promise<AdminListResponse>;
     getItem: (slug: string, id: string | number) => Promise<AdminDetailResponse>;
     createItem: (slug: string, payload: Record<string, unknown>) => Promise<AdminDetailResponse>;
     patchItem: (slug: string, id: string | number, payload: Record<string, unknown>) => Promise<AdminDetailResponse>;
     deleteItem: (slug: string, id: string | number) => Promise<void>;
     getDeletePreview: (slug: string, id: string | number) => Promise<AdminDeletePreviewResponse>;
-    bulkDelete: (slug: string, ids: Array<string | number>) => Promise<{deleted: number}>;
+    bulkDelete: (slug: string, ids: Array<string | number>) => Promise<{ deleted: number }>;
     getBulkDeletePreview: (slug: string, ids: Array<string | number>) => Promise<AdminDeletePreviewResponse>;
-    runBulkAction: (slug: string, actionSlug: string, ids: Array<string | number>, payload?: Record<string, unknown>) => Promise<{processed: number} & Record<string, unknown>>;
+    runBulkAction: (slug: string, actionSlug: string, ids: Array<string | number>, payload?: Record<string, unknown>) => Promise<{
+        processed: number
+    } & Record<string, unknown>>;
     runObjectAction: (slug: string, id: string | number, actionSlug: string, payload?: Record<string, unknown>) => Promise<AdminObjectActionResponse>;
     getChoices: (
         slug: string,
@@ -41,10 +48,12 @@ export type XLAdminClient = {
     ) => Promise<AdminChoicesResponse>;
 };
 
-type XLAdminTransportResponse<T> = T | {data: T};
+type XLAdminTransportResponse<T> = T | { data: T };
 
 export type XLAdminTransport = {
-    get: <T>(url: string, options?: XLAdminRequestOptions & {params?: Record<string, unknown>}) => Promise<XLAdminTransportResponse<T>>;
+    get: <T>(url: string, options?: XLAdminRequestOptions & {
+        params?: Record<string, unknown>
+    }) => Promise<XLAdminTransportResponse<T>>;
     post: <T>(url: string, body?: Record<string, unknown>, options?: XLAdminRequestOptions) => Promise<XLAdminTransportResponse<T>>;
     patch: <T>(url: string, body: Record<string, unknown>, options?: XLAdminRequestOptions) => Promise<XLAdminTransportResponse<T>>;
     delete: (url: string, options?: XLAdminRequestOptions) => Promise<unknown>;
@@ -86,13 +95,13 @@ export function createXLAdminClient(transport: XLAdminTransport): XLAdminClient 
             return await transportGet<AdminDeletePreviewResponse>(transport, `/xladmin/models/${slug}/items/${id}/delete-preview/`);
         },
         async bulkDelete(slug, ids) {
-            return await transportPost<{deleted: number}>(transport, `/xladmin/models/${slug}/bulk-delete/`, {ids});
+            return await transportPost<{ deleted: number }>(transport, `/xladmin/models/${slug}/bulk-delete/`, {ids});
         },
         async getBulkDeletePreview(slug, ids) {
             return await transportPost<AdminDeletePreviewResponse>(transport, `/xladmin/models/${slug}/bulk-delete-preview/`, {ids});
         },
         async runBulkAction(slug, actionSlug, ids, payload) {
-            return await transportPost<{processed: number} & Record<string, unknown>>(
+            return await transportPost<{ processed: number } & Record<string, unknown>>(
                 transport,
                 `/xladmin/models/${slug}/bulk-actions/${actionSlug}/`,
                 {ids, ...(payload ?? {})},
@@ -151,7 +160,7 @@ export function createFetchXLAdminTransport(config: XLAdminFetchClientConfig): X
     return {
         get: async <T>(
             url: string,
-            options?: XLAdminRequestOptions & {params?: Record<string, unknown>},
+            options?: XLAdminRequestOptions & { params?: Record<string, unknown> },
         ): Promise<T> => (
             await requestJson<T>(fetchImpl, config, 'GET', url, undefined, options?.params, options?.signal)
         ),
@@ -170,7 +179,7 @@ export function createFetchXLAdminTransport(config: XLAdminFetchClientConfig): X
 async function transportGet<T>(
     transport: XLAdminTransport,
     url: string,
-    options?: XLAdminRequestOptions & {params?: Record<string, unknown>},
+    options?: XLAdminRequestOptions & { params?: Record<string, unknown> },
 ): Promise<T> {
     return unwrapTransportResponse(await transport.get<T>(url, options));
 }
@@ -200,7 +209,7 @@ function unwrapTransportResponse<T>(response: XLAdminTransportResponse<T>): T {
     return response;
 }
 
-function isWrappedTransportResponse<T>(response: XLAdminTransportResponse<T>): response is {data: T} {
+function isWrappedTransportResponse<T>(response: XLAdminTransportResponse<T>): response is { data: T } {
     return typeof response === 'object' && response !== null && 'data' in response;
 }
 
@@ -241,7 +250,7 @@ async function requestRaw(
     if (!response.ok) {
         let detail = `${response.status} ${response.statusText}`;
         try {
-            const errorData = await response.json() as {detail?: string};
+            const errorData = await response.json() as { detail?: string };
             if (typeof errorData.detail === 'string' && errorData.detail) {
                 detail = errorData.detail;
             }

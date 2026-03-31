@@ -62,7 +62,7 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
     useAdminDocumentTitle(t('admin_title'), controller.meta?.title ?? slug, controller.objectTitle);
 
     if (controller.isLoading && !controller.data) {
-        return <ObjectPageSkeleton />;
+        return <ObjectPageSkeleton/>;
     }
 
     if (controller.error && !controller.data) {
@@ -70,7 +70,7 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
     }
 
     if (!controller.data || !controller.meta) {
-        return <ObjectPageSkeleton />;
+        return <ObjectPageSkeleton/>;
     }
 
     return (
@@ -87,7 +87,7 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                                 size="small"
                                 sx={{ml: -0.5}}
                             >
-                                <ArrowBackIcon fontSize="small" />
+                                <ArrowBackIcon fontSize="small"/>
                             </IconButton>
                         )}
                         actions={isPhone ? (
@@ -97,7 +97,7 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                                 size="small"
                                 sx={{mr: -0.5}}
                             >
-                                <MoreVertIcon fontSize="small" />
+                                <MoreVertIcon fontSize="small"/>
                             </IconButton>
                         ) : undefined}
                         details={controller.meta.description ? (
@@ -108,7 +108,8 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                         error={controller.error}
                     />
 
-                    <Stack direction={{xs: 'column', lg: 'row'}} spacing={1.5} sx={{flex: 1, minHeight: 0, alignItems: 'stretch'}}>
+                    <Stack direction={{xs: 'column', lg: 'row'}} spacing={1.5}
+                           sx={{flex: 1, minHeight: 0, alignItems: 'stretch'}}>
                         <Paper
                             sx={{
                                 borderRadius: '10px',
@@ -142,7 +143,11 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                                             <ReadonlyObjectField
                                                 key={field.name}
                                                 field={field}
-                                                value={formatAdminValue(controller.values[field.name], {locale, field, pretty: true})}
+                                                value={formatAdminValue(controller.values[field.name], {
+                                                    locale,
+                                                    field,
+                                                    pretty: true
+                                                })}
                                                 imageUrl={field.display_kind === 'image'
                                                     ? resolveAdminMediaUrl(controller.values[field.name], field)
                                                     : null}
@@ -170,7 +175,8 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                                     {t('actions')}
                                 </Typography>
                                 {controller.isDirty ? (
-                                    <Button variant="contained" onClick={() => void controller.handleSave()} disabled={controller.isSaving}>
+                                    <Button variant="contained" onClick={() => void controller.handleSave()}
+                                            disabled={controller.isSaving}>
                                         {controller.isSaving ? t('saving') : t('save')}
                                     </Button>
                                 ) : null}

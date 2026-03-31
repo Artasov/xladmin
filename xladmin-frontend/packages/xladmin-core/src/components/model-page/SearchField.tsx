@@ -11,11 +11,11 @@ type SearchFieldProps = {
 };
 
 export const SearchField = memo(function SearchField({
-    value,
-    onCommit,
-    debounceMs,
-    placeholder,
-}: SearchFieldProps) {
+                                                         value,
+                                                         onCommit,
+                                                         debounceMs,
+                                                         placeholder,
+                                                     }: SearchFieldProps) {
     const [draftValue, setDraftValue] = useState(value);
 
     useEffect(() => {

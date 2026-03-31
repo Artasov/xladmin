@@ -88,7 +88,7 @@ export function OverviewPage({client, basePath}: OverviewPageProps) {
     }, [client, shellModelsResponse, t]);
 
     if (isLoading && !data) {
-        return <OverviewPageSkeleton />;
+        return <OverviewPageSkeleton/>;
     }
 
     if (error || !data) {
@@ -128,7 +128,7 @@ export function OverviewPage({client, basePath}: OverviewPageProps) {
 function OverviewPageSkeleton() {
     return (
         <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
-            <MainHeaderSkeleton titleWidth={220} subtitleWidth="58%" />
+            <MainHeaderSkeleton titleWidth={220} subtitleWidth="58%"/>
 
             <Paper
                 sx={{
@@ -146,8 +146,8 @@ function OverviewPageSkeleton() {
                             <Grid key={index} size={{xs: 12, md: 6, xl: 4}}>
                                 <Paper sx={{p: 2.5, borderRadius: '10px'}}>
                                     <Stack spacing={1}>
-                                        <Skeleton variant="text" width="60%" height={36} />
-                                        <Skeleton variant="text" width="40%" height={24} />
+                                        <Skeleton variant="text" width="60%" height={36}/>
+                                        <Skeleton variant="text" width="40%" height={24}/>
                                     </Stack>
                                 </Paper>
                             </Grid>

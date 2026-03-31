@@ -18,7 +18,8 @@ export function createNextXLAdminRouter(adapter: NextXLAdminRouterAdapter): XLAd
             pathname: adapter.pathname,
             search: adapter.search,
         }),
-        subscribe: () => () => {},
+        subscribe: () => () => {
+        },
         push: (href) => {
             adapter.push(href);
         },

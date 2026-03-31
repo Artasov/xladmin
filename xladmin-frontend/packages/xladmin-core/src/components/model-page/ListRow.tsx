@@ -22,17 +22,17 @@ export type ListRowProps = {
 };
 
 export const ListRow = memo(function ListRow({
-    row,
-    pkField,
-    listFields,
-    basePath,
-    slug,
-    locale,
-    fieldMap,
-    isSelected,
-    onToggleSelection,
-    onOpenMenu,
-}: ListRowProps) {
+                                                 row,
+                                                 pkField,
+                                                 listFields,
+                                                 basePath,
+                                                 slug,
+                                                 locale,
+                                                 fieldMap,
+                                                 isSelected,
+                                                 onToggleSelection,
+                                                 onOpenMenu,
+                                             }: ListRowProps) {
     const checkboxColumnWidth = 56;
     const actionsColumnWidth = 56;
     const rowId = row[pkField] as string | number;
@@ -142,7 +142,7 @@ export const ListRow = memo(function ListRow({
                 }}
             >
                 <IconButton size="small" onClick={(event) => onOpenMenu(event, rowId)}>
-                    <MoreVertIcon fontSize="small" />
+                    <MoreVertIcon fontSize="small"/>
                 </IconButton>
             </TableCell>
         </TableRow>

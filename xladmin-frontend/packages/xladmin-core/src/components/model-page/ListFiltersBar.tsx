@@ -1,7 +1,17 @@
 'use client';
 
 import {memo, useCallback, useEffect, useMemo, useState} from 'react';
-import {Autocomplete, Button, CircularProgress, Divider, MenuItem, Paper, Stack, TextField, Typography} from '@mui/material';
+import {
+    Autocomplete,
+    Button,
+    CircularProgress,
+    Divider,
+    MenuItem,
+    Paper,
+    Stack,
+    TextField,
+    Typography
+} from '@mui/material';
 import type {XLAdminClient} from '../../client';
 import {useRemoteChoices} from '../../hooks/useRemoteChoices';
 import {useAdminTranslation} from '../../i18n';
@@ -24,14 +34,14 @@ type FilterGroup = {
 };
 
 export const ListFiltersSidebar = memo(function ListFiltersSidebar({
-    client,
-    slug,
-    filters,
-    values,
-    onChange,
-    onReset,
-    debounceMs = 300,
-}: ListFiltersSidebarProps) {
+                                                                       client,
+                                                                       slug,
+                                                                       filters,
+                                                                       values,
+                                                                       onChange,
+                                                                       onReset,
+                                                                       debounceMs = 300,
+                                                                   }: ListFiltersSidebarProps) {
     const t = useAdminTranslation();
 
     const filterGroups = useMemo(() => {
@@ -231,7 +241,10 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
     }
 
     if (filter.input_kind === 'select') {
-        const selectedOption = options.find((option) => option.value === value) ?? (value ? {value, label: value} : null);
+        const selectedOption = options.find((option) => option.value === value) ?? (value ? {
+            value,
+            label: value
+        } : null);
         return (
             <Autocomplete
                 options={options}
@@ -257,7 +270,7 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
                                     ...InputProps,
                                     endAdornment: (
                                         <>
-                                            {isLoadingChoices ? <CircularProgress color="inherit" size={16} /> : null}
+                                            {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
                                             {InputProps.endAdornment}
                                         </>
                                     ),

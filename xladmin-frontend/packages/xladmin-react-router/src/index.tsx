@@ -18,7 +18,8 @@ export function createReactRouterXLAdminRouter(adapter: ReactRouterXLAdminAdapte
             pathname: adapter.pathname,
             search: adapter.search,
         }),
-        subscribe: () => () => {},
+        subscribe: () => () => {
+        },
         push: (href) => {
             adapter.push(href);
         },

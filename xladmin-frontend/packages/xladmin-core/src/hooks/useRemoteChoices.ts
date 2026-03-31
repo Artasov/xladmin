@@ -18,14 +18,14 @@ type UseRemoteChoicesResult<T> = {
 };
 
 export function useRemoteChoices<T>({
-    enabled,
-    debounceMs = 250,
-    initialItems = [],
-    resetKey,
-    queryKey,
-    load,
-    merge,
-}: UseRemoteChoicesOptions<T>): UseRemoteChoicesResult<T> {
+                                        enabled,
+                                        debounceMs = 250,
+                                        initialItems = [],
+                                        resetKey,
+                                        queryKey,
+                                        load,
+                                        merge,
+                                    }: UseRemoteChoicesOptions<T>): UseRemoteChoicesResult<T> {
     const [items, setItems] = useState<T[]>(initialItems);
     const [isLoading, setIsLoading] = useState(false);
     const previousResetKeyRef = useRef(resetKey);
@@ -111,5 +111,5 @@ function isAbortReason(reason: unknown): boolean {
     return typeof reason === 'object'
         && reason !== null
         && 'name' in reason
-        && (reason as {name?: string}).name === 'AbortError';
+        && (reason as { name?: string }).name === 'AbortError';
 }

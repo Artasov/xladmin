@@ -6,19 +6,18 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect as sa_inspect
-
 from xladmin.config import ModelConfig
 from xladmin.introspection import convert_value_for_column, get_column_names, get_create_fields, get_update_fields
 from xladmin.router_queries import convert_pk, resolve_relation_model
 
 
 async def apply_payload_to_item(
-    session: AsyncSession,
-    model_config: ModelConfig,
-    item: Any,
-    payload: dict[str, Any],
-    *,
-    mode: str,
+        session: AsyncSession,
+        model_config: ModelConfig,
+        item: Any,
+        payload: dict[str, Any],
+        *,
+        mode: str,
 ) -> None:
     mapper = sa_inspect(model_config.model)
     column_names = set(get_column_names(model_config))
@@ -61,11 +60,11 @@ async def apply_payload_to_item(
 
 
 async def assign_relationship_value(
-    session: AsyncSession,
-    model_config: ModelConfig,
-    item: Any,
-    field_name: str,
-    value: Any,
+        session: AsyncSession,
+        model_config: ModelConfig,
+        item: Any,
+        field_name: str,
+        value: Any,
 ) -> None:
     mapper = sa_inspect(model_config.model)
     relationship = mapper.relationships[field_name]

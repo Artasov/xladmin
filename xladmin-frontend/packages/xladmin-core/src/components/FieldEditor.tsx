@@ -32,13 +32,13 @@ type RelationOption = {
 export type FieldEditorProps = AdminFieldEditorProps;
 
 export const FieldEditor = memo(function FieldEditor({
-    field,
-    value,
-    onChange,
-    slug,
-    client,
-    readOnly = false,
-}: FieldEditorProps) {
+                                                         field,
+                                                         value,
+                                                         onChange,
+                                                         slug,
+                                                         client,
+                                                         readOnly = false,
+                                                     }: FieldEditorProps) {
     const t = useAdminTranslation();
     const [searchValue, setSearchValue] = useState('');
     const [jsonTextValue, setJsonTextValue] = useState(() => stringifyJsonValue(value));
@@ -202,15 +202,15 @@ export const FieldEditor = memo(function FieldEditor({
 
 
 function renderChoiceEditor({
-    field,
-    value,
-    onChange,
-    readOnly,
-    choices,
-    isLoadingChoices,
-    onSearchChange,
-    searchPlaceholder,
-}: {
+                                field,
+                                value,
+                                onChange,
+                                readOnly,
+                                choices,
+                                isLoadingChoices,
+                                onSearchChange,
+                                searchPlaceholder,
+                            }: {
     field: AdminFieldMeta;
     value: unknown;
     onChange: (value: unknown) => void;
@@ -266,7 +266,7 @@ function renderChoiceEditor({
                                     ...InputProps,
                                     endAdornment: (
                                         <>
-                                            {isLoadingChoices ? <CircularProgress color="inherit" size={16} /> : null}
+                                            {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
                                             {InputProps.endAdornment}
                                         </>
                                     ),
@@ -322,7 +322,7 @@ function renderChoiceEditor({
                                 ...InputProps,
                                 endAdornment: (
                                     <>
-                                        {isLoadingChoices ? <CircularProgress color="inherit" size={16} /> : null}
+                                        {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
                                         {InputProps.endAdornment}
                                     </>
                                 ),

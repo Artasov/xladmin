@@ -33,8 +33,16 @@ describe('cache helpers', () => {
         const detailKey = buildDetailCacheKey('users', 1);
         const otherDetailKey = buildDetailCacheKey('roles', 1);
 
-        setCachedListResponse(client, listKey, {meta: {} as never, pagination: {limit: 50, offset: 0, total: 1}, items: []});
-        setCachedListResponse(client, otherListKey, {meta: {} as never, pagination: {limit: 50, offset: 0, total: 1}, items: []});
+        setCachedListResponse(client, listKey, {
+            meta: {} as never,
+            pagination: {limit: 50, offset: 0, total: 1},
+            items: []
+        });
+        setCachedListResponse(client, otherListKey, {
+            meta: {} as never,
+            pagination: {limit: 50, offset: 0, total: 1},
+            items: []
+        });
         setCachedDetailResponse(client, detailKey, {meta: {} as never, item: {id: 1}});
         setCachedDetailResponse(client, otherDetailKey, {meta: {} as never, item: {id: 2}});
 

@@ -95,7 +95,7 @@ export type AdminModelsBlockMeta = {
 
 export type AdminListResponse = {
     meta: AdminModelMeta;
-    pagination: {limit: number; offset: number; total: number};
+    pagination: { limit: number; offset: number; total: number };
     items: Record<string, unknown>[];
 };
 
@@ -138,5 +138,5 @@ export type AdminModelsResponse = {
 };
 
 export type AdminChoicesResponse = {
-    items: Array<{id: string | number; label: string}>;
+    items: Array<{ id: string | number; label: string }>;
 };

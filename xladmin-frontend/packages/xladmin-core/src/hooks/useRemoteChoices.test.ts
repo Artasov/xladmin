@@ -5,7 +5,7 @@ import {useRemoteChoices} from './useRemoteChoices';
 
 describe('useRemoteChoices', () => {
     beforeEach(() => {
-        (globalThis as typeof globalThis & {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true;
+        (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     });
 
     it('preserves loaded items when initial items are re-created empty for the same reset key', async () => {
@@ -14,7 +14,7 @@ describe('useRemoteChoices', () => {
         const loadedItems = [{value: '1', label: 'Admin'}];
         const load = vi.fn().mockResolvedValue(loadedItems);
 
-        function TestComponent({initialItems}: {initialItems: typeof loadedItems}) {
+        function TestComponent({initialItems}: { initialItems: typeof loadedItems }) {
             const {items} = useRemoteChoices({
                 enabled: true,
                 debounceMs: 0,

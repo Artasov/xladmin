@@ -1,12 +1,18 @@
 import {act, createElement} from 'react';
 import {createRoot} from 'react-dom/client';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
-import {buildUrlWithParams, createBrowserXLAdminRouter, useXLAdminLocation, type XLAdminLocation, type XLAdminRouter} from './router';
+import {
+    buildUrlWithParams,
+    createBrowserXLAdminRouter,
+    useXLAdminLocation,
+    type XLAdminLocation,
+    type XLAdminRouter
+} from './router';
 
 describe('router helpers', () => {
     beforeEach(() => {
         window.history.replaceState(window.history.state, '', '/admin');
-        (globalThis as typeof globalThis & {IS_REACT_ACT_ENVIRONMENT?: boolean}).IS_REACT_ACT_ENVIRONMENT = true;
+        (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
     });
 
     it('builds urls from admin params', () => {

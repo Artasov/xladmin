@@ -40,7 +40,7 @@ export function DashboardModelsBlock({block, basePath}: DashboardModelsBlockProp
             }}
         >
             <AccordionSummary
-                expandIcon={block.collapsible ? <ExpandMoreIcon fontSize="small" /> : undefined}
+                expandIcon={block.collapsible ? <ExpandMoreIcon fontSize="small"/> : undefined}
                 sx={{
                     minHeight: '48px',
                     pr: 1.75,
@@ -63,12 +63,13 @@ export function DashboardModelsBlock({block, basePath}: DashboardModelsBlockProp
                     },
                 }}
             >
-                <BlockTitle block={block} />
+                <BlockTitle block={block}/>
             </AccordionSummary>
             <AccordionDetails sx={{px: 1.35, pb: 1.35, pt: 0}}>
                 <Stack spacing={0.5} sx={{px: 0.4}}>
                     {block.models.map((model) => (
-                        <NavLink key={model.slug} href={`${basePath}/${model.slug}`} style={{textDecoration: 'none', display: 'block'}}>
+                        <NavLink key={model.slug} href={`${basePath}/${model.slug}`}
+                                 style={{textDecoration: 'none', display: 'block'}}>
                             <ButtonBase
                                 sx={{
                                     width: '100%',
@@ -86,7 +87,7 @@ export function DashboardModelsBlock({block, basePath}: DashboardModelsBlockProp
                                         py: 0.4,
                                     }}
                                 >
-                                    <ListItemText primary={model.title} />
+                                    <ListItemText primary={model.title}/>
                                 </ListItemButton>
                             </ButtonBase>
                         </NavLink>

@@ -11,10 +11,10 @@ type ReadonlyObjectFieldProps = {
 };
 
 export const ReadonlyObjectField = memo(function ReadonlyObjectField({
-    field,
-    value,
-    imageUrl,
-}: ReadonlyObjectFieldProps) {
+                                                                         field,
+                                                                         value,
+                                                                         imageUrl,
+                                                                     }: ReadonlyObjectFieldProps) {
     const isMultiline = (
         field.input_kind === 'textarea'
         || field.input_kind === 'json'

@@ -4,7 +4,6 @@ from typing import Any
 
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import ColumnProperty, RelationshipProperty
-
 from xladmin.config import AdminModelConfig
 
 
@@ -94,14 +93,14 @@ def get_update_fields(config: AdminModelConfig) -> list[str]:
     return [
         name for name in get_all_field_names(config)
         if (
-            name != get_pk_field_name(config)
-            and not is_read_only(config, name)
-            and not config.get_field_config(name).hidden_in_form
-            and (
-                name in column_names
-                or name in relationship_names
-                or config.get_field_config(name).value_setter is not None
-            )
+                name != get_pk_field_name(config)
+                and not is_read_only(config, name)
+                and not config.get_field_config(name).hidden_in_form
+                and (
+                        name in column_names
+                        or name in relationship_names
+                        or config.get_field_config(name).value_setter is not None
+                )
         )
     ]
 
@@ -161,11 +160,11 @@ def pk_is_generated(column: Any) -> bool:
 def get_configured_field_names(config: AdminModelConfig) -> list[str]:
     names: list[str] = []
     for field_group in (
-        config.list_display,
-        config.list_fields,
-        config.detail_fields,
-        config.create_fields,
-        config.update_fields,
+            config.list_display,
+            config.list_fields,
+            config.detail_fields,
+            config.create_fields,
+            config.update_fields,
     ):
         if field_group is None:
             continue
