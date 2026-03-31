@@ -4,6 +4,7 @@ from typing import Any
 
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import ColumnProperty, RelationshipProperty
+
 from xladmin.config import AdminModelConfig
 
 

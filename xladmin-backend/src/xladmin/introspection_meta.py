@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import inspect as sa_inspect
+
 from xladmin.config import AdminModelConfig
 from xladmin.i18n import normalize_locale, translate
 from xladmin.introspection_fields import (

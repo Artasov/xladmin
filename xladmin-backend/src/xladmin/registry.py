@@ -6,6 +6,7 @@ from dataclasses import replace
 from typing import Any
 
 from sqlalchemy import inspect as sa_inspect
+
 from xladmin.config import AdminConfig, ModelConfig, ModelsBlockConfig
 from xladmin.i18n import normalize_locale
 
