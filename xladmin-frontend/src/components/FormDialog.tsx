@@ -2,6 +2,7 @@
 
 import {useEffect, useMemo, useState} from 'react';
 import {
+    Alert,
     Box,
     Button,
     Dialog,
@@ -12,6 +13,7 @@ import {
 import {LocalizationProvider} from '@mui/x-date-pickers';
 import {AdapterDayjs} from '@mui/x-date-pickers/AdapterDayjs';
 import type {XLAdminClient} from '../client';
+import {useAdminTranslation} from '../i18n';
 import type {AdminModelMeta} from '../types';
 import {buildAdminPayload} from '../utils/adminFields';
 import {FieldEditor} from './FieldEditor';
@@ -43,7 +45,10 @@ export function FormDialog({
     initialValues,
     itemId,
 }: FormDialogProps) {
+    const t = useAdminTranslation();
     const [values, setValues] = useState<Record<string, unknown>>({});
+    const [error, setError] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
     const editableFieldNames = useMemo(
         () => (mode === 'create' ? meta.create_fields : meta.update_fields),
         [meta.create_fields, meta.update_fields, mode],
@@ -55,17 +60,31 @@ export function FormDialog({
 
     useEffect(() => {
         setValues(initialValues ?? {});
+        setError(null);
+        setIsSaving(false);
     }, [initialValues, open]);
 
     const handleSave = async () => {
-        const payload = buildAdminPayload(values, editableFields);
-        if (mode === 'create') {
-            await client.createItem(slug, payload);
-        } else if (itemId !== undefined) {
-            await client.patchItem(slug, itemId, payload);
+        if (isSaving) {
+            return;
         }
-        onSuccess();
-        onClose();
+
+        setIsSaving(true);
+        setError(null);
+        const payload = buildAdminPayload(values, editableFields);
+        try {
+            if (mode === 'create') {
+                await client.createItem(slug, payload);
+            } else if (itemId !== undefined) {
+                await client.patchItem(slug, itemId, payload);
+            }
+            onSuccess();
+            onClose();
+        } catch (reason: unknown) {
+            setError(reason instanceof Error ? reason.message : t('object_save_error'));
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -91,8 +110,9 @@ export function FormDialog({
         >
             <DialogTitle>{title}</DialogTitle>
             <DialogContent>
-                <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={meta.locale}>
                     <Box sx={{display: 'grid', gap: 2, pt: 1}}>
+                        {error ? <Alert severity="error">{error}</Alert> : null}
                         {editableFields.map((field) => (
                             <FieldEditor
                                 key={field.name}
@@ -109,8 +129,10 @@ export function FormDialog({
                 </LocalizationProvider>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose}>Отмена</Button>
-                <Button variant="contained" onClick={handleSave}>Сохранить</Button>
+                <Button onClick={onClose} disabled={isSaving}>{t('cancel')}</Button>
+                <Button variant="contained" onClick={() => void handleSave()} disabled={isSaving}>
+                    {isSaving ? t('saving') : t('save')}
+                </Button>
             </DialogActions>
         </Dialog>
     );

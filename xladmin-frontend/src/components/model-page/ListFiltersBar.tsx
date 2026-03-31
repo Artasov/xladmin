@@ -1,7 +1,7 @@
 'use client';
 
 import {memo, useCallback, useEffect, useMemo, useState} from 'react';
-import {Button, CircularProgress, Divider, MenuItem, Paper, Stack, TextField, Typography} from '@mui/material';
+import {Autocomplete, Button, CircularProgress, Divider, MenuItem, Paper, Stack, TextField, Typography} from '@mui/material';
 import type {XLAdminClient} from '../../client';
 import {useAdminTranslation} from '../../i18n';
 import type {AdminListFilterMeta} from '../../types';
@@ -162,8 +162,8 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
     const t = useAdminTranslation();
     const [draftValue, setDraftValue] = useState(value);
     const [options, setOptions] = useState(filter.options);
-    const [isChoicesLoaded, setIsChoicesLoaded] = useState(filter.options.length > 0);
     const [isLoadingChoices, setIsLoadingChoices] = useState(false);
+    const [searchValue, setSearchValue] = useState('');
 
     useEffect(() => {
         setDraftValue(value);
@@ -171,7 +171,7 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
 
     useEffect(() => {
         setOptions(filter.options);
-        setIsChoicesLoaded(filter.options.length > 0);
+        setSearchValue('');
     }, [filter.slug]);
 
     useEffect(() => {
@@ -179,17 +179,21 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
             return;
         }
         setOptions(filter.options);
-        setIsChoicesLoaded(true);
     }, [filter.options]);
 
-    const loadChoices = useCallback(async () => {
-        if (!filter.has_choices || filter.input_kind !== 'select' || isChoicesLoaded) {
+    const loadChoices = useCallback(async (query: string) => {
+        if (!filter.has_choices || filter.input_kind !== 'select') {
             return;
         }
 
-        const requestKey = `${slug}:${filter.slug}`;
+        const requestKey = `${slug}:${filter.slug}:${query}:${value}`;
         const existingRequest = inFlightFilterChoicesRequests.get(requestKey);
-        const request = existingRequest ?? client.getFilterChoices(slug, filter.slug)
+        const request = existingRequest ?? client.getFilterChoices(
+            slug,
+            filter.slug,
+            query || undefined,
+            value ? [value] : undefined,
+        )
             .then((response) => response.items.map((item) => ({
                 value: String(item.id),
                 label: item.label,
@@ -206,11 +210,10 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
         try {
             const nextOptions = await request;
             setOptions(nextOptions);
-            setIsChoicesLoaded(true);
         } finally {
             setIsLoadingChoices(false);
         }
-    }, [client, filter.has_choices, filter.input_kind, filter.slug, isChoicesLoaded, slug]);
+    }, [client, filter.has_choices, filter.input_kind, filter.slug, slug, value]);
 
     useEffect(() => {
         if (filter.input_kind !== 'text') return;
@@ -227,27 +230,29 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
     }, [debounceMs, draftValue, filter.input_kind, filter.slug, onChange, value]);
 
     useEffect(() => {
-        if (!value || !filter.has_choices || filter.input_kind !== 'select' || isChoicesLoaded) {
+        if (!filter.has_choices || filter.input_kind !== 'select') {
             return;
         }
 
         let isCancelled = false;
-        void loadChoices()
-            .then(() => {
-                if (isCancelled) return;
-            })
-            .catch(() => {
-                if (isCancelled) return;
-                setOptions([]);
-                setIsChoicesLoaded(false);
-            });
+        const timeoutId = window.setTimeout(() => {
+            void loadChoices(searchValue)
+                .then(() => {
+                    if (isCancelled) return;
+                })
+                .catch(() => {
+                    if (isCancelled) return;
+                    setOptions(filter.options);
+                });
+        }, debounceMs);
 
         return () => {
             isCancelled = true;
+            window.clearTimeout(timeoutId);
         };
-    }, [filter.has_choices, filter.input_kind, isChoicesLoaded, loadChoices, value]);
+    }, [debounceMs, filter.has_choices, filter.input_kind, filter.options, loadChoices, searchValue]);
 
-    if (filter.input_kind === 'boolean' || filter.input_kind === 'select') {
+    if (filter.input_kind === 'boolean') {
         return (
             <TextField
                 select
@@ -256,25 +261,50 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
                 label={filter.label}
                 value={value}
                 onChange={(event) => onChange(filter.slug, event.target.value)}
-                slotProps={{
-                    select: filter.input_kind === 'select' ? {onOpen: () => void loadChoices()} : undefined,
-                }}
             >
                 <MenuItem value="">{t('all')}</MenuItem>
-                {isLoadingChoices ? (
-                    <MenuItem disabled value="__loading__">
-                        <Stack direction="row" spacing={1} alignItems="center">
-                            <CircularProgress size={14} thickness={5} />
-                            <Typography variant="body2">{t('loading')}</Typography>
-                        </Stack>
-                    </MenuItem>
-                ) : null}
-                {options.map((option) => (
+                {filter.options.map((option) => (
                     <MenuItem key={`${filter.slug}-${option.value}`} value={option.value}>
                         {option.label}
                     </MenuItem>
                 ))}
             </TextField>
+        );
+    }
+
+    if (filter.input_kind === 'select') {
+        const selectedOption = options.find((option) => option.value === value) ?? (value ? {value, label: value} : null);
+        return (
+            <Autocomplete
+                options={options}
+                value={selectedOption}
+                loading={isLoadingChoices}
+                filterOptions={(items) => items}
+                size="small"
+                disablePortal
+                isOptionEqualToValue={(option, selected) => option.value === selected.value}
+                getOptionLabel={(option) => option.label}
+                onChange={(_, nextValue) => onChange(filter.slug, nextValue?.value ?? '')}
+                onInputChange={(_, nextInputValue) => setSearchValue(nextInputValue)}
+                renderInput={(params) => (
+                    <TextField
+                        {...params}
+                        label={filter.label}
+                        placeholder={filter.placeholder ?? t('search')}
+                        slotProps={{
+                            input: {
+                                ...params.InputProps,
+                                endAdornment: (
+                                    <>
+                                        {isLoadingChoices ? <CircularProgress color="inherit" size={16} /> : null}
+                                        {params.InputProps.endAdornment}
+                                    </>
+                                ),
+                            },
+                        }}
+                    />
+                )}
+            />
         );
     }
 

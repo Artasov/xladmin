@@ -1,6 +1,5 @@
 'use client';
 
-import {usePathname, useSearchParams} from 'next/navigation.js';
 import type {MouseEvent} from 'react';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import AddIcon from '@mui/icons-material/Add';
@@ -33,9 +32,18 @@ import {
     useMediaQuery,
 } from '@mui/material';
 import {useTheme} from '@mui/material/styles';
+import {
+    buildListCacheKey,
+    getClientCacheBucket,
+    getModelCacheVersion,
+    invalidateModelCache,
+    setCachedListResponse,
+} from '../cache';
 import type {XLAdminClient} from '../client';
 import {useAdminDocumentTitle} from '../hooks/useAdminDocumentTitle';
 import {useAdminLocale, useAdminTranslation} from '../i18n';
+import type {XLAdminRouter} from '../router';
+import {buildUrlWithParams, XLAdminRouterProvider, useXLAdminLocation, useXLAdminRouter} from '../router';
 import type {AdminDeletePreviewResponse, AdminFieldMeta, AdminListResponse} from '../types';
 import {getListFieldWidthPx} from '../utils/adminFields';
 import {DeletePreviewDialog} from './DeletePreviewDialog';
@@ -50,6 +58,7 @@ type AdminModelPageProps = {
     client: XLAdminClient;
     basePath: string;
     slug: string;
+    router?: XLAdminRouter;
 };
 
 export type ModelPageProps = AdminModelPageProps;
@@ -66,26 +75,27 @@ const DEFAULT_PAGE_SIZE = 50;
 const SEARCH_DEBOUNCE_MS = 300;
 const CHECKBOX_COLUMN_WIDTH = 56;
 const ACTIONS_COLUMN_WIDTH = 56;
-const inFlightListRequests = new Map<string, Promise<AdminListResponse>>();
-const listResponseCache = new Map<string, AdminListResponse>();
 
-export function ModelPage({client, basePath, slug}: ModelPageProps) {
+export function ModelPage({client, basePath, slug, router}: ModelPageProps) {
     const locale = useAdminLocale();
     const t = useAdminTranslation();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
+    const resolvedRouter = useXLAdminRouter(router);
+    const location = useXLAdminLocation(resolvedRouter);
+    const pathname = location.pathname;
+    const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
     const initialQuery = searchParams.get('q') ?? '';
     const initialSort = searchParams.get('sort') ?? '';
     const initialPage = parsePageParam(searchParams.get('page'));
     const initialFilters = extractFilterParams(searchParams);
-    const initialCachedResponse = findCachedListResponse(
-        slug,
-        initialQuery || undefined,
-        initialSort || undefined,
-        DEFAULT_PAGE_SIZE,
-        (initialPage - 1) * DEFAULT_PAGE_SIZE,
-        initialFilters,
-    );
+    const initialCachedResponse = getClientCacheBucket(client).listResponseCache.get(
+        buildListCacheKey(slug, {
+            q: initialQuery || undefined,
+            sort: initialSort || undefined,
+            limit: DEFAULT_PAGE_SIZE,
+            offset: (initialPage - 1) * DEFAULT_PAGE_SIZE,
+            ...initialFilters,
+        }),
+    ) ?? null;
 
     const [selectedIds, setSelectedIds] = useState<Array<string | number>>([]);
     const [createOpen, setCreateOpen] = useState(false);
@@ -143,24 +153,16 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
     }, [currentPage]);
 
     useEffect(() => {
-        const handlePopState = () => {
-            const params = new URLSearchParams(window.location.search);
-            const nextQuery = params.get('q') ?? '';
-            const nextSort = params.get('sort') ?? '';
-            const nextPage = parsePageParam(params.get('page'));
-            const nextFilters = extractFilterParams(params);
-            setAppliedQuery(nextQuery);
-            setSortValue(nextSort);
-            setCurrentPage(nextPage);
-            setPageInput(String(nextPage));
-            setAppliedFilters(nextFilters);
-        };
-
-        window.addEventListener('popstate', handlePopState);
-        return () => {
-            window.removeEventListener('popstate', handlePopState);
-        };
-    }, []);
+        const nextQuery = searchParams.get('q') ?? '';
+        const nextSort = searchParams.get('sort') ?? '';
+        const nextPage = parsePageParam(searchParams.get('page'));
+        const nextFilters = extractFilterParams(searchParams);
+        setAppliedQuery(nextQuery);
+        setSortValue(nextSort);
+        setCurrentPage(nextPage);
+        setPageInput(String(nextPage));
+        setAppliedFilters(nextFilters);
+    }, [searchParams]);
 
     const loadItems = useCallback(async () => {
         const activeRequestId = requestIdRef.current + 1;
@@ -174,15 +176,9 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
             offset: (currentPage - 1) * pageSizeRef.current,
             ...appliedFilters,
         };
+        const requestKey = buildListCacheKey(slug, requestParams);
 
-        const cachedResponse = findCachedListResponse(
-            slug,
-            requestParams.q,
-            requestParams.sort,
-            requestParams.limit ?? DEFAULT_PAGE_SIZE,
-            requestParams.offset ?? 0,
-            appliedFilters,
-        );
+        const cachedResponse = getClientCacheBucket(client).listResponseCache.get(requestKey) ?? null;
         if (cachedResponse) {
             setData(cachedResponse);
             setSelectedIds([]);
@@ -196,7 +192,7 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
         setIsLoading(true);
 
         try {
-            const response = await requestListItems(client, slug, requestParams);
+            const response = await requestListItems(client, slug, requestParams, requestKey);
             if (activeRequestId !== requestIdRef.current) {
                 return;
             }
@@ -218,8 +214,9 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
     }, [loadItems]);
 
     const refresh = useCallback(async () => {
+        invalidateModelCache(client, slug);
         await loadItems();
-    }, [loadItems]);
+    }, [client, loadItems, slug]);
 
     const handleSearchCommit = useCallback((nextQuery: string) => {
         if (nextQuery === appliedQuery) {
@@ -228,15 +225,15 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
         setAppliedQuery(nextQuery);
         setCurrentPage(1);
         setPageInput('1');
-        replaceUrlParams(pathname, nextQuery, sortValue, 1, appliedFilters);
-    }, [appliedFilters, appliedQuery, pathname, sortValue]);
+        resolvedRouter.replace(buildUrlWithParams(pathname, nextQuery, sortValue, 1, appliedFilters));
+    }, [appliedFilters, appliedQuery, pathname, resolvedRouter, sortValue]);
 
     const handlePageChange = useCallback((nextPage: number) => {
         const safePage = Math.min(Math.max(nextPage, 1), totalPages);
         setCurrentPage(safePage);
         setPageInput(String(safePage));
-        replaceUrlParams(pathname, appliedQuery, sortValue, safePage, appliedFilters);
-    }, [appliedFilters, appliedQuery, pathname, sortValue, totalPages]);
+        resolvedRouter.replace(buildUrlWithParams(pathname, appliedQuery, sortValue, safePage, appliedFilters));
+    }, [appliedFilters, appliedQuery, pathname, resolvedRouter, sortValue, totalPages]);
 
     const handlePageInputCommit = useCallback(() => {
         const parsedPage = parsePageParam(pageInput);
@@ -259,8 +256,8 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
         setSortValue(nextSortValue);
         setCurrentPage(1);
         setPageInput('1');
-        replaceUrlParams(pathname, appliedQuery, nextSortValue, 1, appliedFilters);
-    }, [appliedFilters, appliedQuery, pathname, sortFields]);
+        resolvedRouter.replace(buildUrlWithParams(pathname, appliedQuery, nextSortValue, 1, appliedFilters));
+    }, [appliedFilters, appliedQuery, pathname, resolvedRouter, sortFields]);
 
     const handleFilterChange = useCallback((filterSlug: string, value: string) => {
         const nextFilters = {
@@ -273,8 +270,8 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
         setAppliedFilters(nextFilters);
         setCurrentPage(1);
         setPageInput('1');
-        replaceUrlParams(pathname, appliedQuery, sortValue, 1, nextFilters);
-    }, [appliedFilters, appliedQuery, pathname, sortValue]);
+        resolvedRouter.replace(buildUrlWithParams(pathname, appliedQuery, sortValue, 1, nextFilters));
+    }, [appliedFilters, appliedQuery, pathname, resolvedRouter, sortValue]);
 
     const handleResetFilters = useCallback(() => {
         if (Object.keys(appliedFilters).length === 0) {
@@ -283,8 +280,8 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
         setAppliedFilters({});
         setCurrentPage(1);
         setPageInput('1');
-        replaceUrlParams(pathname, appliedQuery, sortValue, 1, {});
-    }, [appliedFilters, appliedQuery, pathname, sortValue]);
+        resolvedRouter.replace(buildUrlWithParams(pathname, appliedQuery, sortValue, 1, {}));
+    }, [appliedFilters, appliedQuery, pathname, resolvedRouter, sortValue]);
 
     const openSingleDeletePreview = useCallback(async (rowId: string | number) => {
         setPendingDeleteIds([rowId]);
@@ -414,8 +411,9 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
     }
 
     return (
-        <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
-            <MainHeader
+        <XLAdminRouterProvider router={resolvedRouter}>
+            <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
+                <MainHeader
                 title={meta.title}
                 actions={(
                     <Tooltip title={t('create')}>
@@ -746,25 +744,26 @@ export function ModelPage({client, basePath, slug}: ModelPageProps) {
                 </DialogContent>
             </Dialog>
 
-            <DeletePreviewDialog
-                open={deletePreviewOpen}
-                title={pendingDeleteMode === 'single' ? t('delete_object_title') : t('delete_bulk_title')}
-                preview={deletePreview}
-                error={deletePreviewError}
-                isLoading={isDeletePreviewLoading}
-                isSubmitting={isDeleteSubmitting}
-                onClose={() => {
-                    if (isDeleteSubmitting) {
-                        return;
-                    }
-                    setDeletePreviewOpen(false);
-                    setDeletePreview(null);
-                    setDeletePreviewError(null);
-                    setPendingDeleteIds([]);
-                }}
-                onConfirm={() => void handleConfirmDelete()}
-            />
-        </Stack>
+                <DeletePreviewDialog
+                    open={deletePreviewOpen}
+                    title={pendingDeleteMode === 'single' ? t('delete_object_title') : t('delete_bulk_title')}
+                    preview={deletePreview}
+                    error={deletePreviewError}
+                    isLoading={isDeletePreviewLoading}
+                    isSubmitting={isDeleteSubmitting}
+                    onClose={() => {
+                        if (isDeleteSubmitting) {
+                            return;
+                        }
+                        setDeletePreviewOpen(false);
+                        setDeletePreview(null);
+                        setDeletePreviewError(null);
+                        setPendingDeleteIds([]);
+                    }}
+                    onConfirm={() => void handleConfirmDelete()}
+                />
+            </Stack>
+        </XLAdminRouterProvider>
     );
 }
 
@@ -787,56 +786,32 @@ function resolveFieldSortable(field: AdminFieldMeta | undefined): boolean {
     );
 }
 
-function requestListItems(client: XLAdminClient, slug: string, params: AdminListRequestParams) {
-    const requestKey = buildListRequestKey(slug, params);
-    const cachedResponse = listResponseCache.get(requestKey);
+function requestListItems(client: XLAdminClient, slug: string, params: AdminListRequestParams, requestKey: string) {
+    const bucket = getClientCacheBucket(client);
+    const cachedResponse = bucket.listResponseCache.get(requestKey);
     if (cachedResponse) {
         return Promise.resolve(cachedResponse);
     }
 
-    const existingRequest = inFlightListRequests.get(requestKey);
+    const existingRequest = bucket.inFlightListRequests.get(requestKey);
     if (existingRequest) {
         return existingRequest;
     }
 
+    const cacheVersion = getModelCacheVersion(client, slug);
     const request = client.getItems(slug, params)
         .then((response) => {
-            listResponseCache.set(requestKey, response);
+            if (getModelCacheVersion(client, slug) === cacheVersion) {
+                setCachedListResponse(client, requestKey, response);
+            }
             return response;
         })
         .finally(() => {
-            inFlightListRequests.delete(requestKey);
+            bucket.inFlightListRequests.delete(requestKey);
         });
 
-    inFlightListRequests.set(requestKey, request);
+    bucket.inFlightListRequests.set(requestKey, request);
     return request;
-}
-
-function buildListRequestKey(slug: string, params: AdminListRequestParams): string {
-    const {q, sort, limit, offset, ...filters} = params;
-    return JSON.stringify({
-        slug,
-        q: q ?? null,
-        sort: sort ?? null,
-        limit: limit ?? DEFAULT_PAGE_SIZE,
-        offset: offset ?? 0,
-        filters: Object.fromEntries(
-            Object.entries(filters)
-                .filter(([, value]) => value !== undefined && value !== null && value !== '')
-                .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey)),
-        ),
-    });
-}
-
-function findCachedListResponse(
-    slug: string,
-    query: string | undefined,
-    sort: string | undefined,
-    limit: number,
-    offset: number,
-    filters: Record<string, string>,
-): AdminListResponse | null {
-    return listResponseCache.get(buildListRequestKey(slug, {q: query, sort, limit, offset, ...filters})) ?? null;
 }
 
 function parsePageParam(value: string | null): number {
@@ -847,7 +822,7 @@ function parsePageParam(value: string | null): number {
     return Math.floor(parsedValue);
 }
 
-function extractFilterParams(params: URLSearchParams | ReturnType<typeof useSearchParams>): Record<string, string> {
+function extractFilterParams(params: URLSearchParams): Record<string, string> {
     const result: Record<string, string> = {};
     for (const [key, value] of params.entries()) {
         if (key === 'q' || key === 'sort' || key === 'page') {
@@ -858,32 +833,4 @@ function extractFilterParams(params: URLSearchParams | ReturnType<typeof useSear
         }
     }
     return result;
-}
-
-function replaceUrlParams(
-    pathname: string | null,
-    query: string,
-    sort: string,
-    page: number,
-    filters: Record<string, string>,
-): void {
-    const params = new URLSearchParams();
-    if (query) {
-        params.set('q', query);
-    }
-    if (sort) {
-        params.set('sort', sort);
-    }
-    if (page > 1) {
-        params.set('page', String(page));
-    }
-    for (const [key, value] of Object.entries(filters)) {
-        if (value) {
-            params.set(key, value);
-        }
-    }
-
-    const nextPath = pathname ?? window.location.pathname;
-    const nextUrl = params.toString() ? `${nextPath}?${params.toString()}` : nextPath;
-    window.history.replaceState(window.history.state, '', nextUrl);
 }

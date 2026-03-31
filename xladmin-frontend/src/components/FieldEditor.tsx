@@ -1,6 +1,6 @@
 'use client';
 
-import {memo, useEffect, useMemo, useState} from 'react';
+import {memo, useEffect, useMemo, useRef, useState} from 'react';
 import {
     Autocomplete,
     CircularProgress,
@@ -45,6 +45,7 @@ export const FieldEditor = memo(function FieldEditor({
     const [jsonTextValue, setJsonTextValue] = useState(() => stringifyJsonValue(value));
     const [jsonError, setJsonError] = useState<string | null>(null);
     const selectedIds = useMemo(() => normalizeSelectedIds(value, field.is_relation_many), [field.is_relation_many, value]);
+    const choicesRequestIdRef = useRef(0);
 
     useEffect(() => {
         if (field.input_kind !== 'json') {
@@ -61,24 +62,28 @@ export const FieldEditor = memo(function FieldEditor({
         }
 
         let isMounted = true;
-        setIsLoadingChoices(true);
-
-        client.getChoices(slug, field.name, searchValue || undefined, selectedIds)
-            .then((response) => {
-                if (!isMounted) return;
-                setChoices((current) => mergeChoices(current, response.items));
-            })
-            .catch(() => {
-                if (!isMounted) return;
-                setChoices((current) => current);
-            })
-            .finally(() => {
-                if (!isMounted) return;
-                setIsLoadingChoices(false);
-            });
+        const requestId = choicesRequestIdRef.current + 1;
+        choicesRequestIdRef.current = requestId;
+        const timeoutId = window.setTimeout(() => {
+            setIsLoadingChoices(true);
+            client.getChoices(slug, field.name, searchValue || undefined, selectedIds)
+                .then((response) => {
+                    if (!isMounted || requestId !== choicesRequestIdRef.current) return;
+                    setChoices((current) => mergeChoices(current, response.items));
+                })
+                .catch(() => {
+                    if (!isMounted || requestId !== choicesRequestIdRef.current) return;
+                    setChoices((current) => current);
+                })
+                .finally(() => {
+                    if (!isMounted || requestId !== choicesRequestIdRef.current) return;
+                    setIsLoadingChoices(false);
+                });
+        }, 250);
 
         return () => {
             isMounted = false;
+            window.clearTimeout(timeoutId);
         };
     }, [client, field.has_choices, field.name, searchValue, selectedIds, slug]);
 
@@ -125,7 +130,7 @@ export const FieldEditor = memo(function FieldEditor({
                 label={field.label}
                 disabled={readOnly}
                 value={value ? dayjs(String(value)) : null}
-                onChange={(nextValue) => onChange(nextValue ? nextValue.toISOString() : null)}
+                onChange={(nextValue) => onChange(nextValue ? nextValue.format('YYYY-MM-DDTHH:mm:ss') : null)}
                 slotProps={{
                     popper: {disablePortal: true},
                     desktopPaper: buildPickerPaperProps(),

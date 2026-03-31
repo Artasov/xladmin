@@ -1,7 +1,6 @@
 'use client';
 
 import {useCallback, useEffect, useMemo, useState} from 'react';
-import {usePathname, useRouter} from 'next/navigation.js';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {
@@ -21,9 +20,18 @@ import {AdapterDayjs} from '@mui/x-date-pickers/AdapterDayjs';
 import {useTheme} from '@mui/material/styles';
 import 'dayjs/locale/en.js';
 import 'dayjs/locale/ru.js';
+import {
+    buildDetailCacheKey,
+    getClientCacheBucket,
+    getModelCacheVersion,
+    invalidateModelCache,
+    setCachedDetailResponse,
+} from '../cache';
 import type {XLAdminClient} from '../client';
 import {useAdminDocumentTitle} from '../hooks/useAdminDocumentTitle';
 import {useAdminLocale, useAdminTranslation} from '../i18n';
+import type {XLAdminRouter} from '../router';
+import {XLAdminRouterProvider, useXLAdminLocation, useXLAdminRouter} from '../router';
 import type {AdminDeletePreviewResponse, AdminDetailResponse} from '../types';
 import {buildAdminPayload, formatAdminValue, resolveAdminMediaUrl} from '../utils/adminFields';
 import {DeletePreviewDialog} from './DeletePreviewDialog';
@@ -36,24 +44,23 @@ type AdminObjectPageProps = {
     client: XLAdminClient;
     slug: string;
     id: string;
+    router?: XLAdminRouter;
 };
 
 export type ObjectPageProps = AdminObjectPageProps;
 
-const detailResponseCache = new Map<string, AdminDetailResponse>();
-const inFlightDetailRequests = new Map<string, Promise<AdminDetailResponse>>();
-
-export function ObjectPage({client, slug, id}: ObjectPageProps) {
+export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
     const locale = useAdminLocale();
     const t = useAdminTranslation();
-    const router = useRouter();
-    const pathname = usePathname();
+    const resolvedRouter = useXLAdminRouter(router);
+    const location = useXLAdminLocation(resolvedRouter);
+    const pathname = location.pathname;
     const theme = useTheme();
     const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
-    const cacheKey = `${slug}:${id}`;
-    const [data, setData] = useState<AdminDetailResponse | null>(() => detailResponseCache.get(cacheKey) ?? null);
-    const [values, setValues] = useState<Record<string, unknown>>(() => detailResponseCache.get(cacheKey)?.item ?? {});
-    const [initialValues, setInitialValues] = useState<Record<string, unknown>>(() => detailResponseCache.get(cacheKey)?.item ?? {});
+    const cacheKey = buildDetailCacheKey(slug, id);
+    const [data, setData] = useState<AdminDetailResponse | null>(() => getClientCacheBucket(client).detailResponseCache.get(cacheKey) ?? null);
+    const [values, setValues] = useState<Record<string, unknown>>(() => getClientCacheBucket(client).detailResponseCache.get(cacheKey)?.item ?? {});
+    const [initialValues, setInitialValues] = useState<Record<string, unknown>>(() => getClientCacheBucket(client).detailResponseCache.get(cacheKey)?.item ?? {});
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(data === null);
     const [isSaving, setIsSaving] = useState(false);
@@ -69,7 +76,8 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
 
     useEffect(() => {
         let isMounted = true;
-        const cachedResponse = detailResponseCache.get(cacheKey);
+        const bucket = getClientCacheBucket(client);
+        const cachedResponse = bucket.detailResponseCache.get(cacheKey);
 
         if (cachedResponse) {
             setData(cachedResponse);
@@ -84,12 +92,15 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
         setIsLoading(true);
         setError(null);
 
-        const request = inFlightDetailRequests.get(cacheKey) ?? client.getItem(slug, id);
-        inFlightDetailRequests.set(cacheKey, request);
+        const request = bucket.inFlightDetailRequests.get(cacheKey) ?? client.getItem(slug, id);
+        bucket.inFlightDetailRequests.set(cacheKey, request);
+        const cacheVersion = getModelCacheVersion(client, slug);
 
         request
             .then((response) => {
-                detailResponseCache.set(cacheKey, response);
+                if (getModelCacheVersion(client, slug) === cacheVersion) {
+                    setCachedDetailResponse(client, cacheKey, response);
+                }
                 if (!isMounted) return;
                 setData(response);
                 setValues(response.item);
@@ -100,8 +111,8 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
                 setError(reason instanceof Error ? reason.message : t('object_load_error'));
             })
             .finally(() => {
-                if (inFlightDetailRequests.get(cacheKey) === request) {
-                    inFlightDetailRequests.delete(cacheKey);
+                if (bucket.inFlightDetailRequests.get(cacheKey) === request) {
+                    bucket.inFlightDetailRequests.delete(cacheKey);
                 }
                 if (!isMounted) return;
                 setIsLoading(false);
@@ -166,7 +177,8 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
         try {
             const response = await client.patchItem(slug, id, currentPayload);
             const nextDetail = {meta, item: response.item};
-            detailResponseCache.set(cacheKey, nextDetail);
+            invalidateModelCache(client, slug);
+            setCachedDetailResponse(client, cacheKey, nextDetail);
             setData(nextDetail);
             setValues(response.item);
             setInitialValues(response.item);
@@ -182,21 +194,21 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
         setError(null);
         try {
             await client.deleteItem(slug, id);
-            detailResponseCache.delete(cacheKey);
-            router.push(listPath);
+            invalidateModelCache(client, slug);
+            resolvedRouter.push(listPath);
         } catch (reason: unknown) {
             setError(reason instanceof Error ? reason.message : t('object_delete_error'));
             setIsDeleting(false);
             setDeleteConfirmOpen(false);
         }
-    }, [cacheKey, client, id, listPath, router, slug, t]);
+    }, [client, id, listPath, resolvedRouter, slug, t]);
 
     const handleNavigateBack = useCallback(() => {
         if (typeof window !== 'undefined' && document.referrer) {
             try {
                 const referrerUrl = new URL(document.referrer);
                 if (referrerUrl.origin === window.location.origin && referrerUrl.pathname.startsWith(adminRootPath)) {
-                    router.back();
+                    resolvedRouter.back();
                     return;
                 }
             } catch {
@@ -204,8 +216,8 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
             }
         }
 
-        router.push(listPath);
-    }, [adminRootPath, listPath, router]);
+        resolvedRouter.push(listPath);
+    }, [adminRootPath, listPath, resolvedRouter]);
 
     const handleRunObjectAction = useCallback(async (actionSlug: string) => {
         setActiveActionSlug(actionSlug);
@@ -214,7 +226,8 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
             const response = await client.runObjectAction(slug, id, actionSlug);
             const nextDetail = data ? {...data, item: response.item} : null;
             if (nextDetail) {
-                detailResponseCache.set(cacheKey, nextDetail);
+                invalidateModelCache(client, slug);
+                setCachedDetailResponse(client, cacheKey, nextDetail);
             }
             setData(nextDetail);
             setValues(response.item);
@@ -255,8 +268,9 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
     }
 
     return (
-        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={locale}>
-            <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
+        <XLAdminRouterProvider router={resolvedRouter}>
+            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={locale}>
+                <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
                 <MainHeader
                     title={objectTitle}
                     subtitle={meta.slug}
@@ -375,13 +389,13 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
                         </Stack>
                     </Paper>
                 </Stack>
-            </Stack>
+                </Stack>
 
-            <Menu
-                anchorEl={actionsAnchorEl}
-                open={isActionsMenuOpen}
-                onClose={() => setActionsAnchorEl(null)}
-                slotProps={{
+                <Menu
+                    anchorEl={actionsAnchorEl}
+                    open={isActionsMenuOpen}
+                    onClose={() => setActionsAnchorEl(null)}
+                    slotProps={{
                     paper: {
                         sx: {
                             minWidth: 220,
@@ -390,56 +404,57 @@ export function ObjectPage({client, slug, id}: ObjectPageProps) {
                 }}
                 anchorOrigin={{vertical: 'bottom', horizontal: 'right'}}
                 transformOrigin={{vertical: 'top', horizontal: 'right'}}
-            >
-                {isDirty ? (
-                    <MenuItem
-                        onClick={() => {
-                            setActionsAnchorEl(null);
-                            void handleSave();
-                        }}
-                        disabled={isSaving}
-                    >
-                        {isSaving ? t('saving') : t('save')}
-                    </MenuItem>
-                ) : null}
-                <MenuItem
-                    onClick={() => void handleOpenDeletePreview()}
-                    disabled={isDeleting}
-                    sx={{color: 'error.main'}}
                 >
-                    {t('delete')}
-                </MenuItem>
-                {objectActions.map((action) => (
+                    {isDirty ? (
+                        <MenuItem
+                            onClick={() => {
+                                setActionsAnchorEl(null);
+                                void handleSave();
+                            }}
+                            disabled={isSaving}
+                        >
+                            {isSaving ? t('saving') : t('save')}
+                        </MenuItem>
+                    ) : null}
                     <MenuItem
-                        key={action.slug}
-                        onClick={() => {
-                            setActionsAnchorEl(null);
-                            void handleRunObjectAction(action.slug);
-                        }}
-                        disabled={activeActionSlug !== null}
+                        onClick={() => void handleOpenDeletePreview()}
+                        disabled={isDeleting}
+                        sx={{color: 'error.main'}}
                     >
-                        {activeActionSlug === action.slug ? t('executing') : action.label}
+                        {t('delete')}
                     </MenuItem>
-                ))}
-            </Menu>
+                    {objectActions.map((action) => (
+                        <MenuItem
+                            key={action.slug}
+                            onClick={() => {
+                                setActionsAnchorEl(null);
+                                void handleRunObjectAction(action.slug);
+                            }}
+                            disabled={activeActionSlug !== null}
+                        >
+                            {activeActionSlug === action.slug ? t('executing') : action.label}
+                        </MenuItem>
+                    ))}
+                </Menu>
 
-            <DeletePreviewDialog
-                open={deleteConfirmOpen}
-                title={t('delete_object_title')}
-                preview={deletePreview}
-                error={deletePreviewError}
-                isLoading={isDeletePreviewLoading}
-                isSubmitting={isDeleting}
-                onClose={() => {
-                    if (isDeleting) {
-                        return;
-                    }
-                    setDeleteConfirmOpen(false);
-                    setDeletePreview(null);
-                    setDeletePreviewError(null);
-                }}
-                onConfirm={() => void handleDelete()}
-            />
-        </LocalizationProvider>
+                <DeletePreviewDialog
+                    open={deleteConfirmOpen}
+                    title={t('delete_object_title')}
+                    preview={deletePreview}
+                    error={deletePreviewError}
+                    isLoading={isDeletePreviewLoading}
+                    isSubmitting={isDeleting}
+                    onClose={() => {
+                        if (isDeleting) {
+                            return;
+                        }
+                        setDeleteConfirmOpen(false);
+                        setDeletePreview(null);
+                        setDeletePreviewError(null);
+                    }}
+                    onConfirm={() => void handleDelete()}
+                />
+            </LocalizationProvider>
+        </XLAdminRouterProvider>
     );
 }
