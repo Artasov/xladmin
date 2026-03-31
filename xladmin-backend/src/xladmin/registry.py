@@ -5,6 +5,8 @@ import re
 from dataclasses import replace
 from typing import Any
 
+from sqlalchemy import inspect as sa_inspect
+
 from xladmin.config import AdminConfig, ModelConfig, ModelsBlockConfig
 from xladmin.i18n import normalize_locale
 
@@ -85,14 +87,15 @@ def build_registry(registry_or_config: Registry | AdminConfig) -> Registry:
 
 def normalize_config(config: ModelConfig) -> ModelConfig:
     """Fill base defaults for minimal `ModelConfig(model=SomeORM)`."""
-
-    return replace(
+    normalized_config = replace(
         config,
         slug=config.slug or get_default_model_slug(config.model),
         title=config.title or get_default_model_title(config.model),
         search_fields=config.search_fields or get_default_search_fields(config.model),
         ordering=config.ordering or get_default_ordering(config.model),
     )
+    _validate_model_config(normalized_config)
+    return normalized_config
 
 
 def get_default_model_slug(model: type[Any]) -> str:
@@ -159,6 +162,42 @@ def to_kebab_case(value: str) -> str:
 
 def to_title_case(value: str) -> str:
     return value.replace("_", " ").strip().title()
+
+
+def _validate_model_config(config: ModelConfig) -> None:
+    mapper = sa_inspect(config.model)
+    mapper_field_names = set(mapper.attrs.keys())
+    configured_field_names = mapper_field_names | set(config.fields)
+
+    for group_name, field_names in (
+        ("list_display", config.list_display),
+        ("list_fields", config.list_fields),
+        ("detail_fields", config.detail_fields),
+        ("create_fields", config.create_fields),
+        ("update_fields", config.update_fields),
+    ):
+        if field_names is None:
+            continue
+        for field_name in field_names:
+            if field_name not in configured_field_names:
+                raise ValueError(f"Unknown field '{field_name}' in {group_name} for model '{config.model.__name__}'.")
+
+    for list_filter in config.list_filters:
+        if list_filter.field_name is None:
+            continue
+        if list_filter.field_name not in mapper_field_names and list_filter.field_name not in config.fields:
+            raise ValueError(
+                f"Unknown field '{list_filter.field_name}' in list filter '{list_filter.slug}' "
+                f"for model '{config.model.__name__}'.",
+            )
+
+    sortable_field_names = configured_field_names
+    for field_name in config.ordering:
+        normalized_field_name = field_name[1:] if field_name.startswith("-") else field_name
+        if normalized_field_name not in sortable_field_names:
+            raise ValueError(
+                f"Unknown field '{normalized_field_name}' in ordering for model '{config.model.__name__}'.",
+            )
 
 
 AdminRegistry = Registry

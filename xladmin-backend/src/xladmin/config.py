@@ -121,6 +121,9 @@ class ModelConfig:
     bulk_actions: tuple[BulkActionConfig, ...] = ()
     object_actions: tuple[ObjectActionConfig, ...] = ()
 
+    def has_field_config(self, field_name: str) -> bool:
+        return field_name in self.fields
+
     def get_field_config(self, field_name: str) -> FieldConfig:
         return self.fields.get(field_name, FieldConfig())
 
