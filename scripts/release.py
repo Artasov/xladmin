@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -224,8 +225,9 @@ class ReleaseService:
         check: bool = True,
         capture_output: bool = False,
     ) -> subprocess.CompletedProcess[str]:
+        npm_executable = "npm.cmd" if os.name == "nt" else "npm"
         return subprocess.run(
-            ["npm", *args],
+            [npm_executable, *args],
             cwd=cwd,
             check=check,
             text=True,
