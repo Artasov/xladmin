@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from xladmin.config import AdminLocale
 
@@ -40,8 +40,10 @@ _MESSAGES: dict[str, dict[str, str]] = {
 
 
 def normalize_locale(locale: str | None) -> AdminLocale:
-    if locale == "ru" or locale == "en":
-        return cast(AdminLocale, locale)
+    if locale == "ru":
+        return "ru"
+    if locale == "en":
+        return "en"
     return DEFAULT_LOCALE
 
 

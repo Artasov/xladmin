@@ -103,8 +103,8 @@ def create_router(config: HttpConfig) -> APIRouter:
         for related_item, attribute_names in set_null_items:
             for attribute_name in attribute_names:
                 setattr(related_item, attribute_name, None)
-        for delete_item in delete_items:
-            await session.delete(delete_item)
+        for item_to_delete in delete_items:
+            await session.delete(item_to_delete)
         await session.commit()
         return len(items)
 
@@ -320,7 +320,10 @@ def create_router(config: HttpConfig) -> APIRouter:
         if inspect.isawaitable(result):
             result = await result
         await session.commit()
-        return FlexibleProcessedResponse(processed=len(items), **(result or {}))
+        response_payload = {"processed": len(items)}
+        if result:
+            response_payload.update(result)
+        return FlexibleProcessedResponse.model_validate(response_payload)
 
     @router.get("/models/{slug}/fields/{field_name}/choices/", response_model=ChoicesResponse)
     async def field_choices(

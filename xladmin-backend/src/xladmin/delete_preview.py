@@ -122,7 +122,6 @@ async def _build_dependency_graph(
                         continue
 
                     preview_edge = _build_preview_edge(
-                        registry=registry,
                         model_config=related_config,
                         related_item=related_item,
                         dependent_relation=dependent_relation,
@@ -148,7 +147,6 @@ async def _build_dependency_graph(
 
 def _build_preview_edge(
         *,
-        registry: Registry,
         model_config: ModelConfig | None,
         related_item: Any,
         dependent_relation: _DependentRelation,
