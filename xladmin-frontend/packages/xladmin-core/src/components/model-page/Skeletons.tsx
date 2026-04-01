@@ -1,7 +1,7 @@
 'use client';
 
 import {Box, Paper, Skeleton, Stack} from '@mui/material';
-import {MainHeaderSkeleton} from '../layout/MainHeader';
+import {MainHeaderSkeleton} from '@xladmin-core/components/layout/MainHeader';
 
 export function ModelPageSkeleton() {
     return (

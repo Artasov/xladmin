@@ -14,7 +14,7 @@ import type {NormalizedBlock} from './types';
 import {BlockTitle} from './BlockTitle';
 import {getBlockSurfaceSx} from './surface';
 import {useBlockExpandedState} from './useBlockExpandedState';
-import {NavLink} from '../NavLink';
+import {NavLink} from '@xladmin-core/components/NavLink';
 
 type DashboardModelsBlockProps = {
     block: NormalizedBlock;

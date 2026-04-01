@@ -1,4 +1,4 @@
-import type {AdminModelMeta} from '../../types';
+import type {AdminModelMeta} from '@xladmin-core/types';
 
 export type NormalizedBlock = {
     slug: string;

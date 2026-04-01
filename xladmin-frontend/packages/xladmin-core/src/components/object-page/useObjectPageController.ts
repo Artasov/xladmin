@@ -8,10 +8,10 @@ import {
     invalidateModelCache,
     setCachedDetailResponse,
 } from '../../cache';
-import type {XLAdminClient} from '../../client';
-import type {AdminTranslationKey} from '../../i18n';
-import type {XLAdminRouter} from '../../router';
-import type {AdminDeletePreviewResponse, AdminDetailResponse} from '../../types';
+import type {XLAdminClient} from '@xladmin-core/client';
+import type {AdminTranslationKey} from '@xladmin-core/i18n';
+import type {XLAdminRouter} from '@xladmin-core/router';
+import type {AdminDeletePreviewResponse, AdminDetailResponse} from '@xladmin-core/types';
 import {buildAdminPayload} from '../../utils/adminFields';
 import {isDeepEqual} from '../../utils/isDeepEqual';
 

@@ -1,7 +1,7 @@
 'use client';
 
 import {createContext, type ReactNode, useContext} from 'react';
-import type {AdminLocale, AdminModelMeta, AdminModelsBlockMeta} from '../../types';
+import type {AdminLocale, AdminModelMeta, AdminModelsBlockMeta} from '@xladmin-core/types';
 
 type AdminDataContextValue = {
     locale: AdminLocale;

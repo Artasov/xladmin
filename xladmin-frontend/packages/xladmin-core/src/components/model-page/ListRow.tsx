@@ -4,9 +4,9 @@ import {memo} from 'react';
 import type {MouseEvent} from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {Box, Checkbox, IconButton, TableCell, TableRow} from '@mui/material';
-import type {AdminFieldMeta, AdminLocale} from '../../types';
+import type {AdminFieldMeta, AdminLocale} from '@xladmin-core/types';
 import {formatAdminValue, getListFieldWidthPx, resolveAdminMediaUrl} from '../../utils/adminFields';
-import {NavLink} from '../NavLink';
+import {NavLink} from '@xladmin-core/components/NavLink';
 
 export type ListRowProps = {
     row: Record<string, unknown>;

@@ -23,6 +23,6 @@ describe('fetch client', () => {
         const fetchMock = vi.fn(async () => new Response(JSON.stringify({detail: 'Access denied.'}), {status: 403}));
         const client = createFetchXLAdminClient({baseUrl: 'http://localhost:8000', fetch: fetchMock as typeof fetch});
 
-        await expect(client.getModels()).rejects.toThrow('Access denied.');
+        return expect(client.getModels()).rejects.toThrow('Access denied.');
     });
 });

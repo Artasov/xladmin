@@ -2,7 +2,7 @@
 
 import {memo} from 'react';
 import {Box, Stack, TextField} from '@mui/material';
-import type {AdminFieldMeta} from '../../types';
+import type {AdminFieldMeta} from '@xladmin-core/types';
 
 type ReadonlyObjectFieldProps = {
     field: AdminFieldMeta;

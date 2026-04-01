@@ -10,6 +10,9 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "paths": {
+      "@xladmin-core/*": [
+        "packages/xladmin-core/src/*"
+      ],
       "xladmin": [
         "packages/xladmin-core/src/index.ts"
       ],

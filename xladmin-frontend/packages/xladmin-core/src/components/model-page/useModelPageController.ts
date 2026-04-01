@@ -8,11 +8,11 @@ import {
     invalidateModelCache,
     setCachedListResponse,
 } from '../../cache';
-import type {XLAdminClient} from '../../client';
-import type {AdminTranslationKey} from '../../i18n';
-import type {XLAdminRouter} from '../../router';
-import {buildUrlWithParams} from '../../router';
-import type {AdminDeletePreviewResponse, AdminListResponse} from '../../types';
+import type {XLAdminClient} from '@xladmin-core/client';
+import type {AdminTranslationKey} from '@xladmin-core/i18n';
+import type {XLAdminRouter} from '@xladmin-core/router';
+import {buildUrlWithParams} from '@xladmin-core/router';
+import type {AdminDeletePreviewResponse, AdminListResponse} from '@xladmin-core/types';
 
 const DEFAULT_PAGE_SIZE = 50;
 

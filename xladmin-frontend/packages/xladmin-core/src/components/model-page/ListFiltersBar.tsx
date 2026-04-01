@@ -12,10 +12,10 @@ import {
     TextField,
     Typography
 } from '@mui/material';
-import type {XLAdminClient} from '../../client';
-import {useRemoteChoices} from '../../hooks/useRemoteChoices';
-import {useAdminTranslation} from '../../i18n';
-import type {AdminListFilterMeta} from '../../types';
+import type {XLAdminClient} from '@xladmin-core/client';
+import {useRemoteChoices} from '@xladmin-core/hooks/useRemoteChoices';
+import {useAdminTranslation} from '@xladmin-core/i18n';
+import type {AdminListFilterMeta} from '@xladmin-core/types';
 
 type ListFiltersSidebarProps = {
     client: XLAdminClient;
@@ -266,16 +266,18 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
                                 {...textFieldParams}
                                 label={filter.label}
                                 placeholder={filter.placeholder ?? t('search')}
-                                InputProps={{
-                                    ...InputProps,
-                                    endAdornment: (
-                                        <>
-                                            {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
-                                            {InputProps.endAdornment}
-                                        </>
-                                    ),
+                                slotProps={{
+                                    input: {
+                                        ...InputProps,
+                                        endAdornment: (
+                                            <>
+                                                {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
+                                                {InputProps.endAdornment}
+                                            </>
+                                        ),
+                                    },
+                                    htmlInput: inputProps,
                                 }}
-                                inputProps={inputProps}
                             />
                         );
                     })()

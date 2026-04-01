@@ -2,7 +2,7 @@
 
 import type {ReactNode} from 'react';
 import {Box} from '@mui/material';
-import {useXLAdminLocation} from '../../router';
+import {useXLAdminLocation} from '@xladmin-core/router';
 import {ModelPageSkeleton} from '../model-page/Skeletons';
 import {useShellContext} from './ShellContext';
 

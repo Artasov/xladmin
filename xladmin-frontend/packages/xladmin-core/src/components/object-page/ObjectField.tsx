@@ -1,9 +1,9 @@
 'use client';
 
 import {memo, useCallback} from 'react';
-import type {XLAdminClient} from '../../client';
-import type {AdminFieldMeta} from '../../types';
-import {FieldEditor} from '../FieldEditor';
+import type {XLAdminClient} from '@xladmin-core/client';
+import type {AdminFieldMeta} from '@xladmin-core/types';
+import {FieldEditor} from '@xladmin-core/components/FieldEditor';
 
 type ObjectFieldProps = {
     field: AdminFieldMeta;

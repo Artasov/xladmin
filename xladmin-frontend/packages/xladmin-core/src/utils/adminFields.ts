@@ -1,5 +1,5 @@
-import {normalizeAdminLocale, translateAdmin} from '../i18n';
-import type {AdminFieldMeta, AdminLocale} from '../types';
+import {normalizeAdminLocale, translateAdmin} from '@xladmin-core/i18n';
+import type {AdminFieldMeta, AdminLocale} from '@xladmin-core/types';
 
 /**
  * Готовит payload для create/patch так, чтобы nullable-поля можно было очищать,

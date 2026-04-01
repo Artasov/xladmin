@@ -6,7 +6,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import {Box} from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {Alert, Collapse, IconButton, Paper, Skeleton, Stack, Typography} from '@mui/material';
-import {useAdminTranslation} from '../../i18n';
+import {useAdminTranslation} from '@xladmin-core/i18n';
 import {useShellContext} from './ShellContext';
 
 const MAIN_HEADER_PADDING_X = 2.5;

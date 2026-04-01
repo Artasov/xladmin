@@ -2,11 +2,11 @@
 
 import {memo} from 'react';
 import {Box, ListItemButton, Typography} from '@mui/material';
-import {useAdminTranslation} from '../../i18n';
-import {useXLAdminLocation} from '../../router';
-import type {AdminModelMeta, AdminModelsBlockMeta} from '../../types';
+import {useAdminTranslation} from '@xladmin-core/i18n';
+import {useXLAdminLocation} from '@xladmin-core/router';
+import type {AdminModelMeta, AdminModelsBlockMeta} from '@xladmin-core/types';
 import {ModelsBlocks} from '../ModelsBlocks';
-import {NavLink} from '../NavLink';
+import {NavLink} from '@xladmin-core/components/NavLink';
 import {useShellContext} from './ShellContext';
 
 type SidebarProps = {

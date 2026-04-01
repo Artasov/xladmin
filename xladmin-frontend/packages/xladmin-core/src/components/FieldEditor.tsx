@@ -10,10 +10,10 @@ import {
 } from '@mui/material';
 import {DatePicker, DateTimePicker} from '@mui/x-date-pickers';
 import dayjs from 'dayjs';
-import type {XLAdminClient} from '../client';
-import {useRemoteChoices} from '../hooks/useRemoteChoices';
-import {useAdminTranslation} from '../i18n';
-import type {AdminFieldMeta} from '../types';
+import type {XLAdminClient} from '@xladmin-core/client';
+import {useRemoteChoices} from '@xladmin-core/hooks/useRemoteChoices';
+import {useAdminTranslation} from '@xladmin-core/i18n';
+import type {AdminFieldMeta} from '@xladmin-core/types';
 
 type AdminFieldEditorProps = {
     field: AdminFieldMeta;
@@ -118,7 +118,7 @@ export const FieldEditor = memo(function FieldEditor({
                 label={field.label}
                 disabled={readOnly}
                 value={value ? dayjs(String(value)) : null}
-                onChange={(nextValue) => onChange(nextValue ? nextValue.format('YYYY-MM-DDTHH:mm:ss') : null)}
+                onChange={(nextValue) => onChange(nextValue ? nextValue.format('YYYY-MM-DD[T]HH:mm:ss') : null)}
                 slotProps={{
                     popper: {disablePortal: true},
                     desktopPaper: buildPickerPaperProps(),
@@ -262,19 +262,21 @@ function renderChoiceEditor({
                                 label={field.label}
                                 placeholder={searchPlaceholder}
                                 helperText={field.help_text ?? undefined}
-                                InputProps={{
-                                    ...InputProps,
-                                    endAdornment: (
-                                        <>
-                                            {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
-                                            {InputProps.endAdornment}
-                                        </>
-                                    ),
-                                }}
-                                inputProps={{
-                                    ...inputProps,
-                                    autoComplete: 'new-password',
-                                    name: `admin-choice-${field.name}`,
+                                slotProps={{
+                                    input: {
+                                        ...InputProps,
+                                        endAdornment: (
+                                            <>
+                                                {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
+                                                {InputProps.endAdornment}
+                                            </>
+                                        ),
+                                    },
+                                    htmlInput: {
+                                        ...inputProps,
+                                        autoComplete: 'new-password',
+                                        name: `admin-choice-${field.name}`,
+                                    },
                                 }}
                             />
                         );
@@ -318,19 +320,21 @@ function renderChoiceEditor({
                             label={field.label}
                             placeholder={searchPlaceholder}
                             helperText={field.help_text ?? undefined}
-                            InputProps={{
-                                ...InputProps,
-                                endAdornment: (
-                                    <>
-                                        {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
-                                        {InputProps.endAdornment}
-                                    </>
-                                ),
-                            }}
-                            inputProps={{
-                                ...inputProps,
-                                autoComplete: 'new-password',
-                                name: `admin-choice-${field.name}`,
+                            slotProps={{
+                                input: {
+                                    ...InputProps,
+                                    endAdornment: (
+                                        <>
+                                            {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
+                                            {InputProps.endAdornment}
+                                        </>
+                                    ),
+                                },
+                                htmlInput: {
+                                    ...inputProps,
+                                    autoComplete: 'new-password',
+                                    name: `admin-choice-${field.name}`,
+                                },
                             }}
                         />
                     );
