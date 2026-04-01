@@ -25,4 +25,39 @@ describe('fetch client', () => {
 
         return expect(client.getModels()).rejects.toThrow('Access denied.');
     });
+
+    it('sends select_all payload for bulk actions', async () => {
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({processed: 12}), {status: 200}));
+        const client = createFetchXLAdminClient({baseUrl: 'http://localhost:8000', fetch: fetchMock as typeof fetch});
+
+        const response = await client.runBulkAction(
+            'users',
+            'activate',
+            [],
+            undefined,
+            {
+                selectAll: true,
+                selectionScope: {
+                    q: 'al',
+                    filters: {status: 'false'},
+                },
+            },
+        );
+
+        expect(response.processed).toBe(12);
+        expect(fetchMock).toHaveBeenCalledWith(
+            'http://localhost:8000/xladmin/models/users/bulk-actions/activate/',
+            expect.objectContaining({
+                method: 'POST',
+                body: JSON.stringify({
+                    ids: [],
+                    select_all: true,
+                    selection_scope: {
+                        q: 'al',
+                        filters: {status: 'false'},
+                    },
+                }),
+            }),
+        );
+    });
 });

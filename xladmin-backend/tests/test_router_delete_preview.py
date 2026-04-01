@@ -84,6 +84,38 @@ async def test_router_builds_delete_preview_tree_for_bulk_delete() -> None:
         assert [root["id"] for root in payload["roots"]] == [1, 2]
 
 
+async def test_router_builds_delete_preview_tree_for_all_filtered_items() -> None:
+    app, session_factory = await build_test_app()
+
+    async with session_factory() as session:
+        first_user = DemoUserORM(username="alpha", password="hashed::1", is_active=False)
+        first_post = DemoPostORM(title="Alpha post", user=first_user)
+        first_post.comments.append(DemoCommentORM(body="Alpha comment"))
+        second_user = DemoUserORM(username="beta", password="hashed::2", is_active=False)
+        second_post = DemoPostORM(title="Beta post", user=second_user)
+        second_post.comments.append(DemoCommentORM(body="Beta comment"))
+        session.add_all([first_user, second_user, DemoUserORM(username="gamma", password="hashed::3", is_active=True)])
+        await session.commit()
+
+    async with get_test_client(app) as client:
+        response = await client.post(
+            "/xladmin/models/users/bulk-delete-preview/",
+            json={
+                "ids": [],
+                "select_all": True,
+                "selection_scope": {
+                    "filters": {"status": "false"},
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["can_delete"] is True
+        assert payload["summary"] == {"roots": 2, "delete": 4, "protect": 0, "set_null": 0, "total": 6}
+        assert [root["id"] for root in payload["roots"]] == [1, 2]
+
+
 async def test_router_returns_empty_bulk_delete_preview_for_empty_ids() -> None:
     app, _session_factory = await build_test_app()
 

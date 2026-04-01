@@ -57,6 +57,7 @@ export function useModelPageController({
     ) ?? null;
 
     const [selectedIds, setSelectedIds] = useState<Array<string | number>>([]);
+    const [isAllMatchingSelected, setIsAllMatchingSelected] = useState(false);
     const [createOpen, setCreateOpen] = useState(false);
     const [data, setData] = useState<AdminListResponse | null>(() => initialCachedResponse);
     const [error, setError] = useState<string | null>(null);
@@ -75,6 +76,8 @@ export function useModelPageController({
     const [isDeletePreviewLoading, setIsDeletePreviewLoading] = useState(false);
     const [isDeleteSubmitting, setIsDeleteSubmitting] = useState(false);
     const [pendingDeleteIds, setPendingDeleteIds] = useState<Array<string | number>>([]);
+    const [pendingDeleteSelectAll, setPendingDeleteSelectAll] = useState(false);
+    const [pendingDeleteScope, setPendingDeleteScope] = useState<{ q?: string; filters: Record<string, string> } | null>(null);
     const [pendingDeleteMode, setPendingDeleteMode] = useState<'single' | 'bulk'>('single');
     const [filtersOpen, setFiltersOpen] = useState(false);
     const requestIdRef = useRef(0);
@@ -95,9 +98,25 @@ export function useModelPageController({
     const listFilters = meta?.list_filters ?? [];
     const hasListFilters = listFilters.length > 0;
     const bulkActions = meta?.bulk_actions ?? [];
-    const selectedIdSet = useMemo(() => new Set(selectedIds.map((item) => String(item))), [selectedIds]);
-    const allVisibleSelected = rows.length > 0 && rows.every((row) => selectedIdSet.has(String(row[meta?.pk_field ?? 'id'])));
-    const hasVisibleSelection = rows.some((row) => selectedIdSet.has(String(row[meta?.pk_field ?? 'id'])));
+    const selectionScope = useMemo(
+        () => ({
+            q: appliedQuery || undefined,
+            filters: {...appliedFilters},
+        }),
+        [appliedFilters, appliedQuery],
+    );
+    const selectedIdSet = useMemo(() => {
+        if (isAllMatchingSelected) {
+            return new Set(rows.map((row) => String(row[meta?.pk_field ?? 'id'])));
+        }
+        return new Set(selectedIds.map((item) => String(item)));
+    }, [isAllMatchingSelected, meta?.pk_field, rows, selectedIds]);
+    const allVisibleSelected = rows.length > 0 && (
+        isAllMatchingSelected || rows.every((row) => selectedIdSet.has(String(row[meta?.pk_field ?? 'id'])))
+    );
+    const hasVisibleSelection = isAllMatchingSelected || rows.some((row) => selectedIdSet.has(String(row[meta?.pk_field ?? 'id'])));
+    const hasSelection = isAllMatchingSelected || selectedIds.length > 0;
+    const selectionCount = isAllMatchingSelected ? total : selectedIds.length;
 
     useEffect(() => {
         dataRef.current = data;
@@ -120,6 +139,11 @@ export function useModelPageController({
         setAppliedFilters(nextFilters);
     }, [locationSearch]);
 
+    const clearSelection = useCallback(() => {
+        setSelectedIds([]);
+        setIsAllMatchingSelected(false);
+    }, []);
+
     const loadItems = useCallback(async () => {
         const activeRequestId = requestIdRef.current + 1;
         requestIdRef.current = activeRequestId;
@@ -137,7 +161,9 @@ export function useModelPageController({
         const cachedResponse = getClientCacheBucket(client).listResponseCache.get(requestKey) ?? null;
         if (cachedResponse) {
             setData(cachedResponse);
-            setSelectedIds([]);
+            if (!isAllMatchingSelected) {
+                setSelectedIds([]);
+            }
             setIsLoading(false);
             return;
         }
@@ -155,7 +181,9 @@ export function useModelPageController({
 
             pageSizeRef.current = response.meta.page_size;
             setData(response);
-            setSelectedIds([]);
+            if (!isAllMatchingSelected) {
+                setSelectedIds([]);
+            }
         } catch (reason: unknown) {
             setError(reason instanceof Error ? reason.message : t('model_load_error'));
         } finally {
@@ -163,7 +191,7 @@ export function useModelPageController({
                 setIsLoading(false);
             }
         }
-    }, [appliedFilters, appliedQuery, client, currentPage, slug, sortValue, t]);
+    }, [appliedFilters, appliedQuery, client, currentPage, isAllMatchingSelected, slug, sortValue, t]);
 
     useEffect(() => {
         void loadItems();
@@ -182,11 +210,12 @@ export function useModelPageController({
         if (nextQuery === appliedQuery) {
             return;
         }
+        clearSelection();
         setAppliedQuery(nextQuery);
         setCurrentPage(1);
         setPageInput('1');
         replaceLocation(nextQuery, sortValue, 1, appliedFilters);
-    }, [appliedFilters, appliedQuery, replaceLocation, sortValue]);
+    }, [appliedFilters, appliedQuery, clearSelection, replaceLocation, sortValue]);
 
     const handlePageChange = useCallback((nextPage: number) => {
         const safePage = Math.min(Math.max(nextPage, 1), totalPages);
@@ -227,24 +256,28 @@ export function useModelPageController({
         if (!value) {
             delete nextFilters[filterSlug];
         }
+        clearSelection();
         setAppliedFilters(nextFilters);
         setCurrentPage(1);
         setPageInput('1');
         replaceLocation(appliedQuery, sortValue, 1, nextFilters);
-    }, [appliedFilters, appliedQuery, replaceLocation, sortValue]);
+    }, [appliedFilters, appliedQuery, clearSelection, replaceLocation, sortValue]);
 
     const handleResetFilters = useCallback(() => {
         if (Object.keys(appliedFilters).length === 0) {
             return;
         }
+        clearSelection();
         setAppliedFilters({});
         setCurrentPage(1);
         setPageInput('1');
         replaceLocation(appliedQuery, sortValue, 1, {});
-    }, [appliedFilters, appliedQuery, replaceLocation, sortValue]);
+    }, [appliedFilters, appliedQuery, clearSelection, replaceLocation, sortValue]);
 
     const openSingleDeletePreview = useCallback(async (rowId: string | number) => {
         setPendingDeleteIds([rowId]);
+        setPendingDeleteSelectAll(false);
+        setPendingDeleteScope(null);
         setPendingDeleteMode('single');
         setDeletePreviewOpen(true);
         setDeletePreview(null);
@@ -261,17 +294,23 @@ export function useModelPageController({
     }, [client, slug, t]);
 
     const openBulkDeletePreview = useCallback(async () => {
-        if (selectedIds.length === 0) {
+        if (!hasSelection) {
             return;
         }
-        setPendingDeleteIds(selectedIds);
+        setPendingDeleteIds(isAllMatchingSelected ? [] : selectedIds);
+        setPendingDeleteSelectAll(isAllMatchingSelected);
+        setPendingDeleteScope(isAllMatchingSelected ? selectionScope : null);
         setPendingDeleteMode('bulk');
         setDeletePreviewOpen(true);
         setDeletePreview(null);
         setDeletePreviewError(null);
         setIsDeletePreviewLoading(true);
         try {
-            const preview = await client.getBulkDeletePreview(slug, selectedIds);
+            const preview = await client.getBulkDeletePreview(
+                slug,
+                isAllMatchingSelected ? [] : selectedIds,
+                isAllMatchingSelected ? {selectAll: true, selectionScope} : undefined,
+            );
             setDeletePreview(preview);
         } catch (reason: unknown) {
             setDeletePreviewError(reason instanceof Error ? reason.message : t('delete_preview_error'));
@@ -279,10 +318,13 @@ export function useModelPageController({
             setIsDeletePreviewLoading(false);
             setBulkActionMenuAnchor(null);
         }
-    }, [client, selectedIds, slug, t]);
+    }, [client, hasSelection, isAllMatchingSelected, selectedIds, selectionScope, slug, t]);
 
     const handleConfirmDelete = useCallback(async () => {
-        if (pendingDeleteIds.length === 0) {
+        if (pendingDeleteMode === 'single' && pendingDeleteIds.length === 0) {
+            return;
+        }
+        if (pendingDeleteMode === 'bulk' && pendingDeleteIds.length === 0 && !pendingDeleteSelectAll) {
             return;
         }
 
@@ -292,22 +334,31 @@ export function useModelPageController({
             if (pendingDeleteMode === 'single') {
                 await client.deleteItem(slug, pendingDeleteIds[0]);
             } else {
-                await client.bulkDelete(slug, pendingDeleteIds);
+                await client.bulkDelete(
+                    slug,
+                    pendingDeleteIds,
+                    pendingDeleteSelectAll && pendingDeleteScope
+                        ? {selectAll: true, selectionScope: pendingDeleteScope}
+                        : undefined,
+                );
             }
             setDeletePreviewOpen(false);
             setDeletePreview(null);
             setDeletePreviewError(null);
             setPendingDeleteIds([]);
+            setPendingDeleteSelectAll(false);
+            setPendingDeleteScope(null);
+            clearSelection();
             await refresh();
         } catch (reason: unknown) {
             setDeletePreviewError(reason instanceof Error ? reason.message : t('object_delete_error'));
         } finally {
             setIsDeleteSubmitting(false);
         }
-    }, [client, pendingDeleteIds, pendingDeleteMode, refresh, slug, t]);
+    }, [clearSelection, client, pendingDeleteIds, pendingDeleteMode, pendingDeleteScope, pendingDeleteSelectAll, refresh, slug, t]);
 
     const handleRunNamedBulkAction = useCallback(async (actionSlug: string) => {
-        if (!actionSlug || selectedIds.length === 0) {
+        if (!actionSlug || !hasSelection) {
             return;
         }
 
@@ -317,13 +368,20 @@ export function useModelPageController({
         }
 
         try {
-            await client.runBulkAction(slug, actionSlug, selectedIds);
+            await client.runBulkAction(
+                slug,
+                actionSlug,
+                isAllMatchingSelected ? [] : selectedIds,
+                undefined,
+                isAllMatchingSelected ? {selectAll: true, selectionScope} : undefined,
+            );
             setBulkActionMenuAnchor(null);
+            clearSelection();
             await refresh();
         } catch (reason: unknown) {
             setError(reason instanceof Error ? reason.message : t('object_action_error'));
         }
-    }, [client, openBulkDeletePreview, refresh, selectedIds, slug, t]);
+    }, [clearSelection, client, hasSelection, isAllMatchingSelected, openBulkDeletePreview, refresh, selectedIds, selectionScope, slug, t]);
 
     const handleRowDelete = useCallback(async (rowId: string | number) => {
         setRowActionMenuAnchor(null);
@@ -332,6 +390,22 @@ export function useModelPageController({
     }, [openSingleDeletePreview]);
 
     const handleToggleSelection = useCallback((rowId: string | number, checked: boolean) => {
+        if (isAllMatchingSelected) {
+            if (checked) {
+                return;
+            }
+            setIsAllMatchingSelected(false);
+            if (!meta) {
+                setSelectedIds([]);
+                return;
+            }
+            setSelectedIds(
+                rows
+                    .map((row) => row[meta.pk_field] as string | number)
+                    .filter((item) => String(item) !== String(rowId)),
+            );
+            return;
+        }
         setSelectedIds((current) => {
             const rowKey = String(rowId);
             if (checked) {
@@ -342,7 +416,7 @@ export function useModelPageController({
             }
             return current.filter((item) => String(item) !== rowKey);
         });
-    }, []);
+    }, [isAllMatchingSelected, meta, rows]);
 
     const handleToggleAllVisible = useCallback((checked: boolean) => {
         if (!meta) {
@@ -350,16 +424,47 @@ export function useModelPageController({
         }
 
         if (checked) {
+            setIsAllMatchingSelected(false);
             setSelectedIds(rows.map((row) => row[meta.pk_field] as string | number));
             return;
         }
 
+        clearSelection();
+    }, [clearSelection, meta, rows]);
+
+    const handleSelectAllMatching = useCallback(() => {
+        if (!hasSelection || total === 0) {
+            return;
+        }
         setSelectedIds([]);
-    }, [meta, rows]);
+        setIsAllMatchingSelected(true);
+    }, [hasSelection, total]);
+
+    const clearBulkDeleteState = useCallback(() => {
+        setPendingDeleteIds([]);
+        setPendingDeleteSelectAll(false);
+        setPendingDeleteScope(null);
+    }, []);
+
+    const handleClearDeletePreview = useCallback(() => {
+        setDeletePreviewOpen(false);
+        setDeletePreview(null);
+        setDeletePreviewError(null);
+        clearBulkDeleteState();
+    }, [clearBulkDeleteState]);
 
     const handleOpenRowMenu = useCallback((event: { currentTarget: HTMLElement }, rowId: string | number) => {
         setRowActionMenuAnchor(event.currentTarget as HTMLElement);
         setRowActionMenuId(rowId);
+    }, []);
+
+    const handleCloseRowMenu = useCallback(() => {
+        setRowActionMenuAnchor(null);
+        setRowActionMenuId(null);
+    }, []);
+
+    const handleCloseBulkActionMenu = useCallback(() => {
+        setBulkActionMenuAnchor(null);
     }, []);
 
     return {
@@ -368,6 +473,7 @@ export function useModelPageController({
         appliedQuery,
         bulkActionMenuAnchor,
         bulkActions,
+        clearBulkDeleteState,
         createOpen,
         currentPage,
         data,
@@ -377,6 +483,9 @@ export function useModelPageController({
         error,
         fieldMap,
         filtersOpen,
+        handleClearDeletePreview,
+        handleCloseBulkActionMenu,
+        handleCloseRowMenu,
         handleConfirmDelete,
         handleFilterChange,
         handleOpenRowMenu,
@@ -386,10 +495,13 @@ export function useModelPageController({
         handleRowDelete,
         handleRunNamedBulkAction,
         handleSearchCommit,
+        handleSelectAllMatching,
         handleToggleAllVisible,
         handleToggleSelection,
         hasListFilters,
+        hasSelection,
         hasVisibleSelection,
+        isAllMatchingSelected,
         isDeletePreviewLoading,
         isDeleteSubmitting,
         isLoading,
@@ -403,6 +515,7 @@ export function useModelPageController({
         rowActionMenuAnchor,
         rowActionMenuId,
         rows,
+        selectionCount,
         selectedIdSet,
         selectedIds,
         setBulkActionMenuAnchor,
@@ -412,9 +525,6 @@ export function useModelPageController({
         setDeletePreviewOpen,
         setFiltersOpen,
         setPageInput,
-        setPendingDeleteIds,
-        setRowActionMenuAnchor,
-        setRowActionMenuId,
         sortFields,
         toggleSort,
         total,

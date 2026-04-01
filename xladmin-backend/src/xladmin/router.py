@@ -44,6 +44,7 @@ from xladmin.router_schemas import (
     ModelsResponse,
     ObjectActionResponse,
     PaginationPayload,
+    SelectionScopePayload,
 )
 from xladmin.serializer import serialize_model_instance
 
@@ -107,6 +108,30 @@ def create_router(config: HttpConfig) -> APIRouter:
             await session.delete(item_to_delete)
         await session.commit()
         return len(items)
+
+    async def get_items_for_selection(
+            model_config: ModelConfig,
+            *,
+            session: AsyncSession,
+            user: Any,
+            ids: list[Any],
+            select_all: bool,
+            selection_scope: SelectionScopePayload | None,
+    ) -> list[Any]:
+        if select_all:
+            filters = selection_scope.filters if selection_scope is not None else {}
+            query = await build_model_query(session, model_config, user, mode="detail")
+            query = apply_search(
+                model_config,
+                query,
+                selection_scope.q if selection_scope is not None else None,
+                session,
+            )
+            query = await apply_list_filters(model_config, query, filters, session, user)
+            return list((await session.execute(query)).scalars().unique())
+        if not ids:
+            return []
+        return await get_items_by_ids(session, model_config, ids, user, mode="detail")
 
     @router.get("/models/", response_model=ModelsResponse)
     async def list_models(user: Any = Depends(config.get_current_user_dependency)) -> ModelsResponse:
@@ -268,9 +293,16 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> DeleteResultResponse:
         check_access(user)
         model_config = await get_model_config(slug)
-        if not payload.ids:
+        items = await get_items_for_selection(
+            model_config,
+            session=session,
+            user=user,
+            ids=payload.ids,
+            select_all=payload.select_all,
+            selection_scope=payload.selection_scope,
+        )
+        if not items:
             return DeleteResultResponse(deleted=0)
-        items = await get_items_by_ids(session, model_config, payload.ids, user, mode="detail")
         deleted = await execute_delete_plan(model_config, items, session)
         return DeleteResultResponse(deleted=deleted)
 
@@ -283,13 +315,20 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> dict[str, Any]:
         check_access(user)
         model_config = await get_model_config(slug)
-        if not payload.ids:
+        items = await get_items_for_selection(
+            model_config,
+            session=session,
+            user=user,
+            ids=payload.ids,
+            select_all=payload.select_all,
+            selection_scope=payload.selection_scope,
+        )
+        if not items:
             return {
                 "can_delete": True,
                 "summary": {"roots": 0, "delete": 0, "protect": 0, "set_null": 0, "total": 0},
                 "roots": [],
             }
-        items = await get_items_by_ids(session, model_config, payload.ids, user, mode="detail")
         return await build_delete_preview(session, registry, model_config, items)
 
     @router.post("/models/{slug}/bulk-actions/{action_slug}/", response_model=FlexibleProcessedResponse)
@@ -302,10 +341,19 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> FlexibleProcessedResponse:
         check_access(user)
         model_config = await get_model_config(slug)
-        if not payload.ids:
+        if not payload.ids and not payload.select_all:
             return FlexibleProcessedResponse(processed=0)
         if action_slug == "delete":
-            deleted_response = await bulk_delete(slug, IdsPayload(ids=list(payload.ids)), session, user)
+            deleted_response = await bulk_delete(
+                slug,
+                IdsPayload(
+                    ids=list(payload.ids),
+                    select_all=payload.select_all,
+                    selection_scope=payload.selection_scope,
+                ),
+                session,
+                user,
+            )
             return FlexibleProcessedResponse(processed=deleted_response.deleted)
 
         action = next((item for item in model_config.bulk_actions if item.slug == action_slug), None)
@@ -315,7 +363,14 @@ def create_router(config: HttpConfig) -> APIRouter:
                 detail=translate(registry.locale, "bulk_action_not_found"),
             )
 
-        items = await get_items_by_ids(session, model_config, list(payload.ids), user, mode="detail")
+        items = await get_items_for_selection(
+            model_config,
+            session=session,
+            user=user,
+            ids=list(payload.ids),
+            select_all=payload.select_all,
+            selection_scope=payload.selection_scope,
+        )
         result = action.handler(session, model_config, items, payload.action_payload, user)
         if inspect.isawaitable(result):
             result = await result

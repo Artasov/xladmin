@@ -12,6 +12,16 @@ export type XLAdminRequestOptions = {
     signal?: AbortSignal;
 };
 
+export type XLAdminSelectionScope = {
+    q?: string;
+    filters?: Record<string, string>;
+};
+
+export type XLAdminSelectionOptions = {
+    selectAll?: boolean;
+    selectionScope?: XLAdminSelectionScope;
+};
+
 export type XLAdminClient = {
     getModels: () => Promise<AdminModelsResponse>;
     getModel: (slug: string) => Promise<AdminModelMeta>;
@@ -26,9 +36,15 @@ export type XLAdminClient = {
     patchItem: (slug: string, id: string | number, payload: Record<string, unknown>) => Promise<AdminDetailResponse>;
     deleteItem: (slug: string, id: string | number) => Promise<void>;
     getDeletePreview: (slug: string, id: string | number) => Promise<AdminDeletePreviewResponse>;
-    bulkDelete: (slug: string, ids: Array<string | number>) => Promise<{ deleted: number }>;
-    getBulkDeletePreview: (slug: string, ids: Array<string | number>) => Promise<AdminDeletePreviewResponse>;
-    runBulkAction: (slug: string, actionSlug: string, ids: Array<string | number>, payload?: Record<string, unknown>) => Promise<{
+    bulkDelete: (slug: string, ids: Array<string | number>, options?: XLAdminSelectionOptions) => Promise<{ deleted: number }>;
+    getBulkDeletePreview: (slug: string, ids: Array<string | number>, options?: XLAdminSelectionOptions) => Promise<AdminDeletePreviewResponse>;
+    runBulkAction: (
+        slug: string,
+        actionSlug: string,
+        ids: Array<string | number>,
+        payload?: Record<string, unknown>,
+        options?: XLAdminSelectionOptions,
+    ) => Promise<{
         processed: number
     } & Record<string, unknown>>;
     runObjectAction: (slug: string, id: string | number, actionSlug: string, payload?: Record<string, unknown>) => Promise<AdminObjectActionResponse>;
@@ -94,17 +110,25 @@ export function createXLAdminClient(transport: XLAdminTransport): XLAdminClient 
         async getDeletePreview(slug, id) {
             return await transportGet<AdminDeletePreviewResponse>(transport, `/xladmin/models/${slug}/items/${id}/delete-preview/`);
         },
-        async bulkDelete(slug, ids) {
-            return await transportPost<{ deleted: number }>(transport, `/xladmin/models/${slug}/bulk-delete/`, {ids});
+        async bulkDelete(slug, ids, options) {
+            return await transportPost<{ deleted: number }>(
+                transport,
+                `/xladmin/models/${slug}/bulk-delete/`,
+                buildSelectionPayload(ids, undefined, options),
+            );
         },
-        async getBulkDeletePreview(slug, ids) {
-            return await transportPost<AdminDeletePreviewResponse>(transport, `/xladmin/models/${slug}/bulk-delete-preview/`, {ids});
+        async getBulkDeletePreview(slug, ids, options) {
+            return await transportPost<AdminDeletePreviewResponse>(
+                transport,
+                `/xladmin/models/${slug}/bulk-delete-preview/`,
+                buildSelectionPayload(ids, undefined, options),
+            );
         },
-        async runBulkAction(slug, actionSlug, ids, payload) {
+        async runBulkAction(slug, actionSlug, ids, payload, options) {
             return await transportPost<{ processed: number } & Record<string, unknown>>(
                 transport,
                 `/xladmin/models/${slug}/bulk-actions/${actionSlug}/`,
-                {ids, ...(payload ?? {})},
+                buildSelectionPayload(ids, payload, options),
             );
         },
         async runObjectAction(slug, id, actionSlug, payload) {
@@ -306,4 +330,25 @@ function buildSearchParams(params?: Record<string, unknown>): string {
         searchParams.set(key, String(value));
     }
     return searchParams.toString();
+}
+
+function buildSelectionPayload(
+    ids: Array<string | number>,
+    payload?: Record<string, unknown>,
+    options?: XLAdminSelectionOptions,
+): Record<string, unknown> {
+    const result: Record<string, unknown> = {
+        ids,
+        ...(payload ?? {}),
+    };
+    if (options?.selectAll) {
+        result.select_all = true;
+    }
+    if (options?.selectionScope) {
+        result.selection_scope = {
+            q: options.selectionScope.q,
+            filters: options.selectionScope.filters ?? {},
+        };
+    }
+    return result;
 }

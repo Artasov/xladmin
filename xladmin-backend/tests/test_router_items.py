@@ -124,6 +124,36 @@ async def test_router_supports_bulk_actions() -> None:
         assert [item.is_active for item in items] == [True, True]
 
 
+async def test_router_supports_bulk_actions_for_all_filtered_items() -> None:
+    app, session_factory = await build_test_app()
+    await save_entities(
+        session_factory,
+        DemoUserORM(username="alpha", password="hashed::1", is_active=False),
+        DemoUserORM(username="beta", password="hashed::2", is_active=False),
+        DemoUserORM(username="gamma", password="hashed::3", is_active=True),
+    )
+
+    async with get_test_client(app) as client:
+        response = await client.post(
+            "/xladmin/models/users/bulk-actions/activate/",
+            json={
+                "ids": [],
+                "select_all": True,
+                "selection_scope": {
+                    "filters": {"status": "false"},
+                },
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["processed"] == 2
+        assert response.json()["activated"] == 2
+
+    async with session_factory() as session:
+        items = list((await session.execute(select(DemoUserORM).order_by(DemoUserORM.id))).scalars())
+        assert [item.is_active for item in items] == [True, True, True]
+
+
 async def test_router_supports_sorting_by_multiple_fields() -> None:
     app, session_factory = await build_test_app()
     await save_entities(

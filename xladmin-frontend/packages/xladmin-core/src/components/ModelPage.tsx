@@ -62,6 +62,7 @@ const ACTIONS_COLUMN_WIDTH = 56;
 export function ModelPage({client, basePath, slug, router}: ModelPageProps) {
     const locale = useAdminLocale();
     const t = useAdminTranslation();
+    const selectAllLabel = locale === 'ru' ? 'Выбрать все' : 'Select All';
     const resolvedRouter = useXLAdminRouter(router);
     const location = useXLAdminLocation(resolvedRouter);
     const theme = useTheme();
@@ -128,29 +129,42 @@ export function ModelPage({client, basePath, slug, router}: ModelPageProps) {
                     }}
                 >
                     <Stack direction={{xs: 'column', lg: 'row'}} spacing={1.5} alignItems={{lg: 'center'}}>
-                        <Stack direction={{xs: 'column', xl: 'row'}} spacing={1.5} sx={{flex: 1, minWidth: 0}}>
+                        <Stack
+                            direction={{xs: 'column', xl: 'row'}}
+                            spacing={1.5}
+                            alignItems={{xl: 'center'}}
+                            sx={{flex: 1, minWidth: 0}}
+                        >
                             <SearchField
                                 value={controller.appliedQuery}
                                 onCommit={controller.handleSearchCommit}
                                 debounceMs={SEARCH_DEBOUNCE_MS}
                                 placeholder={t('search')}
                             />
+                            {controller.hasSelection ? (
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{minWidth: 0, flexWrap: 'wrap'}}>
+                                    <Button
+                                        variant="outlined"
+                                        endIcon={<ExpandMoreIcon/>}
+                                        onClick={(event) => controller.setBulkActionMenuAnchor(event.currentTarget)}
+                                    >
+                                        {t('actions')}
+                                    </Button>
+                                    {!controller.isAllMatchingSelected && controller.selectionCount < controller.total ? (
+                                        <Button
+                                            variant="text"
+                                            onClick={controller.handleSelectAllMatching}
+                                            sx={{px: 0.5, minWidth: 'auto'}}
+                                        >
+                                            {selectAllLabel}
+                                        </Button>
+                                    ) : null}
+                                    <Typography color="text.secondary" sx={{alignSelf: 'center', whiteSpace: 'nowrap'}}>
+                                        {t('selected_count', {count: controller.selectionCount})} / {controller.total}
+                                    </Typography>
+                                </Stack>
+                            ) : null}
                         </Stack>
-
-                        {controller.selectedIds.length > 0 ? (
-                            <Stack direction="row" spacing={1} sx={{flex: {lg: 1}, minWidth: 0}}>
-                                <Button
-                                    variant="outlined"
-                                    endIcon={<ExpandMoreIcon/>}
-                                    onClick={(event) => controller.setBulkActionMenuAnchor(event.currentTarget)}
-                                >
-                                    {t('actions')}
-                                </Button>
-                                <Typography color="text.secondary" sx={{alignSelf: 'center'}}>
-                                    {t('selected_count', {count: controller.selectedIds.length})}
-                                </Typography>
-                            </Stack>
-                        ) : null}
 
                         <Stack direction="row" spacing={1} alignItems="center" sx={{marginLeft: 'auto'}}>
                             {isMobile && controller.hasListFilters ? (
@@ -347,7 +361,7 @@ export function ModelPage({client, basePath, slug, router}: ModelPageProps) {
                 <Menu
                     anchorEl={controller.bulkActionMenuAnchor}
                     open={Boolean(controller.bulkActionMenuAnchor)}
-                    onClose={() => controller.setBulkActionMenuAnchor(null)}
+                    onClose={controller.handleCloseBulkActionMenu}
                 >
                     {controller.bulkActions.map((action) => (
                         <MenuItem key={action.slug}
@@ -360,10 +374,7 @@ export function ModelPage({client, basePath, slug, router}: ModelPageProps) {
                 <Menu
                     anchorEl={controller.rowActionMenuAnchor}
                     open={Boolean(controller.rowActionMenuAnchor)}
-                    onClose={() => {
-                        controller.setRowActionMenuAnchor(null);
-                        controller.setRowActionMenuId(null);
-                    }}
+                    onClose={controller.handleCloseRowMenu}
                 >
                     <MenuItem
                         onClick={() => {
@@ -433,10 +444,7 @@ export function ModelPage({client, basePath, slug, router}: ModelPageProps) {
                         if (controller.isDeleteSubmitting) {
                             return;
                         }
-                        controller.setDeletePreviewOpen(false);
-                        controller.setDeletePreview(null);
-                        controller.setDeletePreviewError(null);
-                        controller.setPendingDeleteIds([]);
+                        controller.handleClearDeletePreview();
                     }}
                     onConfirm={() => void controller.handleConfirmDelete()}
                 />

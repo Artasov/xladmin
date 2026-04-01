@@ -9,12 +9,21 @@ class ItemPayload(RootModel[dict[str, Any]]):
     pass
 
 
+class SelectionScopePayload(BaseModel):
+    q: str | None = None
+    filters: dict[str, str] = Field(default_factory=dict)
+
+
 class IdsPayload(BaseModel):
     ids: list[Any] = Field(default_factory=list)
+    select_all: bool = False
+    selection_scope: SelectionScopePayload | None = None
 
 
 class BulkActionPayload(BaseModel):
     ids: list[Any] = Field(default_factory=list)
+    select_all: bool = False
+    selection_scope: SelectionScopePayload | None = None
     model_config = ConfigDict(extra="allow")
 
     @property
@@ -22,7 +31,7 @@ class BulkActionPayload(BaseModel):
         return {
             key: value
             for key, value in self.model_dump().items()
-            if key != "ids"
+            if key not in {"ids", "select_all", "selection_scope"}
         }
 
 
