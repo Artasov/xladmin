@@ -1,6 +1,6 @@
 {
   "name": "xladmin-next",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Next.js router adapter for xladmin.",
   "license": "MIT",
   "type": "module",
@@ -39,6 +39,6 @@
     "next": ">=15.0.0 <17.0.0",
     "react": ">=19.0.0 <20.0.0",
     "react-dom": ">=19.0.0 <20.0.0",
-    "xladmin": "^0.3.4"
+    "xladmin": "^0.3.5"
   }
 }
