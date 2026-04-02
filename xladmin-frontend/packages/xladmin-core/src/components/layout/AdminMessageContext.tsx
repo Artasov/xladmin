@@ -5,7 +5,7 @@ import {createContext, useCallback, useContext, useEffect, useMemo, useRef, useS
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import {Box, Paper, Stack, Typography} from '@mui/material';
+import {Box, Paper, Portal, Stack, Typography} from '@mui/material';
 import {alpha, type Theme, useTheme} from '@mui/material/styles';
 
 type AdminMessageKind = 'success' | 'error' | 'info';
@@ -132,24 +132,26 @@ function AdminMessageViewport({
     onDismiss: (id: number) => void;
 }) {
     return (
-        <Box
-            aria-live="polite"
-            sx={{
-                position: 'fixed',
-                top: {xs: 12, sm: 16},
-                right: {xs: 12, sm: 16},
-                zIndex: (theme) => theme.zIndex.snackbar,
-                width: {xs: 'calc(100vw - 24px)', sm: 360},
-                maxWidth: '100%',
-                pointerEvents: 'none',
-            }}
-        >
-            <Stack spacing={1}>
-                {items.map((item) => (
-                    <AdminMessageBubble key={item.id} item={item} onDismiss={onDismiss}/>
-                ))}
-            </Stack>
-        </Box>
+        <Portal>
+            <Box
+                aria-live="polite"
+                sx={{
+                    position: 'fixed',
+                    top: {xs: 12, sm: 16},
+                    right: {xs: 12, sm: 16},
+                    zIndex: (theme) => theme.zIndex.modal + 40,
+                    width: {xs: 'calc(100vw - 24px)', sm: 360},
+                    maxWidth: '100%',
+                    pointerEvents: 'none',
+                }}
+            >
+                <Stack spacing={1}>
+                    {items.map((item) => (
+                        <AdminMessageBubble key={item.id} item={item} onDismiss={onDismiss}/>
+                    ))}
+                </Stack>
+            </Box>
+        </Portal>
     );
 }
 
@@ -172,9 +174,9 @@ function AdminMessageBubble({
             sx={{
                 pointerEvents: 'auto',
                 cursor: 'pointer',
-                borderRadius: '14px',
+                borderRadius: '11px',
                 px: 1.5,
-                py: 1.25,
+                py: 1.125,
                 border: `1px solid ${appearance.borderColor}`,
                 backgroundColor: appearance.backgroundColor,
                 boxShadow: `0 14px 32px ${alpha('#000000', 0.22)}`,
@@ -194,12 +196,11 @@ function AdminMessageBubble({
                 },
             }}
         >
-            <Stack direction="row" spacing={1.25} alignItems="flex-start">
+            <Stack direction="row" spacing={1.125} alignItems="center">
                 <Box
                     sx={{
-                        width: 28,
-                        height: 28,
-                        mt: 0.125,
+                        width: 26,
+                        height: 26,
                         borderRadius: '999px',
                         display: 'flex',
                         alignItems: 'center',
@@ -214,10 +215,14 @@ function AdminMessageBubble({
                 <Typography
                     sx={{
                         fontSize: 14,
-                        lineHeight: 1.45,
+                        lineHeight: 1.35,
                         fontWeight: 500,
                         color: 'text.primary',
                         wordBreak: 'break-word',
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        minHeight: 26,
                     }}
                 >
                     {item.text}
@@ -231,26 +236,26 @@ function getBubbleAppearance(theme: Theme, kind: AdminMessageKind) {
     if (kind === 'success') {
         return {
             icon: CheckCircleOutlineIcon,
-            borderColor: alpha(theme.palette.success.main, 0.35),
-            backgroundColor: alpha(theme.palette.success.main, 0.12),
-            iconColor: theme.palette.success.light,
-            iconBackgroundColor: alpha(theme.palette.success.main, 0.16),
+            borderColor: alpha(theme.palette.success.main, 0.5),
+            backgroundColor: alpha(theme.palette.success.main, 0.18),
+            iconColor: theme.palette.success.main,
+            iconBackgroundColor: alpha(theme.palette.success.main, 0.24),
         };
     }
     if (kind === 'error') {
         return {
             icon: ErrorOutlineIcon,
-            borderColor: alpha(theme.palette.error.main, 0.35),
-            backgroundColor: alpha(theme.palette.error.main, 0.12),
-            iconColor: theme.palette.error.light,
-            iconBackgroundColor: alpha(theme.palette.error.main, 0.16),
+            borderColor: alpha(theme.palette.error.main, 0.42),
+            backgroundColor: alpha(theme.palette.error.main, 0.14),
+            iconColor: theme.palette.error.main,
+            iconBackgroundColor: alpha(theme.palette.error.main, 0.18),
         };
     }
     return {
         icon: InfoOutlinedIcon,
-        borderColor: alpha(theme.palette.info.main, 0.35),
-        backgroundColor: alpha(theme.palette.info.main, 0.12),
-        iconColor: theme.palette.info.light,
-        iconBackgroundColor: alpha(theme.palette.info.main, 0.16),
+        borderColor: alpha(theme.palette.info.main, 0.42),
+        backgroundColor: alpha(theme.palette.info.main, 0.14),
+        iconColor: theme.palette.info.main,
+        iconBackgroundColor: alpha(theme.palette.info.main, 0.18),
     };
 }
