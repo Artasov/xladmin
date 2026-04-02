@@ -34,6 +34,8 @@ class FieldConfig:
     hidden_in_list: bool = False
     hidden_in_detail: bool = False
     hidden_in_form: bool = False
+    hidden_in_create: bool = False
+    hidden_in_update: bool = False
     read_only: bool = False
     input_kind: FieldInputKind | None = None
     ordering_field: str | None = None
@@ -116,6 +118,7 @@ class ModelConfig:
     detail_fields: tuple[str, ...] | None = None
     create_fields: tuple[str, ...] | None = None
     update_fields: tuple[str, ...] | None = None
+    create_item_factory: Callable[[dict[str, Any], Any, Any], Awaitable[Any] | Any] | None = None
     ordering: tuple[str, ...] = ()
     page_size: int = 50
     import_export: Any | None = None

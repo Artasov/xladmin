@@ -66,8 +66,57 @@ router = create_router(
 - relation choices and relation filters
 - overview metadata and model blocks
 - `query_for_list` and custom `search_query_builder`
+- mode-specific form fields with `hidden_in_create` / `hidden_in_update`
+- custom create defaults with `create_item_factory`
 - delete preview for single and bulk delete
 - RU / EN locale metadata for the frontend
+
+## Create And Update Fields
+
+If a field should be visible only in one form mode, use `hidden_in_create` or `hidden_in_update`.
+
+```python
+from xladmin import FieldConfig, ModelConfig
+
+
+ModelConfig(
+    model=UserORM,
+    fields={
+        "password": FieldConfig(
+            input_kind="password",
+            hidden_in_update=True,
+            value_setter=set_user_password,
+        ),
+        "new_password": FieldConfig(
+            input_kind="password",
+            hidden_in_create=True,
+            value_getter=lambda _user: "",
+            value_setter=set_user_password,
+        ),
+    },
+)
+```
+
+If create requires hidden service fields, use `create_item_factory`.
+
+```python
+from xladmin import ModelConfig
+
+
+def create_admin_user(payload, session, user):
+    del payload, session, user
+    return UserORM(
+        date_joined=AuthBase.now(),
+        secret_key=AuthBase.generate_secret_key(),
+    )
+
+
+ModelConfig(
+    model=UserORM,
+    create_fields=("username", "email", "password"),
+    create_item_factory=create_admin_user,
+)
+```
 
 ## Compatibility
 

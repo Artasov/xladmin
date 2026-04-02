@@ -188,6 +188,23 @@ class DemoHardChildORM(Base):
     parent_id: Mapped[int] = mapped_column(ForeignKey("demo_hard_parents.id", ondelete="CASCADE"), nullable=False)
 
 
+class DemoInviteORM(Base):
+    __tablename__ = "demo_invites"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(128), nullable=False)
+    secret_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class DemoStrictProfileORM(Base):
+    __tablename__ = "demo_strict_profiles"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(64), nullable=False)
+    access_code: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
 TEST_DATABASE_URL = os.getenv(
     "XLADMIN_TEST_DATABASE_URL",
     "postgresql+asyncpg://postgres:adminadmin@localhost:5432/xladmin_test",
@@ -265,6 +282,9 @@ async def build_test_app(
     ) -> dict[str, Any]:
         item.is_active = False
         return {"deactivated": 1}
+
+    def create_invite_item(_payload: dict[str, Any], _session: AsyncSession, _user: Any) -> DemoInviteORM:
+        return DemoInviteORM(secret_key="generated-secret", created_by="admin")
 
     config = AdminConfig(
         locale=locale,
@@ -425,6 +445,23 @@ async def build_test_app(
                 slug="hard-children",
                 title="Hard Children",
                 list_display=("id", "title", "parent_id"),
+            ),
+            ModelConfig(
+                model=DemoInviteORM,
+                slug="invites",
+                title="Invites",
+                list_display=("id", "email", "created_by"),
+                create_fields=("email",),
+                create_item_factory=create_invite_item,
+            ),
+            ModelConfig(
+                model=DemoStrictProfileORM,
+                slug="strict-profiles",
+                title="Strict Profiles",
+                list_display=("id", "name"),
+                fields={
+                    "access_code": AdminFieldConfig(hidden_in_form=True),
+                },
             ),
         ),
     )

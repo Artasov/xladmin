@@ -8,7 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect as sa_inspect
 
 from xladmin.config import ModelConfig
-from xladmin.introspection import convert_value_for_column, get_column_names, get_create_fields, get_update_fields
+from xladmin.introspection import (
+    convert_value_for_column,
+    get_column_names,
+    get_create_fields,
+    get_pk_field_name,
+    get_update_fields,
+    pk_is_generated,
+)
 from xladmin.router_queries import convert_pk, resolve_relation_model
 
 
@@ -101,3 +108,21 @@ async def assign_relationship_value(
     if related_item is None:
         raise ValueError(f"Unknown related id for field '{field_name}'.")
     setattr(item, field_name, related_item)
+
+
+def get_missing_required_create_fields(model_config: ModelConfig, item: Any) -> list[str]:
+    mapper = sa_inspect(model_config.model)
+    pk_field_name = get_pk_field_name(model_config)
+    missing_fields: list[str] = []
+
+    for field_name, column in mapper.columns.items():
+        if column.nullable:
+            continue
+        if field_name == pk_field_name and pk_is_generated(column):
+            continue
+        if column.default is not None or column.server_default is not None:
+            continue
+        if getattr(item, field_name, None) is None:
+            missing_fields.append(field_name)
+
+    return missing_fields

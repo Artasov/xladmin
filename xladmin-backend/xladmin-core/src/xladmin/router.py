@@ -13,7 +13,7 @@ from xladmin.delete_preview import build_delete_plan, build_delete_preview
 from xladmin.i18n import translate
 from xladmin.introspection import get_list_filter_input_kind, get_model_blocks_meta, get_model_meta
 from xladmin.registry import build_registry
-from xladmin.router_mutations import apply_payload_to_item
+from xladmin.router_mutations import apply_payload_to_item, get_missing_required_create_fields
 from xladmin.router_queries import (
     apply_list_filters,
     apply_ordering,
@@ -203,8 +203,19 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> ItemOnlyResponse:
         check_access(user)
         model_config = await get_model_config(slug)
-        item = model_config.model()
+        if model_config.create_item_factory is not None:
+            item = model_config.create_item_factory(payload.root, session, user)
+            if inspect.isawaitable(item):
+                item = await item
+        else:
+            item = model_config.model()
         await apply_payload_to_item(session, model_config, item, payload.root, mode="create")
+        missing_required_fields = get_missing_required_create_fields(model_config, item)
+        if missing_required_fields:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Missing required fields for create: {', '.join(missing_required_fields)}.",
+            )
         session.add(item)
         await session.commit()
         await session.refresh(item)

@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import select
 
 from ._router_helpers import (
+    DemoInviteORM,
     DemoRoleORM,
     DemoUserORM,
     build_test_app,
@@ -31,6 +32,37 @@ async def test_router_supports_virtual_fields_and_custom_setter() -> None:
     async with session_factory() as session:
         item = (await session.execute(select(DemoUserORM))).scalar_one()
         assert item.password == "hashed::secret"
+
+
+async def test_router_uses_create_item_factory_for_hidden_required_fields() -> None:
+    app, session_factory = await build_test_app()
+
+    async with get_test_client(app) as client:
+        create_response = await client.post(
+            "/xladmin/models/invites/items/",
+            json={"email": "invite@example.com"},
+        )
+
+        assert create_response.status_code == 201
+        assert create_response.json()["item"]["email"] == "invite@example.com"
+
+    async with session_factory() as session:
+        item = (await session.execute(select(DemoInviteORM))).scalar_one()
+        assert item.secret_key == "generated-secret"
+        assert item.created_by == "admin"
+
+
+async def test_router_returns_400_when_hidden_required_create_fields_are_missing() -> None:
+    app, _session_factory = await build_test_app()
+
+    async with get_test_client(app) as client:
+        create_response = await client.post(
+            "/xladmin/models/strict-profiles/items/",
+            json={"name": "alpha"},
+        )
+
+        assert create_response.status_code == 400
+        assert create_response.json()["detail"] == "Missing required fields for create: access_code."
 
 
 async def test_router_parses_string_boolean_payloads_correctly() -> None:

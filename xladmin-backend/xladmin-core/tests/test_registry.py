@@ -17,6 +17,14 @@ class DemoModel(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
 
 
+class ModeAwareModel(Base):
+    __tablename__ = "mode_aware_model"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column()
+    password: Mapped[str] = mapped_column()
+
+
 class OrderedParentModel(Base):
     __tablename__ = "ordered_parent_model"
 
@@ -70,3 +78,26 @@ def test_model_meta_includes_display_kind() -> None:
 
     assert field_meta["display_kind"] == "image"
     assert field_meta["image_url_prefix"] == "/media"
+
+
+def test_model_meta_respects_create_and_update_visibility() -> None:
+    config = ModelConfig(
+        model=ModeAwareModel,
+        fields={
+            "password": AdminFieldConfig(
+                input_kind="password",
+                hidden_in_update=True,
+            ),
+            "new_password": AdminFieldConfig(
+                input_kind="password",
+                hidden_in_create=True,
+                value_getter=lambda _instance: "",
+                value_setter=lambda *_args: None,
+            ),
+        },
+    )
+
+    meta = get_model_meta(config)
+
+    assert meta["create_fields"] == ["name", "password"]
+    assert meta["update_fields"] == ["name", "new_password"]

@@ -29,6 +29,8 @@ export type AdminFieldMeta = {
     hidden_in_list: boolean;
     hidden_in_detail: boolean;
     hidden_in_form: boolean;
+    hidden_in_create: boolean;
+    hidden_in_update: boolean;
     type: string;
     input_kind: AdminFieldInputKind;
     is_primary_key: boolean;

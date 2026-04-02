@@ -74,7 +74,7 @@ def get_create_fields(config: AdminModelConfig) -> list[str]:
     relationship_names = set(get_relationship_names(config))
     for name in get_all_field_names(config):
         field_config = config.get_field_config(name)
-        if is_read_only(config, name) or field_config.hidden_in_form:
+        if is_read_only(config, name) or field_config.hidden_in_form or field_config.hidden_in_create:
             continue
         if name in column_names:
             column = mapper.columns[name]
@@ -97,6 +97,7 @@ def get_update_fields(config: AdminModelConfig) -> list[str]:
                 name != get_pk_field_name(config)
                 and not is_read_only(config, name)
                 and not config.get_field_config(name).hidden_in_form
+                and not config.get_field_config(name).hidden_in_update
                 and (
                         name in column_names
                         or name in relationship_names

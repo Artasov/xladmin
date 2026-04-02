@@ -11,6 +11,7 @@ from xladmin.introspection_fields import (
     get_update_fields,
     get_visible_detail_fields,
     get_visible_list_fields,
+    pk_is_generated,
 )
 from xladmin.introspection_meta import (
     get_list_filter_input_kind,
@@ -37,6 +38,7 @@ __all__ = (
     "get_model_meta",
     "get_pk_field_name",
     "get_pk_value",
+    "pk_is_generated",
     "get_relationship_names",
     "get_sort_column_name",
     "get_update_fields",
