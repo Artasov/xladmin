@@ -118,6 +118,7 @@ class ModelConfig:
     update_fields: tuple[str, ...] | None = None
     ordering: tuple[str, ...] = ()
     page_size: int = 50
+    import_export: Any | None = None
     bulk_actions: tuple[BulkActionConfig, ...] = ()
     object_actions: tuple[ObjectActionConfig, ...] = ()
 

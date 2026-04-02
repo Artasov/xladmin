@@ -16,6 +16,8 @@ Packages:
 - [xladmin-backend](./xladmin-backend) - PyPI package `xladmin`
 - [xladmin-frontend](./xladmin-frontend) - frontend workspace
 - [xladmin](./xladmin-frontend/packages/xladmin-core) - framework-agnostic React admin UI
+- [xladmin-import-export backend](./xladmin-backend/xladmin-import-export) - optional PyPI extension for import/export endpoints
+- [xladmin-import-export](./xladmin-frontend/packages/xladmin-import-export) - optional npm extension for import/export UI
 - [xladmin-next](./xladmin-frontend/packages/xladmin-next) - Next.js router adapter
 - [xladmin-react-router](./xladmin-frontend/packages/xladmin-react-router) - React Router adapter
 
@@ -53,6 +55,8 @@ npm run pack:dry-run
 ## Publishing
 
 - backend tag: `backend-vX.Y.Z`
+- backend import/export tag: `backend-import-export-vX.Y.Z`
 - frontend tag: `frontend-vX.Y.Z`
+- frontend import/export tag: `frontend-import-export-vX.Y.Z`
 
 See [RELEASE_GUIDE.md](./docs/RELEASE_GUIDE.md) for manual publish commands and trusted publishing setup.

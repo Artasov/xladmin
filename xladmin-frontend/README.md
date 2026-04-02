@@ -14,6 +14,7 @@ This workspace contains the frontend packages for `xladmin`.
 ## Packages
 
 - [xladmin](./packages/xladmin-core/README.md) - framework-agnostic React + MUI admin UI
+- [xladmin-import-export](./packages/xladmin-import-export/README.md) - optional import/export model actions
 - [xladmin-next](./packages/xladmin-next/README.md) - Next.js router adapter
 - [xladmin-react-router](./packages/xladmin-react-router/README.md) - React Router adapter
 
@@ -37,6 +38,7 @@ npm run pack:dry-run
 
 - [Russian README](./docs/README.ru.md)
 - [xladmin package](./packages/xladmin-core/README.md)
+- [xladmin-import-export package](./packages/xladmin-import-export/README.md)
 - [xladmin-next package](./packages/xladmin-next/README.md)
 - [xladmin-react-router package](./packages/xladmin-react-router/README.md)
 - [Root release guide](../docs/RELEASE_GUIDE.md)

@@ -19,6 +19,9 @@
       "xladmin-next": [
         "packages/xladmin-next/src/index.tsx"
       ],
+      "xladmin-import-export": [
+        "packages/xladmin-import-export/src/index.ts"
+      ],
       "xladmin-react-router": [
         "packages/xladmin-react-router/src/index.tsx"
       ]

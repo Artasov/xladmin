@@ -22,7 +22,7 @@ export {
 } from './router';
 export {FormDialog, type FormDialogProps} from './components/FormDialog';
 export {OverviewPage, type OverviewPageProps} from './components/OverviewPage';
-export {ModelPage, type ModelPageProps} from './components/ModelPage';
+export {ModelPage, type ModelPageProps, type ModelPageToolbarContext} from './components/ModelPage';
 export {ObjectPage, type ObjectPageProps} from './components/ObjectPage';
 export {Shell, type ShellProps} from './components/Shell';
 export {FieldEditor, type FieldEditorProps} from './components/FieldEditor';

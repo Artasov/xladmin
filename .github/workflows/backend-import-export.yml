@@ -1,10 +1,10 @@
-name: XLAdmin Backend
-run-name: Backend Release - ${{ github.ref_name }}
+name: XLAdmin Backend Import Export
+run-name: Backend Import Export Release - ${{ github.ref_name }}
 
 on:
   push:
     tags:
-      - "backend-v*"
+      - "backend-import-export-v*"
   workflow_dispatch:
 
 env:
@@ -21,25 +21,9 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.12", "3.13"]
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_DB: xladmin_test
-          POSTGRES_USER: xladmin_test
-          POSTGRES_PASSWORD: xladmin_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U xladmin_test -d xladmin_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     defaults:
       run:
-        working-directory: xladmin-backend/xladmin-core
-    env:
-      XLADMIN_TEST_DATABASE_URL: postgresql+asyncpg://xladmin_test:xladmin_test@127.0.0.1:5432/xladmin_test
+        working-directory: xladmin-backend/xladmin-import-export
 
     steps:
       - uses: actions/checkout@v6
@@ -71,7 +55,7 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    if: startsWith(github.ref, 'refs/tags/backend-v')
+    if: startsWith(github.ref, 'refs/tags/backend-import-export-v')
     needs: quality-checks
     runs-on: ubuntu-latest
     environment:
@@ -95,14 +79,14 @@ jobs:
         run: |
           VERSION=$(python - <<'PY'
           import pathlib, re
-          content = pathlib.Path("xladmin-backend/xladmin-core/pyproject.toml").read_text(encoding="utf-8")
+          content = pathlib.Path("xladmin-backend/xladmin-import-export/pyproject.toml").read_text(encoding="utf-8")
           match = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
           if not match:
               raise SystemExit("Version was not found in pyproject.toml")
           print(match.group(1))
           PY
           )
-          TAG_VERSION="${GITHUB_REF_NAME#backend-v}"
+          TAG_VERSION="${GITHUB_REF_NAME#backend-import-export-v}"
           if [ "$VERSION" != "$TAG_VERSION" ]; then
             echo "pyproject.toml version ($VERSION) does not match tag ($TAG_VERSION)"
             exit 1
@@ -110,11 +94,11 @@ jobs:
 
       - name: Sync dependencies
         run: uv sync --extra dev
-        working-directory: xladmin-backend/xladmin-core
+        working-directory: xladmin-backend/xladmin-import-export
 
       - name: Build package
         run: uv run python -m build
-        working-directory: xladmin-backend/xladmin-core
+        working-directory: xladmin-backend/xladmin-import-export
 
       - name: Mint PyPI API token
         shell: bash
@@ -132,4 +116,4 @@ jobs:
 
       - name: Publish package distributions to PyPI
         run: uv run python -m twine upload --skip-existing dist/*
-        working-directory: xladmin-backend/xladmin-core
+        working-directory: xladmin-backend/xladmin-import-export

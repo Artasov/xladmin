@@ -90,5 +90,6 @@ uv run python -m twine check dist/*
 ## Docs
 
 - [docs/HOW_TO_USE.md](./docs/HOW_TO_USE.md)
+- [xladmin-import-export backend](./xladmin-import-export/README.md)
 - [Russian README](./docs/README.ru.md)
 - [Monorepo README](../README.md)

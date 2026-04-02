@@ -19,13 +19,16 @@ async def apply_payload_to_item(
         payload: dict[str, Any],
         *,
         mode: str,
+        allowed_fields: set[str] | None = None,
 ) -> None:
     mapper = sa_inspect(model_config.model)
     column_names = set(get_column_names(model_config))
     relationship_names = set(mapper.relationships.keys())
-    allowed_fields = set(get_create_fields(model_config) if mode == "create" else get_update_fields(model_config))
+    effective_allowed_fields = allowed_fields or set(
+        get_create_fields(model_config) if mode == "create" else get_update_fields(model_config)
+    )
     for field_name, raw_value in payload.items():
-        if field_name not in allowed_fields:
+        if field_name not in effective_allowed_fields:
             continue
         field_config = model_config.get_field_config(field_name)
         try:

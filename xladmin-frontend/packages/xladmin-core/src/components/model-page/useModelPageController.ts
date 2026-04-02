@@ -525,6 +525,7 @@ export function useModelPageController({
         setDeletePreviewOpen,
         setFiltersOpen,
         setPageInput,
+        sortValue,
         sortFields,
         toggleSort,
         total,

@@ -1,5 +1,6 @@
 'use client';
 
+import type {ReactNode} from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -51,15 +52,32 @@ type AdminModelPageProps = {
     basePath: string;
     slug: string;
     router?: XLAdminRouter;
+    renderBeforePagination?: (context: ModelPageToolbarContext) => ReactNode;
 };
 
 export type ModelPageProps = AdminModelPageProps;
+export type ModelPageToolbarContext = {
+    client: XLAdminClient;
+    slug: string;
+    meta: {
+        slug: string;
+        title: string;
+    };
+    selectedIds: Array<string | number>;
+    isAllMatchingSelected: boolean;
+    selectionCount: number;
+    total: number;
+    appliedQuery: string;
+    sortValue: string;
+    appliedFilters: Record<string, string>;
+    refresh: () => Promise<void>;
+};
 
 const SEARCH_DEBOUNCE_MS = 300;
 const CHECKBOX_COLUMN_WIDTH = 56;
 const ACTIONS_COLUMN_WIDTH = 56;
 
-export function ModelPage({client, basePath, slug, router}: ModelPageProps) {
+export function ModelPage({client, basePath, slug, router, renderBeforePagination}: ModelPageProps) {
     const locale = useAdminLocale();
     const t = useAdminTranslation();
     const selectAllLabel = locale === 'ru' ? 'Выбрать все' : 'Select All';
@@ -87,6 +105,22 @@ export function ModelPage({client, basePath, slug, router}: ModelPageProps) {
     }
 
     const meta = controller.meta;
+    const beforePagination = renderBeforePagination?.({
+        client,
+        slug,
+        meta: {
+            slug: meta.slug,
+            title: meta.title,
+        },
+        selectedIds: controller.selectedIds,
+        isAllMatchingSelected: controller.isAllMatchingSelected,
+        selectionCount: controller.selectionCount,
+        total: controller.total,
+        appliedQuery: controller.appliedQuery,
+        sortValue: controller.sortValue,
+        appliedFilters: controller.appliedFilters,
+        refresh: controller.refresh,
+    });
 
     return (
         <XLAdminRouterProvider router={resolvedRouter}>
@@ -99,8 +133,8 @@ export function ModelPage({client, basePath, slug, router}: ModelPageProps) {
                                 aria-label={t('create')}
                                 onClick={() => controller.setCreateOpen(true)}
                                 sx={{
-                                    width: 30,
-                                    height: 30,
+                                    width: 29,
+                                    height: 29,
                                     p: 0.5,
                                     backgroundColor: 'primary.main',
                                     color: 'primary.contrastText',
@@ -167,6 +201,11 @@ export function ModelPage({client, basePath, slug, router}: ModelPageProps) {
                         </Stack>
 
                         <Stack direction="row" spacing={1} alignItems="center" sx={{marginLeft: 'auto'}}>
+                            {beforePagination ? (
+                                <Box sx={{display: 'flex', alignItems: 'center', flexShrink: 0}}>
+                                    {beforePagination}
+                                </Box>
+                            ) : null}
                             {isMobile && controller.hasListFilters ? (
                                 <Tooltip title={t('filters')}>
                                     <IconButton

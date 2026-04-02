@@ -12,13 +12,17 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = ROOT_DIR / "xladmin-frontend"
-BACKEND_DIR = ROOT_DIR / "xladmin-backend"
+BACKEND_ROOT_DIR = ROOT_DIR / "xladmin-backend"
+BACKEND_DIR = BACKEND_ROOT_DIR / "xladmin-core"
 FRONTEND_PACKAGE_FILE = FRONTEND_DIR / "package.json"
 FRONTEND_LOCK_FILE = FRONTEND_DIR / "package-lock.json"
 FRONTEND_CORE_PACKAGE_FILE = FRONTEND_DIR / "packages" / "xladmin-core" / "package.json"
+FRONTEND_IMPORT_EXPORT_PACKAGE_FILE = FRONTEND_DIR / "packages" / "xladmin-import-export" / "package.json"
 FRONTEND_NEXT_PACKAGE_FILE = FRONTEND_DIR / "packages" / "xladmin-next" / "package.json"
 FRONTEND_REACT_ROUTER_PACKAGE_FILE = FRONTEND_DIR / "packages" / "xladmin-react-router" / "package.json"
 BACKEND_PYPROJECT_FILE = BACKEND_DIR / "pyproject.toml"
+BACKEND_IMPORT_EXPORT_DIR = BACKEND_ROOT_DIR / "xladmin-import-export"
+BACKEND_IMPORT_EXPORT_PYPROJECT_FILE = BACKEND_IMPORT_EXPORT_DIR / "pyproject.toml"
 VERSION_PATTERN = re.compile(r'(?P<prefix>version\s*=\s*")(?P<version>\d+\.\d+\.\d+)(?P<suffix>")')
 
 
@@ -39,10 +43,20 @@ PACKAGE_CONFIGS = {
         directory=FRONTEND_DIR,
         tag_prefix="frontend-v",
     ),
+    "frontend-import-export": PackageReleaseConfig(
+        package="frontend-import-export",
+        directory=FRONTEND_DIR,
+        tag_prefix="frontend-import-export-v",
+    ),
     "backend": PackageReleaseConfig(
         package="backend",
         directory=BACKEND_DIR,
         tag_prefix="backend-v",
+    ),
+    "backend-import-export": PackageReleaseConfig(
+        package="backend-import-export",
+        directory=BACKEND_IMPORT_EXPORT_DIR,
+        tag_prefix="backend-import-export-v",
     ),
 }
 
@@ -116,26 +130,25 @@ class ReleaseService:
                 )
                 raise ReleaseError(f"Frontend package versions are out of sync: {formatted_versions}")
             return next(iter(distinct_versions))
+        if config.package == "frontend-import-export":
+            return str(json.loads(FRONTEND_IMPORT_EXPORT_PACKAGE_FILE.read_text(encoding="utf-8"))["version"])
+        if config.package == "backend-import-export":
+            return self.read_pyproject_version(BACKEND_IMPORT_EXPORT_PYPROJECT_FILE)
 
-        content = BACKEND_PYPROJECT_FILE.read_text(encoding="utf-8")
-        match = VERSION_PATTERN.search(content)
-        if match is None:
-            raise ReleaseError(f"Version was not found in {BACKEND_PYPROJECT_FILE}.")
-        return match.group("version")
+        return self.read_pyproject_version(BACKEND_PYPROJECT_FILE)
 
     def write_version(self, config: PackageReleaseConfig, version: str) -> None:
         if config.package == "frontend":
             self.write_frontend_version(version)
             return
+        if config.package == "frontend-import-export":
+            self.write_frontend_import_export_version(version)
+            return
+        if config.package == "backend-import-export":
+            self.write_pyproject_version(BACKEND_IMPORT_EXPORT_PYPROJECT_FILE, version)
+            return
 
-        content = BACKEND_PYPROJECT_FILE.read_text(encoding="utf-8")
-        match = VERSION_PATTERN.search(content)
-        if match is None:
-            raise ReleaseError(f"Version was not found in {BACKEND_PYPROJECT_FILE}.")
-        BACKEND_PYPROJECT_FILE.write_text(
-            VERSION_PATTERN.sub(rf"\g<prefix>{version}\g<suffix>", content, count=1),
-            encoding="utf-8",
-        )
+        self.write_pyproject_version(BACKEND_PYPROJECT_FILE, version)
 
     def write_frontend_version(self, version: str) -> None:
         for package_file in FRONTEND_PACKAGE_FILES:
@@ -158,6 +171,15 @@ class ReleaseService:
             cwd=FRONTEND_DIR,
         )
 
+    def write_frontend_import_export_version(self, version: str) -> None:
+        package_data = json.loads(FRONTEND_IMPORT_EXPORT_PACKAGE_FILE.read_text(encoding="utf-8"))
+        package_data["version"] = version
+        FRONTEND_IMPORT_EXPORT_PACKAGE_FILE.write_text(
+            json.dumps(package_data, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        self.npm("install", "--package-lock-only", cwd=FRONTEND_DIR)
+
     def stage_version_files(self, config: PackageReleaseConfig) -> None:
         if config.package == "frontend":
             self.git(
@@ -165,6 +187,16 @@ class ReleaseService:
                 self.to_git_path(FRONTEND_LOCK_FILE),
                 *(self.to_git_path(package_file) for package_file in FRONTEND_PACKAGE_FILES),
             )
+            return
+        if config.package == "frontend-import-export":
+            self.git(
+                "add",
+                self.to_git_path(FRONTEND_LOCK_FILE),
+                self.to_git_path(FRONTEND_IMPORT_EXPORT_PACKAGE_FILE),
+            )
+            return
+        if config.package == "backend-import-export":
+            self.git("add", self.to_git_path(BACKEND_IMPORT_EXPORT_PYPROJECT_FILE))
             return
 
         self.git("add", self.to_git_path(BACKEND_PYPROJECT_FILE))
@@ -200,6 +232,23 @@ class ReleaseService:
         )
         if result.returncode == 0:
             raise ReleaseError(f"Git tag {tag_name} already exists.")
+
+    def read_pyproject_version(self, pyproject_file: Path) -> str:
+        content = pyproject_file.read_text(encoding="utf-8")
+        match = VERSION_PATTERN.search(content)
+        if match is None:
+            raise ReleaseError(f"Version was not found in {pyproject_file}.")
+        return match.group("version")
+
+    def write_pyproject_version(self, pyproject_file: Path, version: str) -> None:
+        content = pyproject_file.read_text(encoding="utf-8")
+        match = VERSION_PATTERN.search(content)
+        if match is None:
+            raise ReleaseError(f"Version was not found in {pyproject_file}.")
+        pyproject_file.write_text(
+            VERSION_PATTERN.sub(rf"\g<prefix>{version}\g<suffix>", content, count=1),
+            encoding="utf-8",
+        )
 
     def to_git_path(self, path: Path) -> str:
         return path.relative_to(self.root_dir).as_posix()

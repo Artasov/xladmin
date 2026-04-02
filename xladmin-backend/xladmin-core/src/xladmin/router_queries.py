@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 from typing import Any, Literal
+from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, or_, select
@@ -196,10 +197,17 @@ def resolve_label_field(model: type[Any]) -> str:
 
 
 def convert_pk(value: Any) -> Any:
+    if isinstance(value, UUID):
+        return value
     if isinstance(value, int):
         return value
-    if isinstance(value, str) and value.isdigit():
-        return int(value)
+    if isinstance(value, str):
+        if value.isdigit():
+            return int(value)
+        try:
+            return UUID(value)
+        except ValueError:
+            return value
     return value
 
 

@@ -16,6 +16,14 @@ xladmin-backend/.pytest_cache/
 xladmin-backend/.mypy_cache/
 xladmin-backend/.ruff_cache/
 xladmin-backend/src/*.egg-info/
+xladmin-backend/*/.venv/
+xladmin-backend/*/build/
+xladmin-backend/*/dist/
+xladmin-backend/*/.pytest_cache/
+xladmin-backend/*/.mypy_cache/
+xladmin-backend/*/.ruff_cache/
+xladmin-backend/*/uv.lock
+xladmin-backend/*/src/*.egg-info/
 inspector_errors
 
 __pycache__/
