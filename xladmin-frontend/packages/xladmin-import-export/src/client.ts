@@ -191,6 +191,9 @@ async function buildImportFormData(payload: ImportRequestPayload): Promise<FormD
 }
 
 async function createStableUploadFile(file: File): Promise<File> {
+    if (typeof file.arrayBuffer !== 'function') {
+        return file;
+    }
     const buffer = await file.arrayBuffer();
     return new File([buffer], file.name, {
         type: file.type,
