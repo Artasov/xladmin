@@ -13,7 +13,6 @@ from sqlalchemy import Date, ForeignKey, String
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.pool import StaticPool
-
 from xladmin import (
     AdminBulkActionConfig,
     AdminConfig,
@@ -317,6 +316,16 @@ async def build_test_app(
                         relation_label_field="name",
                     ),
                     AdminListFilterConfig(
+                        slug="role_ids",
+                        label="Roles",
+                        group="Access",
+                        field_name="roles",
+                        relation_model=DemoRoleORM,
+                        relation_label_field="name",
+                        input_kind="select-multiple",
+                        multiple=True,
+                    ),
+                    AdminListFilterConfig(
                         slug="username_contains",
                         label="Username",
                         field_name="username",
@@ -381,6 +390,7 @@ async def build_test_app(
                 slug="roles",
                 title="Роли",
                 list_display=("id", "name"),
+                detail_fields=("id", "name"),
                 search_query_builder=custom_role_search,
                 query_for_list=filter_roles_for_list,
                 ordering=("name",),

@@ -30,6 +30,7 @@ export {NavLink, type NavLinkProps} from './components/NavLink';
 export {ModelsBlocks, type ModelsBlocksProps} from './components/ModelsBlocks';
 export * from './components/DeletePreviewDialog';
 export {MainHeader, MainHeaderSkeleton} from './components/layout/MainHeader';
+export {useAdminMessage} from './components/layout/AdminMessageContext';
 export * from './components/layout/Sidebar';
 export * from './theme/defaultAdminTheme';
 export * from './i18n';

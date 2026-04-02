@@ -27,6 +27,7 @@ async def test_router_returns_list_filters_in_model_meta() -> None:
                 "group": "Flags",
                 "field_name": "is_active",
                 "input_kind": "boolean",
+                "multiple": False,
                 "placeholder": None,
                 "has_choices": True,
                 "options": [{"value": "true", "label": "Да"}, {"value": "false", "label": "Нет"}],
@@ -37,6 +38,18 @@ async def test_router_returns_list_filters_in_model_meta() -> None:
                 "group": "Access",
                 "field_name": "roles",
                 "input_kind": "select",
+                "multiple": False,
+                "placeholder": None,
+                "has_choices": True,
+                "options": [],
+            },
+            {
+                "slug": "role_ids",
+                "label": "Roles",
+                "group": "Access",
+                "field_name": "roles",
+                "input_kind": "select-multiple",
+                "multiple": True,
                 "placeholder": None,
                 "has_choices": True,
                 "options": [],
@@ -47,6 +60,7 @@ async def test_router_returns_list_filters_in_model_meta() -> None:
                 "group": None,
                 "field_name": "username",
                 "input_kind": "text",
+                "multiple": False,
                 "placeholder": None,
                 "has_choices": False,
                 "options": [],
@@ -57,6 +71,7 @@ async def test_router_returns_list_filters_in_model_meta() -> None:
                 "group": None,
                 "field_name": None,
                 "input_kind": "text",
+                "multiple": False,
                 "placeholder": None,
                 "has_choices": False,
                 "options": [],
@@ -67,6 +82,7 @@ async def test_router_returns_list_filters_in_model_meta() -> None:
                 "group": "Flags",
                 "field_name": None,
                 "input_kind": "select",
+                "multiple": False,
                 "placeholder": None,
                 "has_choices": True,
                 "options": [
@@ -196,3 +212,23 @@ async def test_router_applies_relation_scope_to_field_choices() -> None:
 
         assert response.status_code == 200
         assert response.json()["items"] == [{"id": 1, "label": "admin"}]
+
+
+async def test_router_supports_many_to_many_relation_multi_list_filter() -> None:
+    app, session_factory = await build_test_app()
+
+    async with session_factory() as session:
+        admin_role = DemoRoleORM(name="admin")
+        manager_role = DemoRoleORM(name="manager")
+        viewer_role = DemoRoleORM(name="viewer")
+        first_user = DemoUserORM(username="alpha", password="hashed::1", roles=[admin_role])
+        second_user = DemoUserORM(username="beta", password="hashed::2", roles=[manager_role])
+        third_user = DemoUserORM(username="gamma", password="hashed::3", roles=[viewer_role])
+        session.add_all([first_user, second_user, third_user])
+        await session.commit()
+
+    async with get_test_client(app) as client:
+        response = await client.get("/xladmin/models/users/items/", params={"role_ids": "1,2"})
+
+        assert response.status_code == 200
+        assert [item["id"] for item in response.json()["items"]] == [2, 1]

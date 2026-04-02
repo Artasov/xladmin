@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import pytest
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-
 from xladmin import AdminConfig, AdminFieldConfig, AdminModelConfig, AdminRegistry, ModelConfig
 from xladmin.introspection import get_model_meta, get_visible_list_fields
 
@@ -101,3 +101,14 @@ def test_model_meta_respects_create_and_update_visibility() -> None:
 
     assert meta["create_fields"] == ["name", "password"]
     assert meta["update_fields"] == ["name", "new_password"]
+
+
+def test_registry_requires_explicit_list_fields_for_implicit_relationships() -> None:
+    with pytest.raises(ValueError) as exc_info:
+        AdminRegistry(ModelConfig(model=OrderedParentModel))
+
+    assert str(exc_info.value) == (
+        "Model 'OrderedParentModel' uses relationship fields in the implicit list view "
+        "(children). Set 'list_display' or 'list_fields' explicitly, or hide/override these fields "
+        "with FieldConfig (for example hidden_in_list or value_getter)."
+    )

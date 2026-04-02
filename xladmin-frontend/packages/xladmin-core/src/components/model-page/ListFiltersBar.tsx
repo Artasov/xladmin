@@ -171,13 +171,15 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
     const t = useAdminTranslation();
     const [draftValue, setDraftValue] = useState(value);
     const [searchValue, setSearchValue] = useState('');
+    const selectedValues = useMemo(() => parseSelectedFilterValues(value, filter.multiple), [filter.multiple, value]);
+    const isSelectFilter = filter.input_kind === 'select' || filter.input_kind === 'select-multiple';
     const loadChoices = useCallback(
         async (signal: AbortSignal) => {
             const response = await client.getFilterChoices(
                 slug,
                 filter.slug,
                 searchValue || undefined,
-                value ? [value] : undefined,
+                selectedValues.length > 0 ? selectedValues : undefined,
                 {signal},
             );
             return response.items.map((item) => ({
@@ -185,10 +187,10 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
                 label: item.label,
             }));
         },
-        [client, filter.slug, searchValue, slug, value],
+        [client, filter.slug, searchValue, selectedValues, slug],
     );
     const {items: options, isLoading: isLoadingChoices} = useRemoteChoices({
-        enabled: filter.has_choices && filter.input_kind === 'select',
+        enabled: filter.has_choices && isSelectFilter,
         debounceMs,
         initialItems: filter.options,
         resetKey: `${slug}:${filter.slug}`,
@@ -240,14 +242,19 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
         );
     }
 
-    if (filter.input_kind === 'select') {
-        const selectedOption = options.find((option) => option.value === value) ?? (value ? {
-            value,
-            label: value
-        } : null);
+    if (isSelectFilter) {
+        const selectedOptions = selectedValues.map((selectedValue) => (
+            options.find((option) => option.value === selectedValue) ?? {
+                value: selectedValue,
+                label: selectedValue,
+            }
+        ));
+        const selectedOption = filter.multiple ? selectedOptions : (selectedOptions[0] ?? null);
         return (
             <Autocomplete
                 options={options}
+                multiple={filter.multiple}
+                disableCloseOnSelect={filter.multiple}
                 value={selectedOption}
                 loading={isLoadingChoices}
                 filterOptions={(items) => items}
@@ -255,7 +262,14 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
                 disablePortal
                 isOptionEqualToValue={(option, selected) => option.value === selected.value}
                 getOptionLabel={(option) => option.label}
-                onChange={(_, nextValue) => onChange(filter.slug, nextValue?.value ?? '')}
+                onChange={(_, nextValue) => {
+                    if (filter.multiple) {
+                        const nextItems = Array.isArray(nextValue) ? nextValue : [];
+                        onChange(filter.slug, nextItems.map((item) => item.value).join(','));
+                        return;
+                    }
+                    onChange(filter.slug, (Array.isArray(nextValue) ? nextValue[0] : nextValue)?.value ?? '');
+                }}
                 onInputChange={(_, nextInputValue) => setSearchValue(nextInputValue)}
                 renderInput={(params) => (
                     (() => {
@@ -296,4 +310,14 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
             onChange={(event) => setDraftValue(event.target.value)}
         />
     );
+}
+
+function parseSelectedFilterValues(value: string, multiple: boolean): string[] {
+    if (!value) {
+        return [];
+    }
+    if (!multiple) {
+        return [value];
+    }
+    return value.split(',').map((item) => item.trim()).filter(Boolean);
 }

@@ -15,7 +15,7 @@ export type AdminFieldInputKind =
 
 export type AdminFieldDisplayKind = 'text' | 'image';
 
-export type AdminListFilterInputKind = 'text' | 'select' | 'boolean';
+export type AdminListFilterInputKind = 'text' | 'select' | 'select-multiple' | 'boolean';
 
 export type AdminFieldMeta = {
     name: string;
@@ -52,6 +52,7 @@ export type AdminListFilterMeta = {
     group: string | null;
     field_name: string | null;
     input_kind: AdminListFilterInputKind;
+    multiple: boolean;
     placeholder: string | null;
     has_choices: boolean;
     options: AdminListFilterOptionMeta[];

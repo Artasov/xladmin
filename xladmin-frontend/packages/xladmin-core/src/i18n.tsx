@@ -55,7 +55,12 @@ export type AdminTranslationKey =
     | 'menu'
     | 'show_details'
     | 'hide_details'
-    | 'staff_only';
+    | 'staff_only'
+    | 'action_success'
+    | 'delete_success'
+    | 'object_saved_success'
+    | 'object_created_success'
+    | 'object_deleted_success';
 
 const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
     ru: {
@@ -111,6 +116,11 @@ const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
         show_details: 'Показать описание',
         hide_details: 'Скрыть описание',
         staff_only: 'Доступ к админке есть только у staff-пользователей.',
+        action_success: 'Действие "{action}" выполнено для {count} объектов.',
+        delete_success: 'Удалено объектов: {count}.',
+        object_saved_success: 'Объект сохранён.',
+        object_created_success: 'Объект создан.',
+        object_deleted_success: 'Объект удалён.',
     },
     en: {
         admin_title: 'Admin',
@@ -165,6 +175,11 @@ const messages: Record<AdminLocale, Record<AdminTranslationKey, string>> = {
         show_details: 'Show details',
         hide_details: 'Hide details',
         staff_only: 'Only staff users can access the admin.',
+        action_success: 'Action "{action}" completed for {count} items.',
+        delete_success: 'Deleted items: {count}.',
+        object_saved_success: 'Object saved.',
+        object_created_success: 'Object created.',
+        object_deleted_success: 'Object deleted.',
     },
 };
 

@@ -13,6 +13,7 @@ import type {AdminTranslationKey} from '@xladmin-core/i18n';
 import type {AdminRouter} from '@xladmin-core/router';
 import {buildUrlWithParams} from '@xladmin-core/router';
 import type {AdminDeletePreviewResponse, AdminListResponse} from '@xladmin-core/types';
+import {useAdminMessage} from '../layout/AdminMessageContext';
 
 const DEFAULT_PAGE_SIZE = 50;
 
@@ -41,6 +42,7 @@ export function useModelPageController({
                                            router,
                                            t,
                                        }: UseModelPageControllerOptions) {
+    const message = useAdminMessage();
     const searchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
     const initialQuery = searchParams.get('q') ?? '';
     const initialSort = searchParams.get('sort') ?? '';
@@ -83,6 +85,7 @@ export function useModelPageController({
     const requestIdRef = useRef(0);
     const dataRef = useRef<AdminListResponse | null>(initialCachedResponse);
     const pageSizeRef = useRef<number>(initialCachedResponse?.meta.page_size ?? DEFAULT_PAGE_SIZE);
+    const previousSlugRef = useRef(slug);
 
     const sortFields = useMemo(() => sortValue.split(',').filter(Boolean), [sortValue]);
     const meta = data?.meta ?? null;
@@ -125,6 +128,48 @@ export function useModelPageController({
     useEffect(() => {
         setPageInput(String(currentPage));
     }, [currentPage]);
+
+    useEffect(() => {
+        if (previousSlugRef.current === slug) {
+            return;
+        }
+
+        previousSlugRef.current = slug;
+        const nextSearchParams = new URLSearchParams(locationSearch);
+        const nextQuery = nextSearchParams.get('q') ?? '';
+        const nextSort = nextSearchParams.get('sort') ?? '';
+        const nextPage = parsePageParam(nextSearchParams.get('page'));
+        const nextFilters = extractFilterParams(nextSearchParams);
+        const nextCachedResponse = getClientCacheBucket(client).listResponseCache.get(
+            buildListCacheKey(slug, {
+                q: nextQuery || undefined,
+                sort: nextSort || undefined,
+                limit: DEFAULT_PAGE_SIZE,
+                offset: (nextPage - 1) * DEFAULT_PAGE_SIZE,
+                ...nextFilters,
+            }),
+        ) ?? null;
+
+        dataRef.current = nextCachedResponse;
+        pageSizeRef.current = nextCachedResponse?.meta.page_size ?? DEFAULT_PAGE_SIZE;
+        setData(nextCachedResponse);
+        setError(null);
+        setIsLoading(nextCachedResponse === null);
+        setSelectedIds([]);
+        setIsAllMatchingSelected(false);
+        setRowActionMenuAnchor(null);
+        setRowActionMenuId(null);
+        setBulkActionMenuAnchor(null);
+        setDeletePreviewOpen(false);
+        setDeletePreview(null);
+        setDeletePreviewError(null);
+        setIsDeletePreviewLoading(false);
+        setIsDeleteSubmitting(false);
+        setPendingDeleteIds([]);
+        setPendingDeleteSelectAll(false);
+        setPendingDeleteScope(null);
+        setPendingDeleteMode('single');
+    }, [client, locationSearch, slug]);
 
     useEffect(() => {
         const nextSearchParams = new URLSearchParams(locationSearch);
@@ -333,14 +378,16 @@ export function useModelPageController({
         try {
             if (pendingDeleteMode === 'single') {
                 await client.deleteItem(slug, pendingDeleteIds[0]);
+                message.success(t('object_deleted_success'));
             } else {
-                await client.bulkDelete(
+                const response = await client.bulkDelete(
                     slug,
                     pendingDeleteIds,
                     pendingDeleteSelectAll && pendingDeleteScope
                         ? {selectAll: true, selectionScope: pendingDeleteScope}
                         : undefined,
                 );
+                message.success(t('delete_success', {count: response.deleted}));
             }
             setDeletePreviewOpen(false);
             setDeletePreview(null);
@@ -351,11 +398,13 @@ export function useModelPageController({
             clearSelection();
             await refresh();
         } catch (reason: unknown) {
-            setDeletePreviewError(reason instanceof Error ? reason.message : t('object_delete_error'));
+            const nextError = reason instanceof Error ? reason.message : t('object_delete_error');
+            setDeletePreviewError(nextError);
+            message.error(nextError);
         } finally {
             setIsDeleteSubmitting(false);
         }
-    }, [clearSelection, client, pendingDeleteIds, pendingDeleteMode, pendingDeleteScope, pendingDeleteSelectAll, refresh, slug, t]);
+    }, [clearSelection, client, message, pendingDeleteIds, pendingDeleteMode, pendingDeleteScope, pendingDeleteSelectAll, refresh, slug, t]);
 
     const handleRunNamedBulkAction = useCallback(async (actionSlug: string) => {
         if (!actionSlug || !hasSelection) {
@@ -368,7 +417,7 @@ export function useModelPageController({
         }
 
         try {
-            await client.runBulkAction(
+            const response = await client.runBulkAction(
                 slug,
                 actionSlug,
                 isAllMatchingSelected ? [] : selectedIds,
@@ -378,10 +427,14 @@ export function useModelPageController({
             setBulkActionMenuAnchor(null);
             clearSelection();
             await refresh();
+            const actionLabel = bulkActions.find((item) => item.slug === actionSlug)?.label ?? actionSlug;
+            message.success(t('action_success', {action: actionLabel, count: response.processed}));
         } catch (reason: unknown) {
-            setError(reason instanceof Error ? reason.message : t('object_action_error'));
+            const nextError = reason instanceof Error ? reason.message : t('object_action_error');
+            setError(nextError);
+            message.error(nextError);
         }
-    }, [clearSelection, client, hasSelection, isAllMatchingSelected, openBulkDeletePreview, refresh, selectedIds, selectionScope, slug, t]);
+    }, [bulkActions, clearSelection, client, hasSelection, isAllMatchingSelected, message, openBulkDeletePreview, refresh, selectedIds, selectionScope, slug, t]);
 
     const handleRowDelete = useCallback(async (rowId: string | number) => {
         setRowActionMenuAnchor(null);

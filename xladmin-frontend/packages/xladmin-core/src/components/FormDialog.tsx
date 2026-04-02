@@ -9,6 +9,7 @@ import {useAdminTranslation} from '../i18n';
 import type {AdminModelMeta} from '../types';
 import {buildAdminPayload} from '../utils/adminFields';
 import {FieldEditor} from './FieldEditor';
+import {useAdminMessage} from './layout/AdminMessageContext';
 
 type AdminFormDialogProps = {
     open: boolean;
@@ -38,6 +39,7 @@ export function FormDialog({
                                itemId,
                            }: FormDialogProps) {
     const t = useAdminTranslation();
+    const message = useAdminMessage();
     const [values, setValues] = useState<Record<string, unknown>>({});
     const [error, setError] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
@@ -67,13 +69,17 @@ export function FormDialog({
         try {
             if (mode === 'create') {
                 await client.createItem(slug, payload);
+                message.success(t('object_created_success'));
             } else if (itemId !== undefined) {
                 await client.patchItem(slug, itemId, payload);
+                message.success(t('object_saved_success'));
             }
             onSuccess();
             onClose();
         } catch (reason: unknown) {
-            setError(reason instanceof Error ? reason.message : t('object_save_error'));
+            const nextError = reason instanceof Error ? reason.message : t('object_save_error');
+            setError(nextError);
+            message.error(nextError);
         } finally {
             setIsSaving(false);
         }

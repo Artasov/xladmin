@@ -6,7 +6,6 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import inspect as sa_inspect
-
 from xladmin.config import AdminModelConfig
 from xladmin.i18n import normalize_locale, translate
 from xladmin.introspection_fields import (
@@ -75,6 +74,7 @@ def get_model_meta(config: AdminModelConfig, *, locale: str = "ru") -> dict[str,
                 "group": list_filter.group,
                 "field_name": list_filter.field_name,
                 "input_kind": get_list_filter_input_kind(config, list_filter),
+                "multiple": list_filter_is_multiple(config, list_filter),
                 "placeholder": list_filter.placeholder,
                 "has_choices": list_filter_has_choices(config, list_filter),
                 "options": get_list_filter_options(normalized_locale, config, list_filter),
@@ -136,13 +136,13 @@ def get_list_filter_input_kind(config: AdminModelConfig, list_filter: Any) -> st
     if list_filter.input_kind is not None:
         return list_filter.input_kind
     if list_filter.options or list_filter.relation_model is not None:
-        return "select"
+        return "select-multiple" if list_filter.multiple else "select"
     if list_filter.field_name is None:
         return "text"
 
     mapper = sa_inspect(config.model)
     if list_filter.field_name in mapper.relationships:
-        return "select"
+        return "select-multiple" if list_filter.multiple else "select"
     if list_filter.field_name not in mapper.columns:
         return "text"
 
@@ -160,7 +160,7 @@ def list_filter_has_choices(config: AdminModelConfig, list_filter: Any) -> bool:
     if list_filter.options:
         return True
     input_kind = get_list_filter_input_kind(config, list_filter)
-    if input_kind == "boolean" or list_filter.relation_model is not None:
+    if input_kind == "boolean" or input_kind.startswith("select") or list_filter.relation_model is not None:
         return True
     if list_filter.field_name is None:
         return False
@@ -178,6 +178,12 @@ def get_list_filter_options(locale: str, config: AdminModelConfig, list_filter: 
             {"value": "false", "label": translate(locale, "no")},
         ]
     return []
+
+
+def list_filter_is_multiple(config: AdminModelConfig, list_filter: Any) -> bool:
+    if list_filter.multiple:
+        return True
+    return get_list_filter_input_kind(config, list_filter) == "select-multiple"
 
 
 def _get_field_type(config: AdminModelConfig, field_name: str, column: Any | None) -> str:

@@ -14,6 +14,7 @@ import type {AdminRouter} from '@xladmin-core/router';
 import type {AdminDeletePreviewResponse, AdminDetailResponse} from '@xladmin-core/types';
 import {buildAdminPayload} from '../../utils/adminFields';
 import {isDeepEqual} from '../../utils/isDeepEqual';
+import {useAdminMessage} from '../layout/AdminMessageContext';
 
 type UseObjectPageControllerOptions = {
     client: AdminClient;
@@ -32,6 +33,7 @@ export function useObjectPageController({
                                             router,
                                             t,
                                         }: UseObjectPageControllerOptions) {
+    const message = useAdminMessage();
     const cacheKey = buildDetailCacheKey(slug, id);
     const [data, setData] = useState<AdminDetailResponse | null>(() => getClientCacheBucket(client).detailResponseCache.get(cacheKey) ?? null);
     const [values, setValues] = useState<Record<string, unknown>>(() => getClientCacheBucket(client).detailResponseCache.get(cacheKey)?.item ?? {});
@@ -153,12 +155,15 @@ export function useObjectPageController({
             setData(nextDetail);
             setValues(response.item);
             setInitialValues(response.item);
+            message.success(t('object_saved_success'));
         } catch (reason: unknown) {
-            setError(reason instanceof Error ? reason.message : t('object_save_error'));
+            const nextError = reason instanceof Error ? reason.message : t('object_save_error');
+            setError(nextError);
+            message.error(nextError);
         } finally {
             setIsSaving(false);
         }
-    }, [cacheKey, client, currentPayload, id, isDirty, meta, slug, t]);
+    }, [cacheKey, client, currentPayload, id, isDirty, message, meta, slug, t]);
 
     const handleDelete = useCallback(async () => {
         setIsDeleting(true);
@@ -166,13 +171,16 @@ export function useObjectPageController({
         try {
             await client.deleteItem(slug, id);
             invalidateModelCache(client, slug);
+            message.success(t('object_deleted_success'));
             router.push(listPath);
         } catch (reason: unknown) {
-            setError(reason instanceof Error ? reason.message : t('object_delete_error'));
+            const nextError = reason instanceof Error ? reason.message : t('object_delete_error');
+            setError(nextError);
+            message.error(nextError);
             setIsDeleting(false);
             setDeleteConfirmOpen(false);
         }
-    }, [client, id, listPath, router, slug, t]);
+    }, [client, id, listPath, message, router, slug, t]);
 
     const handleNavigateBack = useCallback(() => {
         router.push(listPath);
@@ -191,12 +199,16 @@ export function useObjectPageController({
             setData(nextDetail);
             setValues(response.item);
             setInitialValues(response.item);
+            const actionLabel = objectActions.find((item) => item.slug === actionSlug)?.label ?? actionSlug;
+            message.success(t('action_success', {action: actionLabel, count: 1}));
         } catch (reason: unknown) {
-            setError(reason instanceof Error ? reason.message : t('object_action_error'));
+            const nextError = reason instanceof Error ? reason.message : t('object_action_error');
+            setError(nextError);
+            message.error(nextError);
         } finally {
             setActiveActionSlug(null);
         }
-    }, [cacheKey, client, data, id, slug, t]);
+    }, [cacheKey, client, data, id, message, objectActions, slug, t]);
 
     const handleOpenDeletePreview = useCallback(async () => {
         setActionsAnchorEl(null);

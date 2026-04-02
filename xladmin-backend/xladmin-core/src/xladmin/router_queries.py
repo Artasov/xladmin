@@ -9,7 +9,6 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect as sa_inspect
 from sqlalchemy.orm import selectinload
-
 from xladmin.config import ModelConfig
 from xladmin.i18n import translate
 from xladmin.introspection import (
@@ -73,7 +72,12 @@ async def apply_list_filters(
             continue
 
         filter_value = str(raw_value)
-        parsed_value = list_filter.value_parser(filter_value) if list_filter.value_parser is not None else filter_value
+        filter_values = parse_list_filter_values(filter_value, list_filter)
+        parsed_filter_values = [
+            list_filter.value_parser(item) if list_filter.value_parser is not None else item
+            for item in filter_values
+        ]
+        parsed_value = parsed_filter_values if list_filter_is_multiple(list_filter) else parsed_filter_values[0]
         option_config = next((item for item in list_filter.options if item.value == filter_value), None)
         filter_handler = option_config.filter_handler if option_config is not None else list_filter.filter_handler
         if filter_handler is not None:
@@ -89,16 +93,23 @@ async def apply_list_filters(
             related_pk_name = relationship.mapper.primary_key[0].key
             related_pk_attr = getattr(relationship.mapper.class_, related_pk_name)
             if relationship.uselist:
+                normalized_values = [convert_pk(item) for item in parsed_filter_values]
+                if not normalized_values:
+                    continue
                 query = query.where(
                     getattr(model_config.model, list_filter.field_name).any(
-                        related_pk_attr == convert_pk(parsed_value),
+                        related_pk_attr.in_(normalized_values),
                     ),
                 )
                 continue
             local_columns = list(relationship.local_columns)
             if not local_columns:
                 continue
-            query = query.where(getattr(model_config.model, local_columns[0].key) == convert_pk(parsed_value))
+            normalized_values = [convert_pk(item) for item in parsed_filter_values]
+            if not normalized_values:
+                continue
+            local_attr = getattr(model_config.model, local_columns[0].key)
+            query = query.where(local_attr.in_(normalized_values))
             continue
 
         if list_filter.field_name not in mapper.columns:
@@ -108,12 +119,14 @@ async def apply_list_filters(
         column_attr = getattr(model_config.model, list_filter.field_name)
         input_kind = list_filter.input_kind or resolve_list_filter_input_kind(column, list_filter)
         if input_kind == "boolean":
-            query = query.where(column_attr.is_(convert_boolean_scalar(parsed_value)))
+            normalized_values = [convert_boolean_scalar(item) for item in parsed_filter_values]
+            query = query.where(column_attr.in_(normalized_values))
             continue
         if input_kind == "text":
             query = query.where(column_attr.ilike(f"%{parsed_value}%"))
             continue
-        query = query.where(column_attr == convert_value_for_column(column, parsed_value))
+        normalized_values = [convert_value_for_column(column, item) for item in parsed_filter_values]
+        query = query.where(column_attr.in_(normalized_values))
 
     return query
 
@@ -209,6 +222,19 @@ def convert_pk(value: Any) -> Any:
         except ValueError:
             return value
     return value
+
+
+def parse_list_filter_values(value: str, list_filter: Any) -> list[str]:
+    if list_filter_is_multiple(list_filter):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    return [value]
+
+
+def list_filter_is_multiple(list_filter: Any) -> bool:
+    return bool(
+        getattr(list_filter, "multiple", False)
+        or getattr(list_filter, "input_kind", None) == "select-multiple"
+    )
 
 
 async def apply_scoped_query(query: Any, model_config: ModelConfig, session: AsyncSession, user: Any) -> Any:

@@ -6,7 +6,7 @@ from dataclasses import replace
 from typing import Any
 
 from sqlalchemy import inspect as sa_inspect
-
+from sqlalchemy.orm import RelationshipProperty
 from xladmin.config import AdminConfig, ModelConfig, ModelsBlockConfig
 from xladmin.i18n import normalize_locale
 
@@ -198,6 +198,32 @@ def _validate_model_config(config: ModelConfig) -> None:
             raise ValueError(
                 f"Unknown field '{normalized_field_name}' in ordering for model '{config.model.__name__}'.",
             )
+
+    list_relationship_fields = _get_implicit_list_relationship_fields(config)
+    if list_relationship_fields:
+        raise ValueError(
+            f"Model '{config.model.__name__}' uses relationship fields in the implicit list view "
+            f"({', '.join(list_relationship_fields)}). Set 'list_display' or 'list_fields' explicitly, or "
+            "hide/override these fields with FieldConfig (for example hidden_in_list or value_getter).",
+        )
+
+
+def _get_implicit_list_relationship_fields(config: ModelConfig) -> list[str]:
+    if config.list_display is not None or config.list_fields is not None:
+        return []
+
+    mapper = sa_inspect(config.model)
+    relationship_fields: list[str] = []
+    for field_name, relationship in mapper.relationships.items():
+        if not isinstance(relationship, RelationshipProperty):
+            continue
+        field_config = config.get_field_config(field_name)
+        if field_config.value_getter is not None:
+            continue
+        if field_config.hidden_in_list:
+            continue
+        relationship_fields.append(field_name)
+    return relationship_fields
 
 
 AdminRegistry = Registry

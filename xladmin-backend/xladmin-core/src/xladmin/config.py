@@ -20,7 +20,7 @@ FieldInputKind = Literal[
 
 FieldDisplayKind = Literal["text", "image"]
 
-ListFilterInputKind = Literal["text", "select", "boolean"]
+ListFilterInputKind = Literal["text", "select", "select-multiple", "boolean"]
 AdminLocale = Literal["ru", "en"]
 
 
@@ -60,6 +60,7 @@ class ListFilterConfig:
     group: str | None = None
     field_name: str | None = None
     input_kind: ListFilterInputKind | None = None
+    multiple: bool = False
     placeholder: str | None = None
     options: tuple[ListFilterOptionConfig, ...] = ()
     value_parser: Callable[[str], Any] | None = None
