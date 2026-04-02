@@ -177,8 +177,9 @@ function AdminMessageBubble({
                 borderRadius: '11px',
                 px: 1.5,
                 py: 1.125,
-                border: `1px solid ${appearance.borderColor}`,
                 backgroundColor: appearance.backgroundColor,
+                backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
                 boxShadow: `0 14px 32px ${alpha('#000000', 0.22)}`,
                 transform: item.leaving ? 'translateX(24px) scale(0.98)' : 'translateX(0) scale(1)',
                 opacity: item.leaving ? 0 : 1,
@@ -217,7 +218,7 @@ function AdminMessageBubble({
                         fontSize: 14,
                         lineHeight: 1.35,
                         fontWeight: 500,
-                        color: 'text.primary',
+                        color: appearance.textColor,
                         wordBreak: 'break-word',
                         flex: 1,
                         display: 'flex',
@@ -236,26 +237,26 @@ function getBubbleAppearance(theme: Theme, kind: AdminMessageKind) {
     if (kind === 'success') {
         return {
             icon: CheckCircleOutlineIcon,
-            borderColor: alpha(theme.palette.success.main, 0.62),
-            backgroundColor: alpha(theme.palette.success.main, 0.26),
-            iconColor: theme.palette.success.main,
-            iconBackgroundColor: alpha(theme.palette.success.main, 0.3),
+            backgroundColor: alpha(theme.palette.success.main, 0.6),
+            iconColor: theme.palette.common.white,
+            iconBackgroundColor: alpha(theme.palette.common.white, 0.14),
+            textColor: theme.palette.common.white,
         };
     }
     if (kind === 'error') {
         return {
             icon: ErrorOutlineIcon,
-            borderColor: alpha(theme.palette.error.main, 0.42),
-            backgroundColor: alpha(theme.palette.error.main, 0.14),
-            iconColor: theme.palette.error.main,
-            iconBackgroundColor: alpha(theme.palette.error.main, 0.18),
+            backgroundColor: alpha(theme.palette.error.main, 0.6),
+            iconColor: theme.palette.common.white,
+            iconBackgroundColor: alpha(theme.palette.common.white, 0.14),
+            textColor: theme.palette.common.white,
         };
     }
     return {
         icon: InfoOutlinedIcon,
-        borderColor: alpha(theme.palette.info.main, 0.42),
-        backgroundColor: alpha(theme.palette.info.main, 0.14),
-        iconColor: theme.palette.info.main,
-        iconBackgroundColor: alpha(theme.palette.info.main, 0.18),
+        backgroundColor: alpha(theme.palette.info.main, 0.6),
+        iconColor: theme.palette.common.white,
+        iconBackgroundColor: alpha(theme.palette.common.white, 0.14),
+        textColor: theme.palette.common.white,
     };
 }
