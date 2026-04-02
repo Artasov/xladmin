@@ -30,7 +30,7 @@ type AdminMessageItem = {
     leaving: boolean;
 };
 
-const DEFAULT_DURATION_MS = 3000;
+const DEFAULT_DURATION_MS = 5000;
 const EXIT_DURATION_MS = 220;
 
 const defaultAdminMessageApi: AdminMessageApi = {
@@ -236,10 +236,10 @@ function getBubbleAppearance(theme: Theme, kind: AdminMessageKind) {
     if (kind === 'success') {
         return {
             icon: CheckCircleOutlineIcon,
-            borderColor: alpha(theme.palette.success.main, 0.5),
-            backgroundColor: alpha(theme.palette.success.main, 0.18),
+            borderColor: alpha(theme.palette.success.main, 0.62),
+            backgroundColor: alpha(theme.palette.success.main, 0.26),
             iconColor: theme.palette.success.main,
-            iconBackgroundColor: alpha(theme.palette.success.main, 0.24),
+            iconBackgroundColor: alpha(theme.palette.success.main, 0.3),
         };
     }
     if (kind === 'error') {
