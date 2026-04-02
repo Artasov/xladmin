@@ -21,7 +21,10 @@ export function NavLink({href, children, style, title, onClick, router}: NavLink
     return (
         <a
             href={href}
-            style={style}
+            style={{
+                color: 'inherit',
+                ...style,
+            }}
             title={title}
             onClick={(event) => handleNavLinkClick(event, {href, onClick, router: resolvedRouter})}
         >
