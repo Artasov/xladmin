@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import RelationshipProperty
+
 from xladmin.config import AdminConfig, ModelConfig, ModelsBlockConfig
 from xladmin.i18n import normalize_locale
 
