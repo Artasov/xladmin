@@ -1,6 +1,6 @@
 {
   "name": "xladmin-react-router",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "React Router adapter for xladmin.",
   "license": "MIT",
   "type": "module",
@@ -39,6 +39,6 @@
     "react": ">=19.0.0 <20.0.0",
     "react-dom": ">=19.0.0 <20.0.0",
     "react-router-dom": ">=6.4.0 <8.0.0",
-    "xladmin": "^0.3.3"
+    "xladmin": "^0.3.4"
   }
 }
