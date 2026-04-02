@@ -1,6 +1,6 @@
 {
   "name": "xladmin-import-export",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Optional import/export extension for xladmin.",
   "license": "MIT",
   "type": "module",
