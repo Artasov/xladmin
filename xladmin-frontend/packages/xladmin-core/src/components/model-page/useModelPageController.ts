@@ -8,20 +8,20 @@ import {
     invalidateModelCache,
     setCachedListResponse,
 } from '../../cache';
-import type {XLAdminClient} from '@xladmin-core/client';
+import type {AdminClient} from '@xladmin-core/client';
 import type {AdminTranslationKey} from '@xladmin-core/i18n';
-import type {XLAdminRouter} from '@xladmin-core/router';
+import type {AdminRouter} from '@xladmin-core/router';
 import {buildUrlWithParams} from '@xladmin-core/router';
 import type {AdminDeletePreviewResponse, AdminListResponse} from '@xladmin-core/types';
 
 const DEFAULT_PAGE_SIZE = 50;
 
 type UseModelPageControllerOptions = {
-    client: XLAdminClient;
+    client: AdminClient;
     slug: string;
     pathname: string;
     locationSearch: string;
-    router: XLAdminRouter;
+    router: AdminRouter;
     t: (key: AdminTranslationKey, params?: Record<string, string | number>) => string;
 };
 
@@ -534,7 +534,7 @@ export function useModelPageController({
 }
 
 
-function requestListItems(client: XLAdminClient, slug: string, params: AdminListRequestParams, requestKey: string) {
+function requestListItems(client: AdminClient, slug: string, params: AdminListRequestParams, requestKey: string) {
     const bucket = getClientCacheBucket(client);
     const cachedResponse = bucket.listResponseCache.get(requestKey);
     if (cachedResponse) {

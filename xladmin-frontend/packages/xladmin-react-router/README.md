@@ -20,12 +20,12 @@ npm install xladmin xladmin-react-router react-router-dom
 ## Usage
 
 ```tsx
-import {Shell, createFetchXLAdminClient} from 'xladmin';
-import {useReactRouterXLAdminRouter} from 'xladmin-react-router';
+import {Shell, createFetchAdminClient} from 'xladmin';
+import {useReactRouterAdminRouter} from 'xladmin-react-router';
 
 export function AdminShell({models, blocks}) {
-  const client = createFetchXLAdminClient({baseUrl: '/api/admin'});
-  const router = useReactRouterXLAdminRouter();
+  const client = createFetchAdminClient({baseUrl: '/api/admin'});
+  const router = useReactRouterAdminRouter();
 
   return (
     <Shell client={client} models={models} blocks={blocks} basePath="/admin" locale="en" router={router}>
@@ -37,8 +37,8 @@ export function AdminShell({models, blocks}) {
 
 ## Exports
 
-- `useReactRouterXLAdminRouter()`
-- `createReactRouterXLAdminRouter(...)`
+- `useReactRouterAdminRouter()`
+- `createReactRouterAdminRouter(...)`
 
 ## Docs
 

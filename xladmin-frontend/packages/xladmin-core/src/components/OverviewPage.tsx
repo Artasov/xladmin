@@ -2,7 +2,7 @@
 
 import {useEffect, useMemo, useState} from 'react';
 import {Alert, Box, Grid, Paper, Skeleton, Stack} from '@mui/material';
-import type {XLAdminClient} from '../client';
+import type {AdminClient} from '../client';
 import {useAdminDocumentTitle} from '../hooks/useAdminDocumentTitle';
 import {useAdminTranslation} from '../i18n';
 import type {AdminModelsResponse} from '../types';
@@ -11,7 +11,7 @@ import {ModelsBlocks} from './ModelsBlocks';
 import {MainHeader, MainHeaderSkeleton} from './layout/MainHeader';
 
 type AdminHomeProps = {
-    client: XLAdminClient;
+    client: AdminClient;
     basePath: string;
 };
 

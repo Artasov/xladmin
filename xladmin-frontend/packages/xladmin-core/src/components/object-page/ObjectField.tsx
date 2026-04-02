@@ -1,7 +1,7 @@
 'use client';
 
 import {memo, useCallback} from 'react';
-import type {XLAdminClient} from '@xladmin-core/client';
+import type {AdminClient} from '@xladmin-core/client';
 import type {AdminFieldMeta} from '@xladmin-core/types';
 import {FieldEditor} from '@xladmin-core/components/FieldEditor';
 
@@ -9,7 +9,7 @@ type ObjectFieldProps = {
     field: AdminFieldMeta;
     value: unknown;
     slug: string;
-    client: XLAdminClient;
+    client: AdminClient;
     onFieldChange: (fieldName: string, nextValue: unknown) => void;
 };
 

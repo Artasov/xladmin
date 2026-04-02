@@ -3,7 +3,7 @@
 import {memo} from 'react';
 import {Box, ListItemButton, Typography} from '@mui/material';
 import {useAdminTranslation} from '@xladmin-core/i18n';
-import {useXLAdminLocation} from '@xladmin-core/router';
+import {useAdminLocation} from '@xladmin-core/router';
 import type {AdminModelMeta, AdminModelsBlockMeta} from '@xladmin-core/types';
 import {ModelsBlocks} from '../ModelsBlocks';
 import {NavLink} from '@xladmin-core/components/NavLink';
@@ -17,7 +17,7 @@ type SidebarProps = {
 
 export const Sidebar = memo(function Sidebar({models, blocks, basePath}: SidebarProps) {
     const t = useAdminTranslation();
-    const {pathname} = useXLAdminLocation();
+    const {pathname} = useAdminLocation();
     const {pendingPath, startPendingNavigation} = useShellContext();
     const effectivePathname = pendingPath ?? pathname;
     const normalizedBasePath = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath;

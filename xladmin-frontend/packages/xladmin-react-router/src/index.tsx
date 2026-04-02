@@ -2,9 +2,9 @@
 
 import {useEffect, useRef} from 'react';
 import {useLocation, useNavigate} from 'react-router-dom';
-import type {XLAdminRouter} from 'xladmin';
+import type {AdminRouter} from 'xladmin';
 
-export type ReactRouterXLAdminAdapter = {
+export type ReactRouterAdminAdapter = {
     pathname: string;
     search: string;
     push: (href: string) => void;
@@ -12,7 +12,7 @@ export type ReactRouterXLAdminAdapter = {
     back: () => void;
 };
 
-export function createReactRouterXLAdminRouter(adapter: ReactRouterXLAdminAdapter): XLAdminRouter {
+export function createReactRouterAdminRouter(adapter: ReactRouterAdminAdapter): AdminRouter {
     return {
         getLocation: () => ({
             pathname: adapter.pathname,
@@ -32,7 +32,7 @@ export function createReactRouterXLAdminRouter(adapter: ReactRouterXLAdminAdapte
     };
 }
 
-export function useReactRouterXLAdminRouter(): XLAdminRouter {
+export function useReactRouterAdminRouter(): AdminRouter {
     const location = useLocation();
     const navigate = useNavigate();
     const listenersRef = useRef(new Set<() => void>());
@@ -42,7 +42,7 @@ export function useReactRouterXLAdminRouter(): XLAdminRouter {
     });
     const previousLocationRef = useRef(locationRef.current);
     const navigateRef = useRef(navigate);
-    const routerRef = useRef<XLAdminRouter | null>(null);
+    const routerRef = useRef<AdminRouter | null>(null);
 
     locationRef.current = {
         pathname: location.pathname,
@@ -51,7 +51,7 @@ export function useReactRouterXLAdminRouter(): XLAdminRouter {
     navigateRef.current = navigate;
 
     if (routerRef.current === null) {
-        routerRef.current = createReactRouterXLAdminRouter({
+        routerRef.current = createReactRouterAdminRouter({
             pathname: locationRef.current.pathname,
             search: locationRef.current.search,
             push: (href: string) => {

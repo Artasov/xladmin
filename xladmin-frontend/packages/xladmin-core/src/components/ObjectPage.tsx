@@ -2,28 +2,17 @@
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import {
-    Alert,
-    Box,
-    Button,
-    IconButton,
-    Menu,
-    MenuItem,
-    Paper,
-    Stack,
-    Typography,
-    useMediaQuery,
-} from '@mui/material';
+import {Alert, Box, Button, IconButton, Menu, MenuItem, Paper, Stack, Typography, useMediaQuery,} from '@mui/material';
 import {LocalizationProvider} from '@mui/x-date-pickers';
 import {AdapterDayjs} from '@mui/x-date-pickers/AdapterDayjs';
 import {useTheme} from '@mui/material/styles';
 import 'dayjs/locale/en.js';
 import 'dayjs/locale/ru.js';
-import type {XLAdminClient} from '../client';
+import type {AdminClient} from '../client';
 import {useAdminDocumentTitle} from '../hooks/useAdminDocumentTitle';
 import {useAdminLocale, useAdminTranslation} from '../i18n';
-import type {XLAdminRouter} from '../router';
-import {XLAdminRouterProvider, useXLAdminLocation, useXLAdminRouter} from '../router';
+import type {AdminRouter} from '../router';
+import {AdminRouterProvider, useAdminLocation, useAdminRouter} from '../router';
 import {formatAdminValue, resolveAdminMediaUrl} from '../utils/adminFields';
 import {DeletePreviewDialog} from './DeletePreviewDialog';
 import {MainHeader} from './layout/MainHeader';
@@ -33,10 +22,10 @@ import {ReadonlyObjectField} from './object-page/ReadonlyObjectField';
 import {useObjectPageController} from './object-page/useObjectPageController';
 
 type AdminObjectPageProps = {
-    client: XLAdminClient;
+    client: AdminClient;
     slug: string;
     id: string;
-    router?: XLAdminRouter;
+    router?: AdminRouter;
 };
 
 export type ObjectPageProps = AdminObjectPageProps;
@@ -44,8 +33,8 @@ export type ObjectPageProps = AdminObjectPageProps;
 export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
     const locale = useAdminLocale();
     const t = useAdminTranslation();
-    const resolvedRouter = useXLAdminRouter(router);
-    const location = useXLAdminLocation(resolvedRouter);
+    const resolvedRouter = useAdminRouter(router);
+    const location = useAdminLocation(resolvedRouter);
     const pathname = location.pathname;
     const theme = useTheme();
     const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
@@ -74,7 +63,7 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
     }
 
     return (
-        <XLAdminRouterProvider router={resolvedRouter}>
+        <AdminRouterProvider router={resolvedRouter}>
             <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={locale}>
                 <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
                     <MainHeader
@@ -267,6 +256,6 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                     onConfirm={() => void controller.handleDelete()}
                 />
             </LocalizationProvider>
-        </XLAdminRouterProvider>
+        </AdminRouterProvider>
     );
 }

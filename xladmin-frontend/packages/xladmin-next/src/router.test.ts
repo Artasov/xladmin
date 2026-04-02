@@ -1,12 +1,12 @@
 import {describe, expect, it, vi} from 'vitest';
-import {createNextXLAdminRouter} from './index';
+import {createNextAdminRouter} from './index';
 
-describe('createNextXLAdminRouter', () => {
+describe('createNextAdminRouter', () => {
     it('maps navigation methods and current location', () => {
         const push = vi.fn();
         const replace = vi.fn();
         const back = vi.fn();
-        const router = createNextXLAdminRouter({
+        const router = createNextAdminRouter({
             pathname: '/admin/posts',
             search: '?page=2',
             push,

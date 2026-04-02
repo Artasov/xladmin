@@ -12,13 +12,13 @@ import {
     TextField,
     Typography
 } from '@mui/material';
-import type {XLAdminClient} from '@xladmin-core/client';
+import type {AdminClient} from '@xladmin-core/client';
 import {useRemoteChoices} from '@xladmin-core/hooks/useRemoteChoices';
 import {useAdminTranslation} from '@xladmin-core/i18n';
 import type {AdminListFilterMeta} from '@xladmin-core/types';
 
 type ListFiltersSidebarProps = {
-    client: XLAdminClient;
+    client: AdminClient;
     slug: string;
     filters: AdminListFilterMeta[];
     values: Record<string, string>;
@@ -127,7 +127,7 @@ export const ListFiltersSidebar = memo(function ListFiltersSidebar({
 });
 
 type FilterGroupSectionProps = {
-    client: XLAdminClient;
+    client: AdminClient;
     slug: string;
     group: FilterGroup;
     values: Record<string, string>;
@@ -159,7 +159,7 @@ function FilterGroupSection({client, slug, group, values, onChange, debounceMs}:
 }
 
 type ListFilterFieldProps = {
-    client: XLAdminClient;
+    client: AdminClient;
     slug: string;
     filter: AdminListFilterMeta;
     value: string;

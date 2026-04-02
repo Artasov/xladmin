@@ -2,9 +2,9 @@
 
 import {useEffect, useRef} from 'react';
 import {usePathname, useRouter, useSearchParams} from 'next/navigation.js';
-import type {XLAdminRouter} from 'xladmin';
+import type {AdminRouter} from 'xladmin';
 
-export type NextXLAdminRouterAdapter = {
+export type NextAdminRouterAdapter = {
     pathname: string;
     search: string;
     push: (href: string) => void;
@@ -12,7 +12,7 @@ export type NextXLAdminRouterAdapter = {
     back: () => void;
 };
 
-export function createNextXLAdminRouter(adapter: NextXLAdminRouterAdapter): XLAdminRouter {
+export function createNextAdminRouter(adapter: NextAdminRouterAdapter): AdminRouter {
     return {
         getLocation: () => ({
             pathname: adapter.pathname,
@@ -32,7 +32,7 @@ export function createNextXLAdminRouter(adapter: NextXLAdminRouterAdapter): XLAd
     };
 }
 
-export function useNextXLAdminRouter(): XLAdminRouter {
+export function useNextAdminRouter(): AdminRouter {
     const nextRouter = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -43,7 +43,7 @@ export function useNextXLAdminRouter(): XLAdminRouter {
     });
     const previousLocationRef = useRef(locationRef.current);
     const navigationRef = useRef(nextRouter);
-    const routerRef = useRef<XLAdminRouter | null>(null);
+    const routerRef = useRef<AdminRouter | null>(null);
 
     locationRef.current = {
         pathname,
@@ -52,7 +52,7 @@ export function useNextXLAdminRouter(): XLAdminRouter {
     navigationRef.current = nextRouter;
 
     if (routerRef.current === null) {
-        routerRef.current = createNextXLAdminRouter({
+        routerRef.current = createNextAdminRouter({
             pathname: locationRef.current.pathname,
             search: locationRef.current.search,
             push: (href: string) => {

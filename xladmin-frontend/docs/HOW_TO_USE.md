@@ -9,13 +9,13 @@ import {useMemo} from 'react';
 import {
     OverviewPage,
     Shell,
-    XLAdminRouterProvider,
-    createAxiosXLAdminClient,
+    AdminRouterProvider,
+    createAxiosAdminClient,
     type AdminLocale,
     type AdminModelMeta,
     type AdminModelsBlockMeta,
 } from 'xladmin';
-import {useNextXLAdminRouter} from 'xladmin-next';
+import {useNextAdminRouter} from 'xladmin-next';
 import {api} from '@/modules/Api/client';
 
 type Props = {
@@ -24,24 +24,24 @@ type Props = {
     locale: AdminLocale;
 };
 
-function XLAdminShellRoot({models, blocks, locale, children}: Props & {children: React.ReactNode}) {
-    const client = useMemo(() => createAxiosXLAdminClient(api), []);
-    const router = useNextXLAdminRouter();
+function AdminShellRoot({models, blocks, locale, children}: Props & {children: React.ReactNode}) {
+    const client = useMemo(() => createAxiosAdminClient(api), []);
+    const router = useNextAdminRouter();
 
     return (
-        <XLAdminRouterProvider router={router}>
+        <AdminRouterProvider router={router}>
             <Shell client={client} models={models} blocks={blocks} basePath="/admin" locale={locale}>
                 {children}
             </Shell>
-        </XLAdminRouterProvider>
+        </AdminRouterProvider>
     );
 }
 
-export function XLAdminHomePageClient({models, blocks, locale}: Props) {
+export function AdminHomePageClient({models, blocks, locale}: Props) {
     return (
-        <XLAdminShellRoot models={models} blocks={blocks} locale={locale}>
+        <AdminShellRoot models={models} blocks={blocks} locale={locale}>
             <OverviewPage basePath="/admin" models={models} blocks={blocks} locale={locale} />
-        </XLAdminShellRoot>
+        </AdminShellRoot>
     );
 }
 ```
@@ -49,17 +49,17 @@ export function XLAdminHomePageClient({models, blocks, locale}: Props) {
 ## React Router
 
 ```tsx
-import {Shell, XLAdminRouterProvider, createFetchXLAdminClient} from 'xladmin';
-import {useReactRouterXLAdminRouter} from 'xladmin-react-router';
+import {Shell, AdminRouterProvider, createFetchAdminClient} from 'xladmin';
+import {useReactRouterAdminRouter} from 'xladmin-react-router';
 
 function AdminShell() {
-    const router = useReactRouterXLAdminRouter();
-    const client = createFetchXLAdminClient({baseUrl: '/api/v1'});
+    const router = useReactRouterAdminRouter();
+    const client = createFetchAdminClient({baseUrl: '/api/v1'});
 
     return (
-        <XLAdminRouterProvider router={router}>
+        <AdminRouterProvider router={router}>
             <Shell client={client} models={[]} blocks={[]} basePath="/admin" locale="en" />
-        </XLAdminRouterProvider>
+        </AdminRouterProvider>
     );
 }
 ```
@@ -67,5 +67,5 @@ function AdminShell() {
 ## Packages
 
 - `xladmin` exports UI, client factories, router primitives, i18n and types.
-- `xladmin-next` exports `useNextXLAdminRouter`.
-- `xladmin-react-router` exports `useReactRouterXLAdminRouter`.
+- `xladmin-next` exports `useNextAdminRouter`.
+- `xladmin-react-router` exports `useReactRouterAdminRouter`.

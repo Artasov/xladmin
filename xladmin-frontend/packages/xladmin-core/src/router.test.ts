@@ -2,11 +2,11 @@ import {act, createElement} from 'react';
 import {createRoot} from 'react-dom/client';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 import {
+    type AdminLocation,
+    type AdminRouter,
     buildUrlWithParams,
-    createBrowserXLAdminRouter,
-    useXLAdminLocation,
-    type XLAdminLocation,
-    type XLAdminRouter
+    createBrowserAdminRouter,
+    useAdminLocation
 } from './router';
 
 describe('router helpers', () => {
@@ -21,7 +21,7 @@ describe('router helpers', () => {
     });
 
     it('updates browser location and notifies listeners', () => {
-        const router = createBrowserXLAdminRouter(window);
+        const router = createBrowserAdminRouter(window);
         const listener = vi.fn();
         const unsubscribe = router.subscribe(listener);
 
@@ -35,9 +35,9 @@ describe('router helpers', () => {
     });
 
     it('updates hook consumers when router location changes', () => {
-        let currentLocation: XLAdminLocation = {pathname: '/admin/users', search: ''};
+        let currentLocation: AdminLocation = {pathname: '/admin/users', search: ''};
         const listeners = new Set<() => void>();
-        const router: XLAdminRouter = {
+        const router: AdminRouter = {
             getLocation: () => ({...currentLocation}),
             subscribe: (listener) => {
                 listeners.add(listener);
@@ -54,7 +54,7 @@ describe('router helpers', () => {
         const root = createRoot(container);
 
         function TestComponent() {
-            const location = useXLAdminLocation(router);
+            const location = useAdminLocation(router);
             return createElement('div', null, `${location.pathname}${location.search}`);
         }
 

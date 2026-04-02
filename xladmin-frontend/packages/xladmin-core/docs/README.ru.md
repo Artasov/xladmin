@@ -31,22 +31,22 @@ npm install xladmin
 - `FormDialog`
 - `FieldEditor`
 - `NavLink`
-- `createAxiosXLAdminClient(...)`
-- `createFetchXLAdminClient(...)`
-- `createBrowserXLAdminRouter(...)`
+- `createAxiosAdminClient(...)`
+- `createFetchAdminClient(...)`
+- `createBrowserAdminRouter(...)`
 - admin types, i18n helpers и default theme
 
 ## Минимальный пример
 
 ```tsx
 import {useEffect, useMemo, useState} from 'react';
-import {Shell, OverviewPage, createAxiosXLAdminClient, type AdminModelMeta, type AdminModelsBlockMeta} from 'xladmin';
+import {Shell, OverviewPage, createAxiosAdminClient, type AdminModelMeta, type AdminModelsBlockMeta} from 'xladmin';
 import axios from 'axios';
 
 const api = axios.create({baseURL: '/api/admin'});
 
 export function AdminApp() {
-  const client = useMemo(() => createAxiosXLAdminClient(api), []);
+  const client = useMemo(() => createAxiosAdminClient(api), []);
   const [models, setModels] = useState<AdminModelMeta[]>([]);
   const [blocks, setBlocks] = useState<AdminModelsBlockMeta[]>([]);
 

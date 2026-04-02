@@ -4,7 +4,8 @@ import {useEffect, useMemo, useState} from 'react';
 import DownloadIcon from '@mui/icons-material/Download';
 import UploadIcon from '@mui/icons-material/Upload';
 import {
-    Alert, Box,
+    Alert,
+    Box,
     Button,
     Checkbox,
     CircularProgress,
@@ -27,17 +28,17 @@ import {
 import type {ModelPageToolbarContext} from 'xladmin';
 import {useAdminLocale} from 'xladmin';
 import type {
+    AdminImportExportClient,
     ImportCommitResponse,
     ImportConflictMode,
     ImportExportFieldMeta,
     ImportExportFormat,
     ImportExportMetaResponse,
     ImportValidationResponse,
-    XLAdminImportExportClient,
 } from '../client';
 
 type ModelImportExportActionsProps = {
-    client: XLAdminImportExportClient;
+    client: AdminImportExportClient;
     context: ModelPageToolbarContext;
 };
 
@@ -422,7 +423,7 @@ async function handleExport({
                                 setIsExporting,
                                 onDone,
                             }: {
-    client: XLAdminImportExportClient;
+    client: AdminImportExportClient;
     context: ModelPageToolbarContext;
     format: ImportExportFormat;
     fields: string[];
@@ -467,7 +468,7 @@ async function handleValidateImport({
                                         setValidationResult,
                                         setValidationError,
                                     }: {
-    client: XLAdminImportExportClient;
+    client: AdminImportExportClient;
     slug: string;
     file: File | null;
     format: ImportExportFormat;
@@ -512,7 +513,7 @@ async function handleCommitImport({
                                       onSuccess,
                                       messages,
                                   }: {
-    client: XLAdminImportExportClient;
+    client: AdminImportExportClient;
     slug: string;
     file: File | null;
     format: ImportExportFormat;

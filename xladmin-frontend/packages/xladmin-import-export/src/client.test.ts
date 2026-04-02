@@ -1,9 +1,9 @@
 import {describe, expect, it, vi} from 'vitest';
 import {
+    type AdminImportExportAxiosLike,
+    createAxiosAdminImportExportClient,
+    createFetchAdminImportExportClient,
     type ImportValidationResponse,
-    type XLAdminImportExportAxiosLike,
-    createAxiosXLAdminImportExportClient,
-    createFetchXLAdminImportExportClient,
 } from './client';
 
 describe('xladmin-import-export client', () => {
@@ -17,7 +17,7 @@ describe('xladmin-import-export client', () => {
                 },
             },
         ));
-        const client = createFetchXLAdminImportExportClient({
+        const client = createFetchAdminImportExportClient({
             baseUrl: 'https://example.com',
             fetch: fetchMock as typeof fetch,
         });
@@ -42,8 +42,8 @@ describe('xladmin-import-export client', () => {
                 errors: [],
             } satisfies ImportValidationResponse,
         }));
-        const post = postMock as unknown as XLAdminImportExportAxiosLike['post'];
-        const client = createAxiosXLAdminImportExportClient({
+        const post = postMock as unknown as AdminImportExportAxiosLike['post'];
+        const client = createAxiosAdminImportExportClient({
             get: vi.fn(),
             post,
         });

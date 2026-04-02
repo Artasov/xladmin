@@ -1,8 +1,8 @@
 'use client';
 
 import type {CSSProperties, ReactNode} from 'react';
-import type {XLAdminRouter} from '../router';
-import {handleNavLinkClick, useXLAdminRouter} from '../router';
+import type {AdminRouter} from '../router';
+import {handleNavLinkClick, useAdminRouter} from '../router';
 
 type AdminNavLinkProps = {
     href: string;
@@ -10,13 +10,13 @@ type AdminNavLinkProps = {
     style?: CSSProperties;
     title?: string;
     onClick?: () => void;
-    router?: XLAdminRouter;
+    router?: AdminRouter;
 };
 
 export type NavLinkProps = AdminNavLinkProps;
 
 export function NavLink({href, children, style, title, onClick, router}: NavLinkProps) {
-    const resolvedRouter = useXLAdminRouter(router);
+    const resolvedRouter = useAdminRouter(router);
 
     return (
         <a

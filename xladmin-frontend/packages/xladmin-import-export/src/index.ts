@@ -1,6 +1,6 @@
 export {
-    createAxiosXLAdminImportExportClient,
-    createFetchXLAdminImportExportClient,
+    createAxiosAdminImportExportClient,
+    createFetchAdminImportExportClient,
     type DownloadExportResponse,
     type ExportRequestPayload,
     type ImportCommitResponse,
@@ -11,8 +11,8 @@ export {
     type ImportExportSelectionScope,
     type ImportRequestPayload,
     type ImportValidationResponse,
-    type XLAdminImportExportAxiosLike,
-    type XLAdminImportExportClient,
-    type XLAdminImportExportFetchClientConfig,
+    type AdminImportExportAxiosLike,
+    type AdminImportExportClient,
+    type AdminImportExportFetchClientConfig,
 } from './client';
 export {ModelImportExportActions} from './components/ModelImportExportActions';

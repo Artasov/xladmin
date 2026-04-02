@@ -8,10 +8,10 @@ import {
     setCachedDetailResponse,
     setCachedListResponse,
 } from './cache';
-import type {XLAdminClient} from './client';
+import type {AdminClient} from './client';
 
-function createClientStub(): XLAdminClient {
-    return {} as XLAdminClient;
+function createClientStub(): AdminClient {
+    return {} as AdminClient;
 }
 
 describe('cache helpers', () => {

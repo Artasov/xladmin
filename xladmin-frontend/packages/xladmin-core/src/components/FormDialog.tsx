@@ -1,18 +1,10 @@
 'use client';
 
 import {useEffect, useMemo, useState} from 'react';
-import {
-    Alert,
-    Box,
-    Button,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-} from '@mui/material';
+import {Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,} from '@mui/material';
 import {LocalizationProvider} from '@mui/x-date-pickers';
 import {AdapterDayjs} from '@mui/x-date-pickers/AdapterDayjs';
-import type {XLAdminClient} from '../client';
+import type {AdminClient} from '../client';
 import {useAdminTranslation} from '../i18n';
 import type {AdminModelMeta} from '../types';
 import {buildAdminPayload} from '../utils/adminFields';
@@ -26,7 +18,7 @@ type AdminFormDialogProps = {
     slug: string;
     mode: 'create' | 'patch';
     meta: AdminModelMeta;
-    client: XLAdminClient;
+    client: AdminClient;
     initialValues?: Record<string, unknown>;
     itemId?: string | number;
 };

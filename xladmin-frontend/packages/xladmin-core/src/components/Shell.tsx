@@ -3,11 +3,11 @@
 import type {ReactNode} from 'react';
 import {useEffect, useMemo, useState} from 'react';
 import {Box, CssBaseline, Drawer, GlobalStyles, Stack, useMediaQuery} from '@mui/material';
-import {ThemeProvider, type Theme} from '@mui/material/styles';
-import type {XLAdminClient} from '../client';
+import {type Theme, ThemeProvider} from '@mui/material/styles';
+import type {AdminClient} from '../client';
 import {AdminLocaleProvider} from '../i18n';
-import type {XLAdminRouter} from '../router';
-import {XLAdminRouterProvider, useXLAdminLocation, useXLAdminRouter} from '../router';
+import type {AdminRouter} from '../router';
+import {AdminRouterProvider, useAdminLocation, useAdminRouter} from '../router';
 import type {AdminModelMeta, AdminModelsBlockMeta} from '../types';
 import {defaultAdminTheme} from '../theme/defaultAdminTheme';
 import {AdminDataProvider} from './layout/AdminDataContext';
@@ -16,14 +16,14 @@ import {ShellContextProvider} from './layout/ShellContext';
 import {Sidebar} from './layout/Sidebar';
 
 type AdminShellProps = {
-    client: XLAdminClient;
+    client: AdminClient;
     models: AdminModelMeta[];
     blocks: AdminModelsBlockMeta[];
     basePath: string;
     locale?: string | null;
     children: ReactNode;
     theme?: Theme;
-    router?: XLAdminRouter;
+    router?: AdminRouter;
 };
 
 export type ShellProps = AdminShellProps;
@@ -37,8 +37,8 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
     void client;
 
     const activeTheme = theme ?? defaultAdminTheme;
-    const resolvedRouter = useXLAdminRouter(router);
-    const location = useXLAdminLocation(resolvedRouter);
+    const resolvedRouter = useAdminRouter(router);
+    const location = useAdminLocation(resolvedRouter);
     const pathname = location.pathname;
     const isDesktopSidebar = useMediaQuery(activeTheme.breakpoints.up('lg'));
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -81,7 +81,7 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
     }), [isDesktopSidebar, pathname, pendingPath, pendingView]);
 
     return (
-        <XLAdminRouterProvider router={resolvedRouter}>
+        <AdminRouterProvider router={resolvedRouter}>
             <ThemeProvider theme={activeTheme}>
                 <AdminLocaleProvider locale={locale}>
                     <AdminDataProvider value={{locale: locale === 'en' ? 'en' : 'ru', models, blocks}}>
@@ -194,6 +194,6 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
                     </AdminDataProvider>
                 </AdminLocaleProvider>
             </ThemeProvider>
-        </XLAdminRouterProvider>
+        </AdminRouterProvider>
     );
 }

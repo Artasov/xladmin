@@ -22,12 +22,12 @@ npm install xladmin xladmin-next
 ```tsx
 'use client';
 
-import {Shell, createFetchXLAdminClient} from 'xladmin';
-import {useNextXLAdminRouter} from 'xladmin-next';
+import {Shell, createFetchAdminClient} from 'xladmin';
+import {useNextAdminRouter} from 'xladmin-next';
 
 export function AdminShell({models, blocks}) {
-  const client = createFetchXLAdminClient({baseUrl: '/api/admin'});
-  const router = useNextXLAdminRouter();
+  const client = createFetchAdminClient({baseUrl: '/api/admin'});
+  const router = useNextAdminRouter();
 
   return (
     <Shell client={client} models={models} blocks={blocks} basePath="/admin" locale="en" router={router}>
@@ -39,8 +39,8 @@ export function AdminShell({models, blocks}) {
 
 ## Что экспортирует
 
-- `useNextXLAdminRouter()`
-- `createNextXLAdminRouter(...)`
+- `useNextAdminRouter()`
+- `createNextAdminRouter(...)`
 
 ## Документация
 

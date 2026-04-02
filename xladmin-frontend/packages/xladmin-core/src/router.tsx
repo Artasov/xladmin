@@ -3,42 +3,42 @@
 import type {CSSProperties, MouseEvent as ReactMouseEvent, ReactNode} from 'react';
 import {createContext, useContext, useMemo, useRef, useSyncExternalStore} from 'react';
 
-export type XLAdminLocation = {
+export type AdminLocation = {
     pathname: string;
     search: string;
 };
 
-export type XLAdminRouter = {
-    getLocation: () => XLAdminLocation;
+export type AdminRouter = {
+    getLocation: () => AdminLocation;
     subscribe: (listener: () => void) => () => void;
     push: (href: string) => void;
     replace: (href: string) => void;
     back: () => void;
 };
 
-type XLAdminRouterProviderProps = {
-    router: XLAdminRouter;
+type AdminRouterProviderProps = {
+    router: AdminRouter;
     children: ReactNode;
 };
 
 type NavigateLinkOptions = {
     href: string;
     onClick?: () => void;
-    router: XLAdminRouter;
+    router: AdminRouter;
 };
 
-const XLAdminRouterContext = createContext<XLAdminRouter | null>(null);
-let browserRouterInstance: XLAdminRouter | null = null;
+const AdminRouterContext = createContext<AdminRouter | null>(null);
+let browserRouterInstance: AdminRouter | null = null;
 
-export function XLAdminRouterProvider({router, children}: XLAdminRouterProviderProps) {
+export function AdminRouterProvider({router, children}: AdminRouterProviderProps) {
     return (
-        <XLAdminRouterContext.Provider value={router}>
+        <AdminRouterContext.Provider value={router}>
             {children}
-        </XLAdminRouterContext.Provider>
+        </AdminRouterContext.Provider>
     );
 }
 
-export function createBrowserXLAdminRouter(browserWindow: Window = window): XLAdminRouter {
+export function createBrowserAdminRouter(browserWindow: Window = window): AdminRouter {
     return {
         getLocation: () => ({
             pathname: browserWindow.location.pathname,
@@ -65,8 +65,8 @@ export function createBrowserXLAdminRouter(browserWindow: Window = window): XLAd
     };
 }
 
-export function useXLAdminRouter(router?: XLAdminRouter): XLAdminRouter {
-    const contextRouter = useContext(XLAdminRouterContext);
+export function useAdminRouter(router?: AdminRouter): AdminRouter {
+    const contextRouter = useContext(AdminRouterContext);
     return useMemo(() => {
         if (router) {
             return router;
@@ -75,15 +75,15 @@ export function useXLAdminRouter(router?: XLAdminRouter): XLAdminRouter {
             return contextRouter;
         }
         if (browserRouterInstance === null) {
-            browserRouterInstance = createBrowserXLAdminRouter();
+            browserRouterInstance = createBrowserAdminRouter();
         }
         return browserRouterInstance;
     }, [contextRouter, router]);
 }
 
-export function useXLAdminLocation(router?: XLAdminRouter): XLAdminLocation {
-    const resolvedRouter = useXLAdminRouter(router);
-    const snapshotRef = useRef<XLAdminLocation | null>(null);
+export function useAdminLocation(router?: AdminRouter): AdminLocation {
+    const resolvedRouter = useAdminRouter(router);
+    const snapshotRef = useRef<AdminLocation | null>(null);
     const getSnapshot = useMemo(() => () => {
         const nextLocation = resolvedRouter.getLocation();
         const cachedLocation = snapshotRef.current;
@@ -153,7 +153,7 @@ export function handleNavLinkClick(
     router.push(href);
 }
 
-export type XLAdminAnchorProps = {
+export type AdminAnchorProps = {
     href: string;
     children: ReactNode;
     style?: CSSProperties;

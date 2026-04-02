@@ -30,10 +30,10 @@ npm i xladmin xladmin-import-export
 import {ModelPage} from 'xladmin';
 import {
   ModelImportExportActions,
-  createAxiosXLAdminImportExportClient,
+  createAxiosAdminImportExportClient,
 } from 'xladmin-import-export';
 
-const importExportClient = createAxiosXLAdminImportExportClient(api);
+const importExportClient = createAxiosAdminImportExportClient(api);
 
 <ModelPage
   client={client}

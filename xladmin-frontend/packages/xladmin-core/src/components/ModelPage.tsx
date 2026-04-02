@@ -31,11 +31,11 @@ import {
     useMediaQuery,
 } from '@mui/material';
 import {useTheme} from '@mui/material/styles';
-import type {XLAdminClient} from '../client';
+import type {AdminClient} from '../client';
 import {useAdminDocumentTitle} from '../hooks/useAdminDocumentTitle';
 import {useAdminLocale, useAdminTranslation} from '../i18n';
-import type {XLAdminRouter} from '../router';
-import {XLAdminRouterProvider, useXLAdminLocation, useXLAdminRouter} from '../router';
+import type {AdminRouter} from '../router';
+import {AdminRouterProvider, useAdminLocation, useAdminRouter} from '../router';
 import type {AdminFieldMeta} from '../types';
 import {getListFieldWidthPx} from '../utils/adminFields';
 import {DeletePreviewDialog} from './DeletePreviewDialog';
@@ -48,16 +48,16 @@ import {useModelPageController} from './model-page/useModelPageController';
 import {ModelPageSkeleton, ModelTableSkeleton} from './model-page/Skeletons';
 
 type AdminModelPageProps = {
-    client: XLAdminClient;
+    client: AdminClient;
     basePath: string;
     slug: string;
-    router?: XLAdminRouter;
+    router?: AdminRouter;
     renderBeforePagination?: (context: ModelPageToolbarContext) => ReactNode;
 };
 
 export type ModelPageProps = AdminModelPageProps;
 export type ModelPageToolbarContext = {
-    client: XLAdminClient;
+    client: AdminClient;
     slug: string;
     meta: {
         slug: string;
@@ -81,8 +81,8 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
     const locale = useAdminLocale();
     const t = useAdminTranslation();
     const selectAllLabel = locale === 'ru' ? 'Выбрать все' : 'Select All';
-    const resolvedRouter = useXLAdminRouter(router);
-    const location = useXLAdminLocation(resolvedRouter);
+    const resolvedRouter = useAdminRouter(router);
+    const location = useAdminLocation(resolvedRouter);
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const controller = useModelPageController({
@@ -123,7 +123,7 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
     });
 
     return (
-        <XLAdminRouterProvider router={resolvedRouter}>
+        <AdminRouterProvider router={resolvedRouter}>
             <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
                 <MainHeader
                     title={controller.meta.title}
@@ -488,7 +488,7 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
                     onConfirm={() => void controller.handleConfirmDelete()}
                 />
             </Stack>
-        </XLAdminRouterProvider>
+        </AdminRouterProvider>
     );
 }
 

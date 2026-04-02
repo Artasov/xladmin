@@ -1,4 +1,4 @@
-import type {XLAdminRequestOptions} from 'xladmin';
+import type {AdminRequestOptions} from 'xladmin';
 
 export type ImportExportFieldMeta = {
     name: string;
@@ -66,7 +66,7 @@ export type DownloadExportResponse = {
     filename: string;
 };
 
-export type XLAdminImportExportAxiosLike = {
+export type AdminImportExportAxiosLike = {
     get: <T>(url: string, config?: {signal?: AbortSignal}) => Promise<{data: T} | T>;
     post: <T>(
         url: string,
@@ -79,21 +79,21 @@ export type XLAdminImportExportAxiosLike = {
     ) => Promise<{data: T; headers?: Record<string, string>} | T>;
 };
 
-export type XLAdminImportExportClient = {
-    getMeta: (slug: string, options?: XLAdminRequestOptions) => Promise<ImportExportMetaResponse>;
-    downloadExport: (slug: string, payload: ExportRequestPayload, options?: XLAdminRequestOptions) => Promise<DownloadExportResponse>;
-    validateImport: (slug: string, payload: ImportRequestPayload, options?: XLAdminRequestOptions) => Promise<ImportValidationResponse>;
-    commitImport: (slug: string, payload: ImportRequestPayload, options?: XLAdminRequestOptions) => Promise<ImportCommitResponse>;
+export type AdminImportExportClient = {
+    getMeta: (slug: string, options?: AdminRequestOptions) => Promise<ImportExportMetaResponse>;
+    downloadExport: (slug: string, payload: ExportRequestPayload, options?: AdminRequestOptions) => Promise<DownloadExportResponse>;
+    validateImport: (slug: string, payload: ImportRequestPayload, options?: AdminRequestOptions) => Promise<ImportValidationResponse>;
+    commitImport: (slug: string, payload: ImportRequestPayload, options?: AdminRequestOptions) => Promise<ImportCommitResponse>;
 };
 
-export type XLAdminImportExportFetchClientConfig = {
+export type AdminImportExportFetchClientConfig = {
     baseUrl: string;
     fetch?: typeof globalThis.fetch;
     headers?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
     credentials?: RequestCredentials;
 };
 
-export function createAxiosXLAdminImportExportClient(api: XLAdminImportExportAxiosLike): XLAdminImportExportClient {
+export function createAxiosAdminImportExportClient(api: AdminImportExportAxiosLike): AdminImportExportClient {
     return {
         async getMeta(slug, options) {
             return unwrap(await api.get<ImportExportMetaResponse>(`/xladmin/models/${slug}/import-export/meta/`, {
@@ -139,9 +139,9 @@ export function createAxiosXLAdminImportExportClient(api: XLAdminImportExportAxi
     };
 }
 
-export function createFetchXLAdminImportExportClient(
-    config: XLAdminImportExportFetchClientConfig,
-): XLAdminImportExportClient {
+export function createFetchAdminImportExportClient(
+    config: AdminImportExportFetchClientConfig,
+): AdminImportExportClient {
     const fetchImpl = config.fetch ?? globalThis.fetch;
     if (!fetchImpl) {
         throw new Error('Fetch API is not available in the current environment.');
@@ -228,7 +228,7 @@ function headersToRecord(headers: Headers): Record<string, string> {
 
 async function requestJson<T>(
     fetchImpl: typeof globalThis.fetch,
-    config: XLAdminImportExportFetchClientConfig,
+    config: AdminImportExportFetchClientConfig,
     method: 'GET' | 'POST',
     path: string,
     body: BodyInit | Record<string, unknown> | undefined,
@@ -240,7 +240,7 @@ async function requestJson<T>(
 
 async function request(
     fetchImpl: typeof globalThis.fetch,
-    config: XLAdminImportExportFetchClientConfig,
+    config: AdminImportExportFetchClientConfig,
     method: 'GET' | 'POST',
     path: string,
     body: BodyInit | Record<string, unknown> | undefined,

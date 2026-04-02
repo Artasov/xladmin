@@ -1,16 +1,10 @@
 'use client';
 
 import {memo, useCallback, useEffect, useMemo, useState} from 'react';
-import {
-    Autocomplete,
-    CircularProgress,
-    FormControlLabel,
-    Switch,
-    TextField,
-} from '@mui/material';
+import {Autocomplete, CircularProgress, FormControlLabel, Switch, TextField,} from '@mui/material';
 import {DatePicker, DateTimePicker} from '@mui/x-date-pickers';
 import dayjs from 'dayjs';
-import type {XLAdminClient} from '@xladmin-core/client';
+import type {AdminClient} from '@xladmin-core/client';
 import {useRemoteChoices} from '@xladmin-core/hooks/useRemoteChoices';
 import {useAdminTranslation} from '@xladmin-core/i18n';
 import type {AdminFieldMeta} from '@xladmin-core/types';
@@ -20,7 +14,7 @@ type AdminFieldEditorProps = {
     value: unknown;
     onChange: (value: unknown) => void;
     slug: string;
-    client: XLAdminClient;
+    client: AdminClient;
     readOnly?: boolean;
 };
 

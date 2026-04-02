@@ -8,19 +8,19 @@ import {
     invalidateModelCache,
     setCachedDetailResponse,
 } from '../../cache';
-import type {XLAdminClient} from '@xladmin-core/client';
+import type {AdminClient} from '@xladmin-core/client';
 import type {AdminTranslationKey} from '@xladmin-core/i18n';
-import type {XLAdminRouter} from '@xladmin-core/router';
+import type {AdminRouter} from '@xladmin-core/router';
 import type {AdminDeletePreviewResponse, AdminDetailResponse} from '@xladmin-core/types';
 import {buildAdminPayload} from '../../utils/adminFields';
 import {isDeepEqual} from '../../utils/isDeepEqual';
 
 type UseObjectPageControllerOptions = {
-    client: XLAdminClient;
+    client: AdminClient;
     slug: string;
     id: string;
     listPath: string;
-    router: XLAdminRouter;
+    router: AdminRouter;
     t: (key: AdminTranslationKey, params?: Record<string, string | number>) => string;
 };
 

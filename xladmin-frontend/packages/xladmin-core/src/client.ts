@@ -8,21 +8,21 @@ import type {
     AdminObjectActionResponse,
 } from './types';
 
-export type XLAdminRequestOptions = {
+export type AdminRequestOptions = {
     signal?: AbortSignal;
 };
 
-export type XLAdminSelectionScope = {
+export type AdminSelectionScope = {
     q?: string;
     filters?: Record<string, string>;
 };
 
-export type XLAdminSelectionOptions = {
+export type AdminSelectionOptions = {
     selectAll?: boolean;
-    selectionScope?: XLAdminSelectionScope;
+    selectionScope?: AdminSelectionScope;
 };
 
-export type XLAdminClient = {
+export type AdminClient = {
     getModels: () => Promise<AdminModelsResponse>;
     getModel: (slug: string) => Promise<AdminModelMeta>;
     getItems: (slug: string, params?: {
@@ -36,14 +36,16 @@ export type XLAdminClient = {
     patchItem: (slug: string, id: string | number, payload: Record<string, unknown>) => Promise<AdminDetailResponse>;
     deleteItem: (slug: string, id: string | number) => Promise<void>;
     getDeletePreview: (slug: string, id: string | number) => Promise<AdminDeletePreviewResponse>;
-    bulkDelete: (slug: string, ids: Array<string | number>, options?: XLAdminSelectionOptions) => Promise<{ deleted: number }>;
-    getBulkDeletePreview: (slug: string, ids: Array<string | number>, options?: XLAdminSelectionOptions) => Promise<AdminDeletePreviewResponse>;
+    bulkDelete: (slug: string, ids: Array<string | number>, options?: AdminSelectionOptions) => Promise<{
+        deleted: number
+    }>;
+    getBulkDeletePreview: (slug: string, ids: Array<string | number>, options?: AdminSelectionOptions) => Promise<AdminDeletePreviewResponse>;
     runBulkAction: (
         slug: string,
         actionSlug: string,
         ids: Array<string | number>,
         payload?: Record<string, unknown>,
-        options?: XLAdminSelectionOptions,
+        options?: AdminSelectionOptions,
     ) => Promise<{
         processed: number
     } & Record<string, unknown>>;
@@ -53,38 +55,38 @@ export type XLAdminClient = {
         fieldName: string,
         q?: string,
         ids?: Array<string | number>,
-        options?: XLAdminRequestOptions,
+        options?: AdminRequestOptions,
     ) => Promise<AdminChoicesResponse>;
     getFilterChoices: (
         slug: string,
         filterSlug: string,
         q?: string,
         ids?: Array<string | number>,
-        options?: XLAdminRequestOptions,
+        options?: AdminRequestOptions,
     ) => Promise<AdminChoicesResponse>;
 };
 
-type XLAdminTransportResponse<T> = T | { data: T };
+type AdminTransportResponse<T> = T | { data: T };
 
-export type XLAdminTransport = {
-    get: <T>(url: string, options?: XLAdminRequestOptions & {
+export type AdminTransport = {
+    get: <T>(url: string, options?: AdminRequestOptions & {
         params?: Record<string, unknown>
-    }) => Promise<XLAdminTransportResponse<T>>;
-    post: <T>(url: string, body?: Record<string, unknown>, options?: XLAdminRequestOptions) => Promise<XLAdminTransportResponse<T>>;
-    patch: <T>(url: string, body: Record<string, unknown>, options?: XLAdminRequestOptions) => Promise<XLAdminTransportResponse<T>>;
-    delete: (url: string, options?: XLAdminRequestOptions) => Promise<unknown>;
+    }) => Promise<AdminTransportResponse<T>>;
+    post: <T>(url: string, body?: Record<string, unknown>, options?: AdminRequestOptions) => Promise<AdminTransportResponse<T>>;
+    patch: <T>(url: string, body: Record<string, unknown>, options?: AdminRequestOptions) => Promise<AdminTransportResponse<T>>;
+    delete: (url: string, options?: AdminRequestOptions) => Promise<unknown>;
 };
 
-export type XLAdminAxiosLike = XLAdminTransport;
+export type AdminAxiosLike = AdminTransport;
 
-export type XLAdminFetchClientConfig = {
+export type AdminFetchClientConfig = {
     baseUrl: string;
     fetch?: typeof globalThis.fetch;
     headers?: HeadersInit | (() => HeadersInit | Promise<HeadersInit>);
     credentials?: RequestCredentials;
 };
 
-export function createXLAdminClient(transport: XLAdminTransport): XLAdminClient {
+export function createAdminClient(transport: AdminTransport): AdminClient {
     return {
         async getModels() {
             return await transportGet<AdminModelsResponse>(transport, '/xladmin/models/');
@@ -167,15 +169,15 @@ export function createXLAdminClient(transport: XLAdminTransport): XLAdminClient 
     };
 }
 
-export function createAxiosXLAdminClient(api: XLAdminAxiosLike): XLAdminClient {
-    return createXLAdminClient(api);
+export function createAxiosAdminClient(api: AdminAxiosLike): AdminClient {
+    return createAdminClient(api);
 }
 
-export function createFetchXLAdminClient(config: XLAdminFetchClientConfig): XLAdminClient {
-    return createXLAdminClient(createFetchXLAdminTransport(config));
+export function createFetchAdminClient(config: AdminFetchClientConfig): AdminClient {
+    return createAdminClient(createFetchAdminTransport(config));
 }
 
-export function createFetchXLAdminTransport(config: XLAdminFetchClientConfig): XLAdminTransport {
+export function createFetchAdminTransport(config: AdminFetchClientConfig): AdminTransport {
     const fetchImpl = config.fetch ?? globalThis.fetch;
     if (!fetchImpl) {
         throw new Error('Fetch API is not available in the current environment.');
@@ -184,62 +186,62 @@ export function createFetchXLAdminTransport(config: XLAdminFetchClientConfig): X
     return {
         get: async <T>(
             url: string,
-            options?: XLAdminRequestOptions & { params?: Record<string, unknown> },
+            options?: AdminRequestOptions & { params?: Record<string, unknown> },
         ): Promise<T> => (
             await requestJson<T>(fetchImpl, config, 'GET', url, undefined, options?.params, options?.signal)
         ),
-        post: async <T>(url: string, body?: Record<string, unknown>, options?: XLAdminRequestOptions): Promise<T> => (
+        post: async <T>(url: string, body?: Record<string, unknown>, options?: AdminRequestOptions): Promise<T> => (
             await requestJson<T>(fetchImpl, config, 'POST', url, body, undefined, options?.signal)
         ),
-        patch: async <T>(url: string, body: Record<string, unknown>, options?: XLAdminRequestOptions): Promise<T> => (
+        patch: async <T>(url: string, body: Record<string, unknown>, options?: AdminRequestOptions): Promise<T> => (
             await requestJson<T>(fetchImpl, config, 'PATCH', url, body, undefined, options?.signal)
         ),
-        delete: async (url: string, options?: XLAdminRequestOptions): Promise<void> => {
+        delete: async (url: string, options?: AdminRequestOptions): Promise<void> => {
             await requestRaw(fetchImpl, config, 'DELETE', url, undefined, undefined, options?.signal);
         },
     };
 }
 
 async function transportGet<T>(
-    transport: XLAdminTransport,
+    transport: AdminTransport,
     url: string,
-    options?: XLAdminRequestOptions & { params?: Record<string, unknown> },
+    options?: AdminRequestOptions & { params?: Record<string, unknown> },
 ): Promise<T> {
     return unwrapTransportResponse(await transport.get<T>(url, options));
 }
 
 async function transportPost<T>(
-    transport: XLAdminTransport,
+    transport: AdminTransport,
     url: string,
     body?: Record<string, unknown>,
-    options?: XLAdminRequestOptions,
+    options?: AdminRequestOptions,
 ): Promise<T> {
     return unwrapTransportResponse(await transport.post<T>(url, body, options));
 }
 
 async function transportPatch<T>(
-    transport: XLAdminTransport,
+    transport: AdminTransport,
     url: string,
     body: Record<string, unknown>,
-    options?: XLAdminRequestOptions,
+    options?: AdminRequestOptions,
 ): Promise<T> {
     return unwrapTransportResponse(await transport.patch<T>(url, body, options));
 }
 
-function unwrapTransportResponse<T>(response: XLAdminTransportResponse<T>): T {
+function unwrapTransportResponse<T>(response: AdminTransportResponse<T>): T {
     if (isWrappedTransportResponse<T>(response)) {
         return response.data;
     }
     return response;
 }
 
-function isWrappedTransportResponse<T>(response: XLAdminTransportResponse<T>): response is { data: T } {
+function isWrappedTransportResponse<T>(response: AdminTransportResponse<T>): response is { data: T } {
     return typeof response === 'object' && response !== null && 'data' in response;
 }
 
 async function requestJson<T>(
     fetchImpl: typeof globalThis.fetch,
-    config: XLAdminFetchClientConfig,
+    config: AdminFetchClientConfig,
     method: 'GET' | 'POST' | 'PATCH',
     url: string,
     body?: Record<string, unknown>,
@@ -252,7 +254,7 @@ async function requestJson<T>(
 
 async function requestRaw(
     fetchImpl: typeof globalThis.fetch,
-    config: XLAdminFetchClientConfig,
+    config: AdminFetchClientConfig,
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     url: string,
     body?: Record<string, unknown>,
@@ -335,7 +337,7 @@ function buildSearchParams(params?: Record<string, unknown>): string {
 function buildSelectionPayload(
     ids: Array<string | number>,
     payload?: Record<string, unknown>,
-    options?: XLAdminSelectionOptions,
+    options?: AdminSelectionOptions,
 ): Record<string, unknown> {
     const result: Record<string, unknown> = {
         ids,

@@ -2,7 +2,7 @@
 
 import type {ReactNode} from 'react';
 import {Box} from '@mui/material';
-import {useXLAdminLocation} from '@xladmin-core/router';
+import {useAdminLocation} from '@xladmin-core/router';
 import {ModelPageSkeleton} from '../model-page/Skeletons';
 import {useShellContext} from './ShellContext';
 
@@ -16,7 +16,7 @@ type MainProps = {
  * Здесь живёт только текущий контент маршрута без дополнительной логики переходов.
  */
 export function Main({children}: MainProps) {
-    const {pathname} = useXLAdminLocation();
+    const {pathname} = useAdminLocation();
     const {pendingPath, pendingView} = useShellContext();
     const normalizeAdminPath = (path: string) => {
         const normalizedPath = path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path;

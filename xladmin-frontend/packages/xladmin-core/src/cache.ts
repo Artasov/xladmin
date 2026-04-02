@@ -1,4 +1,4 @@
-import type {XLAdminClient} from './client';
+import type {AdminClient} from './client';
 import type {AdminDetailResponse, AdminListResponse} from './types';
 
 type ClientCacheBucket = {
@@ -10,7 +10,7 @@ type ClientCacheBucket = {
 };
 
 const MAX_CACHE_ENTRIES = 100;
-const clientCaches = new WeakMap<XLAdminClient, ClientCacheBucket>();
+const clientCaches = new WeakMap<AdminClient, ClientCacheBucket>();
 
 export function buildDetailCacheKey(slug: string, id: string | number): string {
     return `detail:${slug}:${id}`;
@@ -36,7 +36,7 @@ export function buildListCacheKey(slug: string, params: {
     })}`;
 }
 
-export function getClientCacheBucket(client: XLAdminClient): ClientCacheBucket {
+export function getClientCacheBucket(client: AdminClient): ClientCacheBucket {
     const existingBucket = clientCaches.get(client);
     if (existingBucket) {
         return existingBucket;
@@ -53,19 +53,19 @@ export function getClientCacheBucket(client: XLAdminClient): ClientCacheBucket {
     return nextBucket;
 }
 
-export function getModelCacheVersion(client: XLAdminClient, slug: string): number {
+export function getModelCacheVersion(client: AdminClient, slug: string): number {
     return getClientCacheBucket(client).modelVersions.get(slug) ?? 0;
 }
 
-export function setCachedListResponse(client: XLAdminClient, key: string, response: AdminListResponse): void {
+export function setCachedListResponse(client: AdminClient, key: string, response: AdminListResponse): void {
     setBoundedMapEntry(getClientCacheBucket(client).listResponseCache, key, response);
 }
 
-export function setCachedDetailResponse(client: XLAdminClient, key: string, response: AdminDetailResponse): void {
+export function setCachedDetailResponse(client: AdminClient, key: string, response: AdminDetailResponse): void {
     setBoundedMapEntry(getClientCacheBucket(client).detailResponseCache, key, response);
 }
 
-export function invalidateModelCache(client: XLAdminClient, slug: string): void {
+export function invalidateModelCache(client: AdminClient, slug: string): void {
     const bucket = getClientCacheBucket(client);
     bucket.modelVersions.set(slug, getModelCacheVersion(client, slug) + 1);
     for (const key of bucket.listResponseCache.keys()) {
