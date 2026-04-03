@@ -28,3 +28,5 @@ inspector_errors
 
 __pycache__/
 *.pyc
+docs/VIDEO_SCRIPT.en.md
+docs/VIDEO_SCRIPT.ru.md
