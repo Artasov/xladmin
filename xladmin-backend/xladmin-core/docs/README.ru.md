@@ -89,6 +89,6 @@ uv run python -m twine check dist/*
 
 ## Документация
 
-- [docs/HOW_TO_USE.md](./HOW_TO_USE.md)
+- [HOW_TO_USE](./HOW_TO_USE.ru.md)
 - [English README](../README.md)
 - [README монорепы](../../README.md)

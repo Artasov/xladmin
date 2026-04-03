@@ -158,7 +158,7 @@ uv run python -m twine check dist/*
 
 ## Docs
 
-- [docs/HOW_TO_USE.md](./docs/HOW_TO_USE.md)
+- [How to use](./docs/HOW_TO_USE.en.md)
 - [PyPI package](https://pypi.org/project/xladmin/)
 - [xladmin-import-export backend](../xladmin-import-export/README.md)
 - [Russian README](./docs/README.ru.md)
