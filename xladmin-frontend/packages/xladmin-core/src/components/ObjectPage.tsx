@@ -1,5 +1,6 @@
 'use client';
 
+import {useLayoutEffect} from 'react';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import {Alert, Box, Button, IconButton, Menu, MenuItem, Paper, Stack, Typography, useMediaQuery,} from '@mui/material';
@@ -16,6 +17,7 @@ import {AdminRouterProvider, useAdminLocation, useAdminRouter} from '../router';
 import {formatAdminValue, resolveAdminMediaUrl} from '../utils/adminFields';
 import {DeletePreviewDialog} from './DeletePreviewDialog';
 import {MainHeader} from './layout/MainHeader';
+import {useShellContext} from './layout/ShellContext';
 import {ObjectField} from './object-page/ObjectField';
 import {ObjectPageSkeleton} from './object-page/ObjectPageSkeleton';
 import {ReadonlyObjectField} from './object-page/ReadonlyObjectField';
@@ -38,6 +40,7 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
     const pathname = location.pathname;
     const theme = useTheme();
     const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
+    const {pendingPath, finishPendingNavigation} = useShellContext();
     const listPath = pathname.split('/').slice(0, -1).join('/');
     const controller = useObjectPageController({
         client,
@@ -47,6 +50,22 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
         router: resolvedRouter,
         t,
     });
+
+    useLayoutEffect(() => {
+        if (pendingPath === null) {
+            return;
+        }
+        if (controller.isLoading) {
+            return;
+        }
+        if (!controller.meta && !controller.error) {
+            return;
+        }
+        if (controller.meta && controller.meta.slug !== slug) {
+            return;
+        }
+        finishPendingNavigation(pathname);
+    }, [controller.error, controller.isLoading, controller.meta, finishPendingNavigation, pathname, pendingPath, slug]);
 
     useAdminDocumentTitle(t('admin_title'), controller.meta?.title ?? slug, controller.objectTitle);
 

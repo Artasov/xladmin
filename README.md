@@ -11,20 +11,36 @@
 
 `xladmin` is a monorepo for a Django-like admin stack on top of `FastAPI + SQLAlchemy + React`.
 
-Packages:
+## Packages
 
-- [xladmin-backend](./xladmin-backend) - PyPI package `xladmin`
-- [xladmin-frontend](./xladmin-frontend) - frontend workspace
-- [xladmin](./xladmin-frontend/packages/xladmin-core) - framework-agnostic React admin UI
-- [xladmin-import-export backend](./xladmin-backend/xladmin-import-export) - optional PyPI extension for import/export endpoints
-- [xladmin-import-export](./xladmin-frontend/packages/xladmin-import-export) - optional npm extension for import/export UI
-- [xladmin-next](./xladmin-frontend/packages/xladmin-next) - Next.js router adapter
-- [xladmin-react-router](./xladmin-frontend/packages/xladmin-react-router) - React Router adapter
+- backend core:
+  - repo: [xladmin-backend/xladmin-core](./xladmin-backend/xladmin-core/README.md)
+  - PyPI: [xladmin](https://pypi.org/project/xladmin/)
+- backend import/export:
+  - repo: [xladmin-backend/xladmin-import-export](./xladmin-backend/xladmin-import-export/README.md)
+  - PyPI: [xladmin-import-export](https://pypi.org/project/xladmin-import-export/)
+- frontend core:
+  - repo: [xladmin-frontend/packages/xladmin-core](./xladmin-frontend/packages/xladmin-core/README.md)
+  - npm: [xladmin](https://www.npmjs.com/package/xladmin)
+- frontend import/export:
+  - repo: [xladmin-frontend/packages/xladmin-import-export](./xladmin-frontend/packages/xladmin-import-export/README.md)
+  - npm: [xladmin-import-export](https://www.npmjs.com/package/xladmin-import-export)
+- frontend adapters:
+  - repo: [xladmin-frontend/packages/xladmin-next](./xladmin-frontend/packages/xladmin-next/README.md)
+  - npm: [xladmin-next](https://www.npmjs.com/package/xladmin-next)
+  - repo: [xladmin-frontend/packages/xladmin-react-router](./xladmin-frontend/packages/xladmin-react-router/README.md)
+  - npm: [xladmin-react-router](https://www.npmjs.com/package/xladmin-react-router)
+
+Workspace docs:
+
+- [xladmin-frontend workspace](./xladmin-frontend/README.md)
+- [Release guide](./docs/RELEASE_GUIDE.md)
 
 ## What You Get
 
 - models overview and grouped sidebar blocks
 - list pages with search, sorting, filters, pagination, and bulk actions
+- single and multi-select relation filters
 - object pages with create, update, delete, and delete preview
 - relation field choices and relation filters
 - RU / EN admin locale
@@ -32,7 +48,8 @@ Packages:
 
 ## Repository Layout
 
-- [xladmin-backend/README.md](./xladmin-backend/README.md)
+- [xladmin-backend/xladmin-core/README.md](./xladmin-backend/xladmin-core/README.md)
+- [xladmin-backend/xladmin-import-export/README.md](./xladmin-backend/xladmin-import-export/README.md)
 - [xladmin-frontend/README.md](./xladmin-frontend/README.md)
 - [RELEASE_GUIDE.md](./docs/RELEASE_GUIDE.md)
 

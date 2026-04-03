@@ -6,6 +6,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.orm.attributes import NO_VALUE
 
 from xladmin.config import AdminModelConfig
 from xladmin.introspection_fields import serialize_related_pk
@@ -62,6 +63,9 @@ def get_field_value(config: AdminModelConfig, instance: Any, field_name: str) ->
     mapper = sa_inspect(config.model)
     if field_name in mapper.relationships:
         relationship = mapper.relationships[field_name]
+        instance_state = sa_inspect(instance)
+        if instance_state.attrs[field_name].loaded_value is NO_VALUE:
+            return [] if relationship.uselist else None
         related_value = getattr(instance, field_name, None)
         if relationship.uselist:
             return [serialize_related_pk(item) for item in list(related_value or [])]

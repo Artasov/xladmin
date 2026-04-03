@@ -52,6 +52,20 @@ async def test_router_uses_create_item_factory_for_hidden_required_fields() -> N
         assert item.created_by == "admin"
 
 
+async def test_router_create_detail_does_not_lazy_load_unloaded_relations() -> None:
+    app, _session_factory = await build_test_app(include_roles_in_user_detail=True)
+
+    async with get_test_client(app) as client:
+        create_response = await client.post(
+            "/xladmin/models/users/items/",
+            json={"username": "tester", "joined_on": "2026-03-26", "new_password": "secret"},
+        )
+
+        assert create_response.status_code == 201
+        assert create_response.json()["item"]["roles"] == []
+        assert create_response.json()["item"]["_relations"]["roles"] == []
+
+
 async def test_router_returns_400_when_hidden_required_create_fields_are_missing() -> None:
     app, _session_factory = await build_test_app()
 

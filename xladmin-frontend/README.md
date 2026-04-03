@@ -13,10 +13,10 @@ This workspace contains the frontend packages for `xladmin`.
 
 ## Packages
 
-- [xladmin](./packages/xladmin-core/README.md) - framework-agnostic React + MUI admin UI
-- [xladmin-import-export](./packages/xladmin-import-export/README.md) - optional import/export model actions
-- [xladmin-next](./packages/xladmin-next/README.md) - Next.js router adapter
-- [xladmin-react-router](./packages/xladmin-react-router/README.md) - React Router adapter
+- [xladmin](./packages/xladmin-core/README.md) - framework-agnostic React + MUI admin UI, npm: [xladmin](https://www.npmjs.com/package/xladmin)
+- [xladmin-import-export](./packages/xladmin-import-export/README.md) - optional import/export model actions, npm: [xladmin-import-export](https://www.npmjs.com/package/xladmin-import-export)
+- [xladmin-next](./packages/xladmin-next/README.md) - Next.js router adapter, npm: [xladmin-next](https://www.npmjs.com/package/xladmin-next)
+- [xladmin-react-router](./packages/xladmin-react-router/README.md) - React Router adapter, npm: [xladmin-react-router](https://www.npmjs.com/package/xladmin-react-router)
 
 ## Workspace Commands
 
@@ -32,7 +32,8 @@ npm run pack:dry-run
 
 - the npm package name for `packages/xladmin-core` is still `xladmin`
 - adapters are published as separate npm packages
-- all frontend packages are published from the same workflow: `.github/workflows/frontend.yml`
+- `xladmin`, `xladmin-next`, and `xladmin-react-router` are published from `.github/workflows/frontend.yml`
+- `xladmin-import-export` is published from `.github/workflows/frontend-import-export.yml`
 
 ## Docs
 

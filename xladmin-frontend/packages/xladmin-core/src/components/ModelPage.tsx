@@ -1,6 +1,7 @@
 'use client';
 
 import type {ReactNode} from 'react';
+import {useLayoutEffect} from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -41,6 +42,7 @@ import {getListFieldWidthPx} from '../utils/adminFields';
 import {DeletePreviewDialog} from './DeletePreviewDialog';
 import {FormDialog} from './FormDialog';
 import {MainHeader} from './layout/MainHeader';
+import {useShellContext} from './layout/ShellContext';
 import {ListFiltersSidebar} from './model-page/ListFiltersBar';
 import {ListRow} from './model-page/ListRow';
 import {SearchField} from './model-page/SearchField';
@@ -85,6 +87,7 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
     const location = useAdminLocation(resolvedRouter);
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const {pendingPath, finishPendingNavigation} = useShellContext();
     const controller = useModelPageController({
         client,
         slug,
@@ -93,6 +96,22 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
         router: resolvedRouter,
         t,
     });
+
+    useLayoutEffect(() => {
+        if (pendingPath === null) {
+            return;
+        }
+        if (controller.isLoading) {
+            return;
+        }
+        if (!controller.meta && !controller.error) {
+            return;
+        }
+        if (controller.meta && controller.meta.slug !== slug) {
+            return;
+        }
+        finishPendingNavigation(location.pathname);
+    }, [controller.error, controller.isLoading, controller.meta, finishPendingNavigation, location.pathname, pendingPath, slug]);
 
     useAdminDocumentTitle(t('admin_title'), controller.meta?.title ?? slug);
 

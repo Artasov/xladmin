@@ -1,6 +1,6 @@
 'use client';
 
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {
     buildListCacheKey,
     getClientCacheBucket,
@@ -129,7 +129,7 @@ export function useModelPageController({
         setPageInput(String(currentPage));
     }, [currentPage]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (previousSlugRef.current === slug) {
             return;
         }
@@ -171,7 +171,7 @@ export function useModelPageController({
         setPendingDeleteMode('single');
     }, [client, locationSearch, slug]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         const nextSearchParams = new URLSearchParams(locationSearch);
         const nextQuery = nextSearchParams.get('q') ?? '';
         const nextSort = nextSearchParams.get('sort') ?? '';

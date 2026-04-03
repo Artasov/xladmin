@@ -1,12 +1,13 @@
 'use client';
 
-import {useEffect, useMemo, useState} from 'react';
+import {useEffect, useLayoutEffect, useMemo, useState} from 'react';
 import {Alert, Box, Grid, Paper, Skeleton, Stack} from '@mui/material';
 import type {AdminClient} from '../client';
 import {useAdminDocumentTitle} from '../hooks/useAdminDocumentTitle';
 import {useAdminTranslation} from '../i18n';
 import type {AdminModelsResponse} from '../types';
 import {useAdminData} from './layout/AdminDataContext';
+import {useShellContext} from './layout/ShellContext';
 import {ModelsBlocks} from './ModelsBlocks';
 import {MainHeader, MainHeaderSkeleton} from './layout/MainHeader';
 
@@ -23,6 +24,7 @@ let inFlightModelsRequest: Promise<AdminModelsResponse> | null = null;
 export function OverviewPage({client, basePath}: OverviewPageProps) {
     const t = useAdminTranslation();
     useAdminDocumentTitle(t('admin_title'), t('overview_title'));
+    const {pendingPath, finishPendingNavigation} = useShellContext();
     const adminData = useAdminData();
     const shellModelsResponse = useMemo<AdminModelsResponse | null>(() => {
         if (adminData.models.length === 0 && adminData.blocks.length === 0) {
@@ -86,6 +88,19 @@ export function OverviewPage({client, basePath}: OverviewPageProps) {
             isMounted = false;
         };
     }, [client, shellModelsResponse, t]);
+
+    useLayoutEffect(() => {
+        if (pendingPath === null) {
+            return;
+        }
+        if (isLoading) {
+            return;
+        }
+        if (!data && !error) {
+            return;
+        }
+        finishPendingNavigation();
+    }, [data, error, finishPendingNavigation, isLoading, pendingPath]);
 
     if (isLoading && !data) {
         return <OverviewPageSkeleton/>;

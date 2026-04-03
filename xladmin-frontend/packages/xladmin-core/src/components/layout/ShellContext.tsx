@@ -9,6 +9,7 @@ type ShellContextValue = {
     pendingPath: string | null;
     pendingView: 'overview' | 'model' | 'generic' | null;
     startPendingNavigation: (path: string, view?: 'overview' | 'model' | 'generic') => void;
+    finishPendingNavigation: (path?: string) => void;
 };
 
 const defaultShellContextValue: ShellContextValue = {
@@ -18,6 +19,8 @@ const defaultShellContextValue: ShellContextValue = {
     pendingPath: null,
     pendingView: null,
     startPendingNavigation: () => {
+    },
+    finishPendingNavigation: () => {
     },
 };
 

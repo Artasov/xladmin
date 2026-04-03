@@ -1,6 +1,6 @@
 'use client';
 
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {useCallback, useLayoutEffect, useMemo, useState} from 'react';
 import {
     buildDetailCacheKey,
     getClientCacheBucket,
@@ -49,7 +49,7 @@ export function useObjectPageController({
     const [deletePreviewError, setDeletePreviewError] = useState<string | null>(null);
     const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         let isMounted = true;
         const bucket = getClientCacheBucket(client);
         const cachedResponse = bucket.detailResponseCache.get(cacheKey);

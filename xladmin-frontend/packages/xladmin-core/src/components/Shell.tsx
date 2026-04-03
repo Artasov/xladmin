@@ -56,17 +56,6 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
         setIsMobileSidebarOpen(false);
     }, [pathname]);
 
-    useEffect(() => {
-        if (pendingPath === null) {
-            return;
-        }
-
-        if (normalizeAdminPath(pathname) === normalizeAdminPath(pendingPath)) {
-            setPendingPath(null);
-            setPendingView(null);
-        }
-    }, [pathname, pendingPath]);
-
     const shellContextValue = useMemo(() => ({
         isMobile: !isDesktopSidebar,
         openMobileSidebar: () => setIsMobileSidebarOpen(true),
@@ -78,6 +67,16 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
             }
             setPendingPath(path);
             setPendingView(view);
+        },
+        finishPendingNavigation: (path?: string) => {
+            if (pendingPath === null) {
+                return;
+            }
+            if (path && normalizeAdminPath(path) !== normalizeAdminPath(pendingPath)) {
+                return;
+            }
+            setPendingPath(null);
+            setPendingView(null);
         },
     }), [isDesktopSidebar, pathname, pendingPath, pendingView]);
 

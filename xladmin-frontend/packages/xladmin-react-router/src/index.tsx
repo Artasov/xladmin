@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect, useRef} from 'react';
+import {useLayoutEffect, useRef} from 'react';
 import {useLocation, useNavigate} from 'react-router-dom';
 import type {AdminRouter} from 'xladmin';
 
@@ -76,7 +76,7 @@ export function useReactRouterAdminRouter(): AdminRouter {
         };
     }
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         const previousLocation = previousLocationRef.current;
         if (
             previousLocation.pathname === locationRef.current.pathname

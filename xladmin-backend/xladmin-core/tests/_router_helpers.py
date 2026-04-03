@@ -215,6 +215,7 @@ async def build_test_app(
         locale: AdminLocale = "ru",
         *,
         is_staff: bool = True,
+        include_roles_in_user_detail: bool = False,
 ) -> tuple[FastAPI, async_sessionmaker[AsyncSession]]:
     engine_kwargs: dict[str, Any] = {}
     if TEST_DATABASE_URL.startswith("sqlite"):
@@ -294,7 +295,14 @@ async def build_test_app(
                 slug="users",
                 title="Пользователи",
                 list_display=("id", "display_name", "joined_on", "is_active"),
-                detail_fields=("id", "username", "joined_on", "is_active", "new_password"),
+                detail_fields=(
+                    "id",
+                    "username",
+                    "joined_on",
+                    "is_active",
+                    *(("roles",) if include_roles_in_user_detail else ()),
+                    "new_password",
+                ),
                 create_fields=("username", "joined_on", "is_active", "new_password"),
                 update_fields=("username", "joined_on", "is_active", "new_password"),
                 search_query_builder=custom_user_search,

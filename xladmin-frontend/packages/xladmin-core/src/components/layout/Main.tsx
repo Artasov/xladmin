@@ -16,13 +16,9 @@ type MainProps = {
  * Здесь живёт только текущий контент маршрута без дополнительной логики переходов.
  */
 export function Main({children}: MainProps) {
-    const {pathname} = useAdminLocation();
+    useAdminLocation();
     const {pendingPath, pendingView} = useShellContext();
-    const normalizeAdminPath = (path: string) => {
-        const normalizedPath = path.endsWith('/') && path !== '/' ? path.slice(0, -1) : path;
-        return normalizedPath.replace(/^\/(ru|en)(?=\/|$)/, '') || '/';
-    };
-    const isPendingNavigation = pendingPath !== null && normalizeAdminPath(pathname) !== normalizeAdminPath(pendingPath);
+    const isPendingNavigation = pendingPath !== null;
 
     return (
         <Box

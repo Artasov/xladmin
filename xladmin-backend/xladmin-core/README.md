@@ -64,12 +64,32 @@ router = create_router(
 - list / detail / create / patch / delete endpoints
 - bulk actions and object actions
 - relation choices and relation filters
+- single and multi-select relation filters via `ListFilterConfig(..., multiple=True, input_kind="relation-multiple")`
 - overview metadata and model blocks
 - `query_for_list` and custom `search_query_builder`
 - mode-specific form fields with `hidden_in_create` / `hidden_in_update`
 - custom create defaults with `create_item_factory`
 - delete preview for single and bulk delete
 - RU / EN locale metadata for the frontend
+
+## Multi-Select Relation Filters
+
+If one relation filter is not enough, you can expose a multi-select variant that works as an autocomplete with add/remove chips on the frontend.
+
+```python
+from xladmin import ListFilterConfig
+
+
+ListFilterConfig(
+    slug="role_ids",
+    label="Roles",
+    field_name="roles",
+    input_kind="relation-multiple",
+    multiple=True,
+    relation_model=RoleORM,
+    relation_label_field="name",
+)
+```
 
 ## Create And Update Fields
 
@@ -139,6 +159,7 @@ uv run python -m twine check dist/*
 ## Docs
 
 - [docs/HOW_TO_USE.md](./docs/HOW_TO_USE.md)
-- [xladmin-import-export backend](./xladmin-import-export/README.md)
+- [PyPI package](https://pypi.org/project/xladmin/)
+- [xladmin-import-export backend](../xladmin-import-export/README.md)
 - [Russian README](./docs/README.ru.md)
 - [Monorepo README](../README.md)
