@@ -62,7 +62,7 @@ export function DeletePreviewDialog({
             <DialogTitle>{title}</DialogTitle>
             <DialogContent dividers>
                 {isLoading ? (
-                    <Stack spacing={1.5} alignItems="center" justifyContent="center" sx={{minHeight: 180}}>
+                    <Stack spacing={1.5} sx={{minHeight: 180, alignItems: 'center', justifyContent: 'center'}}>
                         <CircularProgress size={28} thickness={4.2} color="inherit"/>
                         <Typography color="text.secondary">{t('delete_preview_loading')}</Typography>
                     </Stack>

@@ -87,7 +87,7 @@ export const ListFiltersSidebar = memo(function ListFiltersSidebar({
             }}
         >
             <Stack spacing={1.5}>
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                <Stack direction="row" spacing={1} sx={{alignItems: 'center', justifyContent: 'space-between'}}>
                     <Stack spacing={0.25}>
                         <Typography sx={{fontSize: 15, fontWeight: 700}}>
                             {t('filters')}
@@ -273,7 +273,7 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
                 onInputChange={(_, nextInputValue) => setSearchValue(nextInputValue)}
                 renderInput={(params) => (
                     (() => {
-                        const {InputProps, inputProps, ...textFieldParams} = params;
+                        const {slotProps, ...textFieldParams} = params;
 
                         return (
                             <TextField
@@ -281,16 +281,17 @@ function ListFilterField({client, slug, filter, value, onChange, debounceMs}: Li
                                 label={filter.label}
                                 placeholder={filter.placeholder ?? t('search')}
                                 slotProps={{
+                                    inputLabel: slotProps.inputLabel,
                                     input: {
-                                        ...InputProps,
+                                        ...slotProps.input,
                                         endAdornment: (
                                             <>
                                                 {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
-                                                {InputProps.endAdornment}
+                                                {slotProps.input?.endAdornment}
                                             </>
                                         ),
                                     },
-                                    htmlInput: inputProps,
+                                    htmlInput: slotProps.htmlInput,
                                 }}
                             />
                         );

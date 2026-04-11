@@ -2,8 +2,8 @@
 
 import type {ReactNode} from 'react';
 import {createContext, useCallback, useContext, useEffect, useMemo, useRef, useState} from 'react';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import ErrorOutlinedIcon from '@mui/icons-material/ErrorOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {Box, Paper, Portal, Stack, Typography} from '@mui/material';
 import {alpha, type Theme, useTheme} from '@mui/material/styles';
@@ -197,7 +197,7 @@ function AdminMessageBubble({
                 },
             }}
         >
-            <Stack direction="row" spacing={1.125} alignItems="center">
+            <Stack direction="row" spacing={1.125} sx={{alignItems: 'center'}}>
                 <Box
                     sx={{
                         width: 26,
@@ -236,7 +236,7 @@ function AdminMessageBubble({
 function getBubbleAppearance(theme: Theme, kind: AdminMessageKind) {
     if (kind === 'success') {
         return {
-            icon: CheckCircleOutlineIcon,
+            icon: CheckCircleOutlinedIcon,
             backgroundColor: alpha(theme.palette.success.main, 0.6),
             iconColor: theme.palette.common.white,
             iconBackgroundColor: alpha(theme.palette.common.white, 0.14),
@@ -245,7 +245,7 @@ function getBubbleAppearance(theme: Theme, kind: AdminMessageKind) {
     }
     if (kind === 'error') {
         return {
-            icon: ErrorOutlineIcon,
+            icon: ErrorOutlinedIcon,
             backgroundColor: alpha(theme.palette.error.main, 0.6),
             iconColor: theme.palette.common.white,
             iconBackgroundColor: alpha(theme.palette.common.white, 0.14),

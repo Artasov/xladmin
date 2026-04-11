@@ -50,9 +50,8 @@ export function MainHeader({title, subtitle, details, error, beforeTitle, before
             }}
         >
             <Stack spacing={0.5}>
-                <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="space-between"
-                       sx={{minWidth: 0}}>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{minWidth: 0, flex: 1}}>
+                <Stack direction="row" spacing={1.5} sx={{minWidth: 0, alignItems: 'center', justifyContent: 'space-between'}}>
+                    <Stack direction="row" spacing={1} sx={{minWidth: 0, flex: 1, alignItems: 'center'}}>
                         {isMobile ? (
                             <Box sx={{display: 'flex', alignItems: 'center', flexShrink: 0}}>
                                 <IconButton
@@ -88,7 +87,7 @@ export function MainHeader({title, subtitle, details, error, beforeTitle, before
                     ) : null}
                 </Stack>
                 {subtitle && !details ? (
-                    <Stack direction="row" spacing={0.5} alignItems="center" sx={{minWidth: 0}}>
+                    <Stack direction="row" spacing={0.5} sx={{minWidth: 0, alignItems: 'center'}}>
                         {beforeSubtitle ? (
                             <Box sx={{display: 'flex', alignItems: 'center', flexShrink: 0}}>
                                 {beforeSubtitle}
@@ -101,9 +100,8 @@ export function MainHeader({title, subtitle, details, error, beforeTitle, before
                 ) : null}
                 {details ? (
                     <Stack spacing={0.5}>
-                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="space-between"
-                               sx={{minWidth: 0}}>
-                            <Stack direction="row" spacing={0.5} alignItems="center" sx={{minWidth: 0, flex: 1}}>
+                        <Stack direction="row" spacing={0.5} sx={{minWidth: 0, alignItems: 'center', justifyContent: 'space-between'}}>
+                            <Stack direction="row" spacing={0.5} sx={{minWidth: 0, flex: 1, alignItems: 'center'}}>
                                 {beforeSubtitle ? (
                                     <Box sx={{display: 'flex', alignItems: 'center', flexShrink: 0}}>
                                         {beforeSubtitle}

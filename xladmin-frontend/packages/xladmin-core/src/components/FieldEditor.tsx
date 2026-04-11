@@ -166,9 +166,13 @@ export const FieldEditor = memo(function FieldEditor({
                         size: 'small',
                         required: field.required,
                         sx: buildRequiredLabelSx(),
-                        placeholder: field.placeholder ?? undefined,
                         helperText: field.help_text ?? undefined,
-                        slotProps: {htmlInput: buildHtmlInputProps(field)},
+                        slotProps: {
+                            htmlInput: {
+                                ...buildHtmlInputProps(field),
+                                placeholder: field.placeholder ?? undefined,
+                            },
+                        },
                     },
                 }}
             />
@@ -200,9 +204,13 @@ export const FieldEditor = memo(function FieldEditor({
                         size: 'small',
                         required: field.required,
                         sx: buildRequiredLabelSx(),
-                        placeholder: field.placeholder ?? undefined,
                         helperText: field.help_text ?? undefined,
-                        slotProps: {htmlInput: buildHtmlInputProps(field)},
+                        slotProps: {
+                            htmlInput: {
+                                ...buildHtmlInputProps(field),
+                                placeholder: field.placeholder ?? undefined,
+                            },
+                        },
                     },
                 }}
             />
@@ -344,7 +352,7 @@ function renderChoiceEditor({
                 }}
                 renderInput={(params) => (
                     (() => {
-                        const {InputProps, inputProps, ...textFieldParams} = params;
+                        const {slotProps, ...textFieldParams} = params;
 
                         return (
                             <TextField
@@ -355,17 +363,18 @@ function renderChoiceEditor({
                                 placeholder={field.placeholder ?? searchPlaceholder}
                                 helperText={field.help_text ?? undefined}
                                 slotProps={{
+                                    inputLabel: slotProps.inputLabel,
                                     input: {
-                                        ...InputProps,
+                                        ...slotProps.input,
                                         endAdornment: (
                                             <>
                                                 {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
-                                                {InputProps.endAdornment}
+                                                {slotProps.input?.endAdornment}
                                             </>
                                         ),
                                     },
                                     htmlInput: {
-                                        ...inputProps,
+                                        ...slotProps.htmlInput,
                                         autoComplete: 'new-password',
                                         name: `admin-choice-${field.name}`,
                                     },
@@ -404,7 +413,7 @@ function renderChoiceEditor({
             }}
             renderInput={(params) => (
                 (() => {
-                    const {InputProps, inputProps, ...textFieldParams} = params;
+                    const {slotProps, ...textFieldParams} = params;
 
                     return (
                         <TextField
@@ -415,17 +424,18 @@ function renderChoiceEditor({
                             placeholder={field.placeholder ?? searchPlaceholder}
                             helperText={field.help_text ?? undefined}
                             slotProps={{
+                                inputLabel: slotProps.inputLabel,
                                 input: {
-                                    ...InputProps,
+                                    ...slotProps.input,
                                     endAdornment: (
                                         <>
                                             {isLoadingChoices ? <CircularProgress color="inherit" size={16}/> : null}
-                                            {InputProps.endAdornment}
+                                            {slotProps.input?.endAdornment}
                                         </>
                                     ),
                                 },
                                 htmlInput: {
-                                    ...inputProps,
+                                    ...slotProps.htmlInput,
                                     autoComplete: 'new-password',
                                     name: `admin-choice-${field.name}`,
                                 },

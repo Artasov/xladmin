@@ -112,7 +112,7 @@ export function ModelImportExportActions({client, context}: ModelImportExportAct
 
     return (
         <>
-            <Stack direction="row" spacing={0.5} alignItems="center">
+            <Stack direction="row" spacing={0.5} sx={{alignItems: 'center'}}>
                 <Tooltip title={messages.exportButton}>
                     <span>
                         <IconButton size="small" onClick={() => setExportOpen(true)} disabled={Boolean(error)}>
@@ -257,7 +257,7 @@ export function ModelImportExportActions({client, context}: ModelImportExportAct
                             allLabel={messages.selectAllFields}
                             noneLabel={messages.clearFields}
                         />
-                        <Stack direction="row" spacing={1} alignItems="center">
+                        <Stack direction="row" spacing={1} sx={{alignItems: 'center'}}>
                             <Button
                                 variant="outlined"
                                 onClick={() => void handleValidateImport({
@@ -329,7 +329,7 @@ function FieldsSelector({
 }) {
     return (
         <Stack>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Stack direction="row" sx={{justifyContent: 'space-between', alignItems: 'center'}}>
                 <Typography variant="subtitle2">{title}</Typography>
                 <Stack direction="row" spacing={1}>
                     <Button size="small" onClick={() => onChange(fields.map((field) => field.name))}>{allLabel}</Button>
@@ -362,7 +362,7 @@ function FieldsSelector({
                                 />
                             )}
                             label={
-                                <Stack direction="row" spacing={0.75} alignItems="center" sx={{minHeight: 24}}>
+                                <Stack direction="row" spacing={0.75} sx={{minHeight: 24, alignItems: 'center'}}>
                                     <Typography variant="body2" sx={{lineHeight: 1.35}}>
                                         {field.label}
                                     </Typography>

@@ -182,12 +182,11 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
                         flexShrink: 0,
                     }}
                 >
-                    <Stack direction={{xs: 'column', lg: 'row'}} spacing={1.5} alignItems={{lg: 'center'}}>
+                    <Stack direction={{xs: 'column', lg: 'row'}} spacing={1.5} sx={{alignItems: {lg: 'center'}}}>
                         <Stack
                             direction={{xs: 'column', xl: 'row'}}
                             spacing={1.5}
-                            alignItems={{xl: 'center'}}
-                            sx={{flex: 1, minWidth: 0}}
+                            sx={{flex: 1, minWidth: 0, alignItems: {xl: 'center'}}}
                         >
                             <SearchField
                                 value={controller.appliedQuery}
@@ -196,7 +195,7 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
                                 placeholder={t('search')}
                             />
                             {controller.hasSelection ? (
-                                <Stack direction="row" spacing={1} alignItems="center" sx={{minWidth: 0, flexWrap: 'wrap'}}>
+                                <Stack direction="row" spacing={1} sx={{minWidth: 0, flexWrap: 'wrap', alignItems: 'center'}}>
                                     <Button
                                         variant="outlined"
                                         endIcon={<ExpandMoreIcon/>}
@@ -220,7 +219,7 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
                             ) : null}
                         </Stack>
 
-                        <Stack direction="row" spacing={1} alignItems="center" sx={{marginLeft: 'auto'}}>
+                        <Stack direction="row" spacing={1} sx={{marginLeft: 'auto', alignItems: 'center'}}>
                             {beforePagination ? (
                                 <Box sx={{display: 'flex', alignItems: 'center', flexShrink: 0}}>
                                     {beforePagination}

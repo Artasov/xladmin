@@ -9,7 +9,7 @@ export function ModelPageSkeleton() {
             <MainHeaderSkeleton titleWidth={240} subtitleWidth="38%"/>
 
             <Paper sx={{p: 1.5, borderRadius: '10px', flexShrink: 0}}>
-                <Stack direction={{xs: 'column', lg: 'row'}} spacing={1.5} alignItems={{lg: 'center'}}>
+                <Stack direction={{xs: 'column', lg: 'row'}} spacing={1.5} sx={{alignItems: {lg: 'center'}}}>
                     <Skeleton variant="rounded" width={360} height={40}/>
                     <Skeleton variant="rounded" width={128} height={40}/>
                     <Box sx={{flex: 1}}/>
