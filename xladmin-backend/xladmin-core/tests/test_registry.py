@@ -1,11 +1,24 @@
 from __future__ import annotations
 
+from uuid import uuid4
+
 import pytest
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from xladmin import AdminConfig, AdminFieldConfig, AdminModelConfig, AdminRegistry, ModelConfig
+from xladmin import (
+    AdminBulkActionConfig,
+    AdminConfig,
+    AdminFieldConfig,
+    AdminFormFieldConfig,
+    AdminFormFieldOptionConfig,
+    AdminModelConfig,
+    AdminObjectActionConfig,
+    AdminRegistry,
+    ModelConfig,
+)
 from xladmin.introspection import get_model_meta, get_visible_list_fields
+from xladmin.router import serialize_choice_id
 
 
 class Base(DeclarativeBase):
@@ -99,9 +112,134 @@ def test_model_meta_respects_create_and_update_visibility() -> None:
     )
 
     meta = get_model_meta(config)
+    name_field = next(field for field in meta["fields"] if field["name"] == "name")
+    password_field = next(field for field in meta["fields"] if field["name"] == "password")
 
     assert meta["create_fields"] == ["name", "password"]
     assert meta["update_fields"] == ["name", "new_password"]
+    assert name_field["required"] is True
+    assert password_field["required"] is True
+
+
+def test_model_meta_auto_form_skips_uselist_and_duplicate_relationship_fields() -> None:
+    child_meta = get_model_meta(ModelConfig(model=OrderedChildModel))
+    parent_meta = get_model_meta(ModelConfig(model=OrderedParentModel))
+
+    assert child_meta["create_fields"] == ["id", "parent_id"]
+    assert child_meta["update_fields"] == ["parent_id"]
+    assert parent_meta["create_fields"] == ["id", "title"]
+    assert parent_meta["update_fields"] == ["title"]
+
+
+def test_serialize_choice_id_converts_uuid_to_string() -> None:
+    value = uuid4()
+
+    assert serialize_choice_id(value) == str(value)
+
+
+def test_registry_allows_custom_create_form_fields_with_create_handler() -> None:
+    config = ModelConfig(
+        model=DemoModel,
+        create_form=(AdminFormFieldConfig(name="proxy"),),
+        create_handler=lambda _session, _model_config, _payload, _user: DemoModel(id=1),
+    )
+
+    registry = AdminRegistry(config)
+
+    assert registry.get("demo-model").create_form is not None
+
+
+def test_registry_rejects_unknown_custom_create_form_fields_without_create_handler() -> None:
+    with pytest.raises(ValueError) as exc_info:
+        AdminRegistry(
+            ModelConfig(
+                model=DemoModel,
+                create_form=(AdminFormFieldConfig(name="proxy"),),
+            ),
+        )
+
+    assert str(exc_info.value) == (
+        "Unknown field 'proxy' in create_form for model 'DemoModel'."
+    )
+
+
+def test_registry_rejects_duplicate_object_action_form_fields() -> None:
+    with pytest.raises(ValueError) as exc_info:
+        AdminRegistry(
+            ModelConfig(
+                model=DemoModel,
+                object_actions=(
+                    AdminObjectActionConfig(
+                        slug="rename",
+                        label="Rename",
+                        form=(
+                            AdminFormFieldConfig(name="value"),
+                            AdminFormFieldConfig(name="value"),
+                        ),
+                        handler=lambda _session, _model_config, _item, _payload, _user: {},
+                    ),
+                ),
+            ),
+        )
+
+    assert str(exc_info.value) == (
+        "Duplicate field 'value' in object action 'rename' form for model 'DemoModel'."
+    )
+
+
+def test_registry_rejects_action_form_field_with_options_and_relation_model() -> None:
+    with pytest.raises(ValueError) as exc_info:
+        AdminRegistry(
+            ModelConfig(
+                model=DemoModel,
+                bulk_actions=(
+                    AdminBulkActionConfig(
+                        slug="process",
+                        label="Process",
+                        form=(
+                            AdminFormFieldConfig(
+                                name="value",
+                                options=(AdminFormFieldOptionConfig(value="x", label="X"),),
+                                relation_model=DemoModel,
+                            ),
+                        ),
+                        handler=lambda _session, _model_config, _items, _payload, _user: {},
+                    ),
+                ),
+            ),
+        )
+
+    assert str(exc_info.value) == (
+        "Field 'value' in bulk action 'process' form for model 'DemoModel' "
+        "cannot define both options and relation_model."
+    )
+
+
+def test_registry_requires_relation_model_for_custom_relation_action_field() -> None:
+    with pytest.raises(ValueError) as exc_info:
+        AdminRegistry(
+            ModelConfig(
+                model=DemoModel,
+                object_actions=(
+                    AdminObjectActionConfig(
+                        slug="assign",
+                        label="Assign",
+                        form=(
+                            AdminFormFieldConfig(
+                                name="role",
+                                input_kind="relation",
+                            ),
+                        ),
+                        handler=lambda _session, _model_config, _item, _payload, _user: {},
+                    ),
+                ),
+            ),
+        )
+
+    assert str(exc_info.value) == (
+        "Custom relation field 'role' in object action 'assign' form for model 'DemoModel' "
+        "must define relation_model."
+    )
 
 
 def test_registry_requires_explicit_list_fields_for_implicit_relationships() -> None:

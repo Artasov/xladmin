@@ -15,6 +15,8 @@ import {useAdminLocale, useAdminTranslation} from '../i18n';
 import type {AdminRouter} from '../router';
 import {AdminRouterProvider, useAdminLocation, useAdminRouter} from '../router';
 import {formatAdminValue, resolveAdminMediaUrl} from '../utils/adminFields';
+import {getMuiPickersLocaleText} from '../utils/pickersLocale';
+import {ActionFormDialog} from './ActionFormDialog';
 import {DeletePreviewDialog} from './DeletePreviewDialog';
 import {MainHeader} from './layout/MainHeader';
 import {useShellContext} from './layout/ShellContext';
@@ -83,7 +85,11 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
 
     return (
         <AdminRouterProvider router={resolvedRouter}>
-            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={locale}>
+            <LocalizationProvider
+                dateAdapter={AdapterDayjs}
+                adapterLocale={locale}
+                localeText={getMuiPickersLocaleText(locale)}
+            >
                 <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
                     <MainHeader
                         title={controller.objectTitle}
@@ -274,6 +280,26 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                     }}
                     onConfirm={() => void controller.handleDelete()}
                 />
+
+                {controller.activeObjectAction?.form ? (
+                    <ActionFormDialog
+                        open={true}
+                        onClose={controller.handleCloseObjectActionForm}
+                        onSuccess={() => undefined}
+                        title={`${controller.activeObjectAction.label}: ${controller.objectTitle}`}
+                        submitLabel={controller.activeObjectAction.label}
+                        slug={slug}
+                        locale={locale}
+                        fields={controller.activeObjectAction.form}
+                        client={client}
+                        choiceScope={{
+                            kind: 'object-action',
+                            actionSlug: controller.activeObjectAction.slug,
+                            itemId: id,
+                        }}
+                        onSubmit={controller.handleSubmitObjectActionForm}
+                    />
+                ) : null}
             </LocalizationProvider>
         </AdminRouterProvider>
     );

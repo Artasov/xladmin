@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import inspect
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect as sa_inspect
 
@@ -106,8 +108,18 @@ def create_router(config: HttpConfig) -> APIRouter:
                 setattr(related_item, attribute_name, None)
         for item_to_delete in delete_items:
             await session.delete(item_to_delete)
-        await session.commit()
+        await commit_or_raise_conflict(session)
         return len(items)
+
+    async def commit_or_raise_conflict(session: AsyncSession) -> None:
+        try:
+            await session.commit()
+        except IntegrityError as exc:
+            await session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=translate(registry.locale, "integrity_conflict"),
+            ) from exc
 
     async def get_items_for_selection(
             model_config: ModelConfig,
@@ -203,21 +215,37 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> ItemOnlyResponse:
         check_access(user)
         model_config = await get_model_config(slug)
-        if model_config.create_item_factory is not None:
+        if model_config.create_handler is not None:
+            try:
+                item = model_config.create_handler(session, model_config, payload.root, user)
+                if inspect.isawaitable(item):
+                    item = await item
+            except (TypeError, ValueError) as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(exc) or "Invalid create payload.",
+                ) from exc
+            if item is None or not isinstance(item, model_config.model):
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Create handler must return a model instance.",
+                )
+        elif model_config.create_item_factory is not None:
             item = model_config.create_item_factory(payload.root, session, user)
             if inspect.isawaitable(item):
                 item = await item
         else:
             item = model_config.model()
-        await apply_payload_to_item(session, model_config, item, payload.root, mode="create")
-        missing_required_fields = get_missing_required_create_fields(model_config, item)
-        if missing_required_fields:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Missing required fields for create: {', '.join(missing_required_fields)}.",
-            )
+        if model_config.create_handler is None:
+            await apply_payload_to_item(session, model_config, item, payload.root, mode="create")
+            missing_required_fields = get_missing_required_create_fields(model_config, item)
+            if missing_required_fields:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Missing required fields for create: {', '.join(missing_required_fields)}.",
+                )
         session.add(item)
-        await session.commit()
+        await commit_or_raise_conflict(session)
         await session.refresh(item)
         return ItemOnlyResponse(item=serialize_model_instance(model_config, item, mode="detail"))
 
@@ -232,7 +260,7 @@ def create_router(config: HttpConfig) -> APIRouter:
         check_access(user)
         model_config, item = await get_existing_item(slug, item_id, session, user)
         await apply_payload_to_item(session, model_config, item, payload.root, mode="update")
-        await session.commit()
+        await commit_or_raise_conflict(session)
         await session.refresh(item)
         refreshed_item = await get_item_by_pk(session, model_config, item_id, user, mode="detail")
         return ItemOnlyResponse(
@@ -277,17 +305,23 @@ def create_router(config: HttpConfig) -> APIRouter:
         check_access(user)
         model_config, item = await get_existing_item(slug, item_id, session, user)
 
-        action = next((item for item in model_config.object_actions if item.slug == action_slug), None)
+        action = model_config.get_object_action(action_slug)
         if action is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=translate(registry.locale, "object_action_not_found"),
             )
 
-        result = action.handler(session, model_config, item, payload.root if payload is not None else {}, user)
-        if inspect.isawaitable(result):
-            result = await result
-        await session.commit()
+        try:
+            result = action.handler(session, model_config, item, payload.root if payload is not None else {}, user)
+            if inspect.isawaitable(result):
+                result = await result
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc) or "Invalid action payload.",
+            ) from exc
+        await commit_or_raise_conflict(session)
         await session.refresh(item)
         refreshed_item = await get_item_by_pk(session, model_config, item_id, user, mode="detail")
         return ObjectActionResponse(
@@ -367,7 +401,7 @@ def create_router(config: HttpConfig) -> APIRouter:
             )
             return FlexibleProcessedResponse(processed=deleted_response.deleted)
 
-        action = next((item for item in model_config.bulk_actions if item.slug == action_slug), None)
+        action = model_config.get_bulk_action(action_slug)
         if action is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -382,10 +416,16 @@ def create_router(config: HttpConfig) -> APIRouter:
             select_all=payload.select_all,
             selection_scope=payload.selection_scope,
         )
-        result = action.handler(session, model_config, items, payload.action_payload, user)
-        if inspect.isawaitable(result):
-            result = await result
-        await session.commit()
+        try:
+            result = action.handler(session, model_config, items, payload.action_payload, user)
+            if inspect.isawaitable(result):
+                result = await result
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc) or "Invalid action payload.",
+            ) from exc
+        await commit_or_raise_conflict(session)
         response_payload = {"processed": len(items)}
         if result:
             response_payload.update(result)
@@ -404,9 +444,14 @@ def create_router(config: HttpConfig) -> APIRouter:
         check_access(user)
         model_config = await get_model_config(slug)
         relation_model = resolve_relation_model(model_config, field_name, locale=registry.locale)
+        create_form_field = model_config.get_create_form_field(field_name)
         relation_config = registry.find_by_model(relation_model)
         label_field = (
-                model_config.get_field_config(field_name).relation_label_field
+                (
+                    create_form_field.relation_label_field
+                    if create_form_field is not None
+                    else model_config.get_field_config(field_name).relation_label_field
+                )
                 or resolve_label_field(relation_model)
         )
         return await load_relation_choices(
@@ -414,6 +459,85 @@ def create_router(config: HttpConfig) -> APIRouter:
             relation_model=relation_model,
             relation_config=relation_config,
             label_field=label_field,
+            q=q,
+            ids=ids,
+            limit=limit,
+            user=user,
+        )
+
+    @router.get(
+        "/models/{slug}/bulk-actions/{action_slug}/fields/{field_name}/choices/",
+        response_model=ChoicesResponse,
+    )
+    async def bulk_action_field_choices(
+            slug: str,
+            action_slug: str,
+            field_name: str,
+            q: str | None = None,
+            ids: str | None = None,
+            limit: int = Query(default=25, ge=1, le=100),
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> ChoicesResponse:
+        check_access(user)
+        model_config = await get_model_config(slug)
+        action = model_config.get_bulk_action(action_slug)
+        if action is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=translate(registry.locale, "bulk_action_not_found"),
+            )
+        form_field = model_config.get_bulk_action_form_field(action_slug, field_name)
+        if form_field is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=translate(registry.locale, "field_has_no_relation_choices"),
+            )
+        return await load_form_field_choices(
+            session=session,
+            registry=registry,
+            model_config=model_config,
+            form_field=form_field,
+            q=q,
+            ids=ids,
+            limit=limit,
+            user=user,
+        )
+
+    @router.get(
+        "/models/{slug}/items/{item_id}/actions/{action_slug}/fields/{field_name}/choices/",
+        response_model=ChoicesResponse,
+    )
+    async def object_action_field_choices(
+            slug: str,
+            item_id: str,
+            action_slug: str,
+            field_name: str,
+            q: str | None = None,
+            ids: str | None = None,
+            limit: int = Query(default=25, ge=1, le=100),
+            session: AsyncSession = Depends(config.get_db_session_dependency),
+            user: Any = Depends(config.get_current_user_dependency),
+    ) -> ChoicesResponse:
+        check_access(user)
+        model_config, _item = await get_existing_item(slug, item_id, session, user)
+        action = model_config.get_object_action(action_slug)
+        if action is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=translate(registry.locale, "object_action_not_found"),
+            )
+        form_field = model_config.get_object_action_form_field(action_slug, field_name)
+        if form_field is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=translate(registry.locale, "field_has_no_relation_choices"),
+            )
+        return await load_form_field_choices(
+            session=session,
+            registry=registry,
+            model_config=model_config,
+            form_field=form_field,
             q=q,
             ids=ids,
             limit=limit,
@@ -514,7 +638,7 @@ async def load_relation_choices(
     return ChoicesResponse(
         items=[
             ChoiceItemPayload(
-                id=getattr(item, relation_pk_name),
+                id=serialize_choice_id(getattr(item, relation_pk_name)),
                 label=str(getattr(item, label_field, None) or getattr(item, relation_pk_name)),
             )
             for item in [*selected_items, *search_items]
@@ -526,6 +650,44 @@ async def fetch_choice_items(session: AsyncSession, query: Any | None) -> list[A
     if query is None:
         return []
     return list((await session.execute(query)).scalars().unique())
+
+
+def serialize_choice_id(value: Any) -> str | int:
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, int | str):
+        return value
+    return str(value)
+
+
+async def load_form_field_choices(
+        *,
+        session: AsyncSession,
+        registry: Any,
+        model_config: ModelConfig,
+        form_field: Any,
+        q: str | None,
+        ids: str | None,
+        limit: int,
+        user: Any,
+) -> ChoicesResponse:
+    relation_model = form_field.relation_model or resolve_relation_model(
+        model_config,
+        form_field.name,
+        locale=registry.locale,
+    )
+    relation_config = registry.find_by_model(relation_model)
+    label_field = form_field.relation_label_field or resolve_label_field(relation_model)
+    return await load_relation_choices(
+        session=session,
+        relation_model=relation_model,
+        relation_config=relation_config,
+        label_field=label_field,
+        q=q,
+        ids=ids,
+        limit=limit,
+        user=user,
+    )
 
 
 create_admin_router = create_router

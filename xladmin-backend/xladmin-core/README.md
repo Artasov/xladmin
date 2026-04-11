@@ -138,6 +138,56 @@ ModelConfig(
 )
 ```
 
+If create needs a fully custom form and payload handler, use `create_form` + `create_handler`.
+
+The same `FormFieldConfig` mechanism is also available for `object_actions` and `bulk_actions` via `form=...`.
+If an action has no form, the frontend runs it immediately as before.
+
+For `datetime` inputs the built-in dialog uses the MUI action bar with a localized `Today` / `Сегодня` button, which inserts the current date and time.
+
+```python
+from xladmin import FormFieldConfig, FormFieldOptionConfig, ModelConfig
+
+
+async def create_proxy(session, model_config, payload, user):
+    del session, model_config, user
+    parsed = ProxyBase.parse_raw(f"{payload['scheme']}://{payload['proxy']}")
+    return ProxyORM(
+        name=parsed.name,
+        scheme=parsed.scheme,
+        host=parsed.host,
+        port=parsed.port,
+        username=parsed.username,
+        password=parsed.password,
+        created_at=ProxyBase.now(),
+        updated_at=ProxyBase.now(),
+    )
+
+
+ModelConfig(
+    model=ProxyORM,
+    create_form=(
+        FormFieldConfig(
+            name="scheme",
+            label="Scheme",
+            input_kind="select",
+            required=True,
+            options=(
+                FormFieldOptionConfig(value="http", label="HTTP"),
+                FormFieldOptionConfig(value="socks5h", label="SOCKS5H"),
+            ),
+        ),
+        FormFieldConfig(
+            name="proxy",
+            label="Proxy",
+            placeholder="login:password@ip:port",
+            required=True,
+        ),
+    ),
+    create_handler=create_proxy,
+)
+```
+
 ## Compatibility
 
 - `FastAPI >=0.115,<1.0`

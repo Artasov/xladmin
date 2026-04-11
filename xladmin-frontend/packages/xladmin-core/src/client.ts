@@ -50,6 +50,23 @@ export type AdminClient = {
         processed: number
     } & Record<string, unknown>>;
     runObjectAction: (slug: string, id: string | number, actionSlug: string, payload?: Record<string, unknown>) => Promise<AdminObjectActionResponse>;
+    getBulkActionChoices: (
+        slug: string,
+        actionSlug: string,
+        fieldName: string,
+        q?: string,
+        ids?: Array<string | number>,
+        options?: AdminRequestOptions,
+    ) => Promise<AdminChoicesResponse>;
+    getObjectActionChoices: (
+        slug: string,
+        id: string | number,
+        actionSlug: string,
+        fieldName: string,
+        q?: string,
+        ids?: Array<string | number>,
+        options?: AdminRequestOptions,
+    ) => Promise<AdminChoicesResponse>;
     getChoices: (
         slug: string,
         fieldName: string,
@@ -138,6 +155,32 @@ export function createAdminClient(transport: AdminTransport): AdminClient {
                 transport,
                 `/xladmin/models/${slug}/items/${id}/actions/${actionSlug}/`,
                 payload ?? {},
+            );
+        },
+        async getBulkActionChoices(slug, actionSlug, fieldName, q, ids, options) {
+            return await transportGet<AdminChoicesResponse>(
+                transport,
+                `/xladmin/models/${slug}/bulk-actions/${actionSlug}/fields/${fieldName}/choices/`,
+                {
+                    signal: options?.signal,
+                    params: {
+                        ...(q ? {q} : {}),
+                        ...(ids && ids.length > 0 ? {ids: ids.join(',')} : {}),
+                    },
+                },
+            );
+        },
+        async getObjectActionChoices(slug, id, actionSlug, fieldName, q, ids, options) {
+            return await transportGet<AdminChoicesResponse>(
+                transport,
+                `/xladmin/models/${slug}/items/${id}/actions/${actionSlug}/fields/${fieldName}/choices/`,
+                {
+                    signal: options?.signal,
+                    params: {
+                        ...(q ? {q} : {}),
+                        ...(ids && ids.length > 0 ? {ids: ids.join(',')} : {}),
+                    },
+                },
             );
         },
         async getChoices(slug, fieldName, q, ids, options) {

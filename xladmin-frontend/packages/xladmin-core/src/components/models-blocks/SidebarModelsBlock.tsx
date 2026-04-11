@@ -1,5 +1,6 @@
 'use client';
 
+import {useEffect} from 'react';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
     Accordion,
@@ -26,6 +27,13 @@ type SidebarModelsBlockProps = {
 
 export function SidebarModelsBlock({block, basePath, activeModelSlug, onModelNavigate}: SidebarModelsBlockProps) {
     const [isExpanded, setIsExpanded] = useBlockExpandedState(block.slug, block.default_expanded);
+    const hasActiveModel = block.models.some((model) => model.slug === activeModelSlug);
+
+    useEffect(() => {
+        if (hasActiveModel && !isExpanded) {
+            setIsExpanded(true);
+        }
+    }, [hasActiveModel, isExpanded, setIsExpanded]);
 
     if (block.collapsible) {
         return (
@@ -34,6 +42,8 @@ export function SidebarModelsBlock({block, basePath, activeModelSlug, onModelNav
                 onChange={(_, expanded) => setIsExpanded(expanded)}
                 disableGutters
                 elevation={0}
+                data-xladmin-active-block={hasActiveModel ? 'true' : undefined}
+                data-xladmin-block-origin={block.isAllModels ? 'all-models' : 'block'}
                 sx={{
                     ...getBlockSurfaceSx(block, 'sidebar'),
                     borderRadius: '8px',
@@ -68,6 +78,7 @@ export function SidebarModelsBlock({block, basePath, activeModelSlug, onModelNav
                         models={block.models}
                         basePath={basePath}
                         activeModelSlug={activeModelSlug}
+                        modelOrigin={block.isAllModels ? 'all-models' : 'block'}
                         onModelNavigate={onModelNavigate}
                     />
                 </AccordionDetails>
@@ -77,6 +88,8 @@ export function SidebarModelsBlock({block, basePath, activeModelSlug, onModelNav
 
     return (
         <Paper
+            data-xladmin-active-block={hasActiveModel ? 'true' : undefined}
+            data-xladmin-block-origin={block.isAllModels ? 'all-models' : 'block'}
             sx={{
                 ...getBlockSurfaceSx(block, 'sidebar'),
                 borderRadius: '8px',
@@ -90,6 +103,7 @@ export function SidebarModelsBlock({block, basePath, activeModelSlug, onModelNav
                 models={block.models}
                 basePath={basePath}
                 activeModelSlug={activeModelSlug}
+                modelOrigin={block.isAllModels ? 'all-models' : 'block'}
                 onModelNavigate={onModelNavigate}
             />
         </Paper>
@@ -100,10 +114,11 @@ type SidebarModelsListProps = {
     models: Array<{ slug: string; title: string }>;
     basePath: string;
     activeModelSlug: string | null;
+    modelOrigin: 'block' | 'all-models';
     onModelNavigate?: (href: string) => void;
 };
 
-function SidebarModelsList({models, basePath, activeModelSlug, onModelNavigate}: SidebarModelsListProps) {
+function SidebarModelsList({models, basePath, activeModelSlug, modelOrigin, onModelNavigate}: SidebarModelsListProps) {
     return (
         <List dense disablePadding sx={{display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.35}}>
             {models.map((model) => {
@@ -117,29 +132,43 @@ function SidebarModelsList({models, basePath, activeModelSlug, onModelNavigate}:
                         style={{textDecoration: 'none', display: 'block'}}
                         onClick={() => onModelNavigate?.(href)}
                     >
-                        <ListItemButton
-                            selected={isActive}
-                            sx={{
-                                borderRadius: '8px',
-                                px: 1.4,
-                                backgroundColor: isActive ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.04)',
-                                boxShadow: isActive ? 'inset 0 0 0 1px rgba(255, 255, 255, 0.08)' : 'none',
-                                '&:hover': {
-                                    backgroundColor: isActive ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.06)',
-                                },
-                                '&.Mui-selected': {
-                                    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-                                },
-                                '&.Mui-selected:hover': {
-                                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                                },
-                            }}
-                        >
-                            <ListItemText primary={model.title}/>
-                        </ListItemButton>
+                        <SidebarModelListItem title={model.title} isActive={isActive} modelOrigin={modelOrigin}/>
                     </NavLink>
                 );
             })}
         </List>
+    );
+}
+
+type SidebarModelListItemProps = {
+    title: string;
+    isActive: boolean;
+    modelOrigin: 'block' | 'all-models';
+};
+
+function SidebarModelListItem({title, isActive, modelOrigin}: SidebarModelListItemProps) {
+    return (
+        <ListItemButton
+            selected={isActive}
+            data-xladmin-active-model={isActive ? 'true' : undefined}
+            data-xladmin-model-origin={isActive ? modelOrigin : undefined}
+            sx={{
+                borderRadius: '8px',
+                px: 1.4,
+                backgroundColor: isActive ? 'rgba(255, 255, 255, 0.18)' : 'rgba(255, 255, 255, 0.04)',
+                boxShadow: isActive ? 'inset 0 0 0 1px rgba(255, 255, 255, 0.08)' : 'none',
+                '&:hover': {
+                    backgroundColor: isActive ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.06)',
+                },
+                '&.Mui-selected': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+                },
+                '&.Mui-selected:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                },
+            }}
+        >
+            <ListItemText primary={title}/>
+        </ListItemButton>
     );
 }

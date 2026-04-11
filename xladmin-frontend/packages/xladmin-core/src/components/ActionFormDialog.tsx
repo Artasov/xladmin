@@ -1,68 +1,63 @@
 'use client';
 
-import {useEffect, useMemo, useRef, useState} from 'react';
-import {Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,} from '@mui/material';
+import {useEffect, useRef, useState} from 'react';
+import {Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle} from '@mui/material';
 import {LocalizationProvider} from '@mui/x-date-pickers';
 import {AdapterDayjs} from '@mui/x-date-pickers/AdapterDayjs';
 import type {AdminClient} from '../client';
 import {useAdminTranslation} from '../i18n';
-import type {AdminEditableFieldMeta, AdminModelMeta} from '../types';
+import type {AdminFormFieldMeta, AdminLocale} from '../types';
 import {buildAdminFormInitialValues, buildAdminPayload} from '../utils/adminFields';
 import {getMuiPickersLocaleText} from '../utils/pickersLocale';
 import {FieldEditor} from './FieldEditor';
 import {useAdminMessage} from './layout/AdminMessageContext';
 
-type AdminFormDialogProps = {
+type ActionFormDialogProps = {
     open: boolean;
     onClose: () => void;
     onSuccess: () => void;
     title: string;
+    submitLabel?: string;
     slug: string;
-    mode: 'create' | 'patch';
-    meta: AdminModelMeta;
+    locale: AdminLocale;
+    fields: AdminFormFieldMeta[];
     client: AdminClient;
+    choiceScope: (
+        | {kind: 'bulk-action'; actionSlug: string}
+        | {kind: 'object-action'; actionSlug: string; itemId: string | number}
+    );
     initialValues?: Record<string, unknown>;
-    itemId?: string | number;
+    onSubmit: (payload: Record<string, unknown>) => Promise<void>;
 };
 
-export type FormDialogProps = AdminFormDialogProps;
-
-export function FormDialog({
-                               open,
-                               onClose,
-                               onSuccess,
-                               title,
-                               slug,
-                               mode,
-                               meta,
-                               client,
-                               initialValues,
-                               itemId,
-                           }: FormDialogProps) {
+export function ActionFormDialog({
+                                     open,
+                                     onClose,
+                                     onSuccess,
+                                     title,
+                                     submitLabel,
+                                     slug,
+                                     locale,
+                                     fields,
+                                     client,
+                                     choiceScope,
+                                     initialValues,
+                                     onSubmit,
+                                 }: ActionFormDialogProps) {
     const t = useAdminTranslation();
     const message = useAdminMessage();
     const [values, setValues] = useState<Record<string, unknown>>({});
     const [error, setError] = useState<string | null>(null);
-    const [isSaving, setIsSaving] = useState(false);
-    const editableFields = useMemo(
-        (): AdminEditableFieldMeta[] => {
-            if (mode === 'create' && meta.create_form && meta.create_form.length > 0) {
-                return meta.create_form;
-            }
-            const editableFieldNames = mode === 'create' ? meta.create_fields : meta.update_fields;
-            return meta.fields.filter((field) => editableFieldNames.includes(field.name));
-        },
-        [meta.create_fields, meta.create_form, meta.fields, meta.update_fields, mode],
-    );
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [openPickerFieldName, setOpenPickerFieldName] = useState<string | null>(null);
     const pendingPickerFrameRef = useRef<number | null>(null);
 
     useEffect(() => {
-        setValues(buildAdminFormInitialValues(editableFields, initialValues));
+        setValues(buildAdminFormInitialValues(fields, initialValues));
         setError(null);
-        setIsSaving(false);
+        setIsSubmitting(false);
         setOpenPickerFieldName(null);
-    }, [editableFields, initialValues, open]);
+    }, [fields, initialValues, open]);
 
     useEffect(() => {
         return () => {
@@ -100,30 +95,23 @@ export function FormDialog({
         setOpenPickerFieldName((current) => (current === fieldName ? null : current));
     };
 
-    const handleSave = async () => {
-        if (isSaving) {
+    const handleSubmit = async () => {
+        if (isSubmitting) {
             return;
         }
 
-        setIsSaving(true);
+        setIsSubmitting(true);
         setError(null);
-        const payload = buildAdminPayload(values, editableFields);
         try {
-            if (mode === 'create') {
-                await client.createItem(slug, payload);
-                message.success(t('object_created_success'));
-            } else if (itemId !== undefined) {
-                await client.patchItem(slug, itemId, payload);
-                message.success(t('object_saved_success'));
-            }
+            await onSubmit(buildAdminPayload(values, fields));
             onSuccess();
             onClose();
         } catch (reason: unknown) {
-            const nextError = reason instanceof Error ? reason.message : t('object_save_error');
+            const nextError = reason instanceof Error ? reason.message : t('object_action_error');
             setError(nextError);
             message.error(nextError);
         } finally {
-            setIsSaving(false);
+            setIsSubmitting(false);
         }
     };
 
@@ -152,18 +140,19 @@ export function FormDialog({
             <DialogContent>
                 <LocalizationProvider
                     dateAdapter={AdapterDayjs}
-                    adapterLocale={meta.locale}
-                    localeText={getMuiPickersLocaleText(meta.locale)}
+                    adapterLocale={locale}
+                    localeText={getMuiPickersLocaleText(locale)}
                 >
                     <Box sx={{display: 'grid', gap: 2, pt: 1}}>
                         {error ? <Alert severity="error">{error}</Alert> : null}
-                        {editableFields.map((field) => (
+                        {fields.map((field) => (
                             <FieldEditor
                                 key={field.name}
                                 field={field}
                                 value={values[field.name]}
                                 slug={slug}
                                 client={client}
+                                choiceScope={choiceScope}
                                 isPickerOpen={openPickerFieldName === field.name}
                                 hasAnotherPickerOpen={openPickerFieldName !== null && openPickerFieldName !== field.name}
                                 onChange={(nextValue) => {
@@ -177,9 +166,9 @@ export function FormDialog({
                 </LocalizationProvider>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose} disabled={isSaving}>{t('cancel')}</Button>
-                <Button variant="contained" onClick={() => void handleSave()} disabled={isSaving}>
-                    {isSaving ? t('saving') : t('save')}
+                <Button onClick={onClose} disabled={isSubmitting}>{t('cancel')}</Button>
+                <Button variant="contained" onClick={() => void handleSubmit()} disabled={isSubmitting}>
+                    {isSubmitting ? t('saving') : (submitLabel ?? t('save'))}
                 </Button>
             </DialogActions>
         </Dialog>

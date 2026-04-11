@@ -6,10 +6,11 @@ from contextlib import asynccontextmanager
 from datetime import date
 from types import SimpleNamespace
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import Date, ForeignKey, String
+from sqlalchemy import Date, ForeignKey, Integer, String
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.pool import StaticPool
@@ -18,6 +19,8 @@ from xladmin import (
     AdminBulkActionConfig,
     AdminConfig,
     AdminFieldConfig,
+    AdminFormFieldConfig,
+    AdminFormFieldOptionConfig,
     AdminHTTPConfig,
     AdminListFilterConfig,
     AdminListFilterOptionConfig,
@@ -205,6 +208,18 @@ class DemoStrictProfileORM(Base):
     access_code: Mapped[str] = mapped_column(String(64), nullable=False)
 
 
+class DemoProxyORM(Base):
+    __tablename__ = "demo_proxies"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    scheme: Mapped[str] = mapped_column(String(16), nullable=False)
+    host: Mapped[str] = mapped_column(String(255), nullable=False)
+    port: Mapped[int] = mapped_column(Integer, nullable=False)
+    username: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    password: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+
+
 TEST_DATABASE_URL = os.getenv(
     "XLADMIN_TEST_DATABASE_URL",
     "postgresql+asyncpg://postgres:adminadmin@localhost:5432/xladmin_test",
@@ -274,6 +289,15 @@ async def build_test_app(
             item.is_active = True
         return {"activated": len(items)}
 
+    async def activate_users_with_reason(
+            _session: AsyncSession,
+            _model_config: AdminModelConfig,
+            items: list[DemoUserORM],
+            payload: dict[str, Any],
+            _user: Any,
+    ) -> dict[str, Any]:
+        return {"activated": len(items), "reason": str(payload.get("reason") or "")}
+
     async def deactivate_user(
             _session: AsyncSession,
             _model_config: AdminModelConfig,
@@ -284,8 +308,43 @@ async def build_test_app(
         item.is_active = False
         return {"deactivated": 1}
 
+    async def rename_user(
+            _session: AsyncSession,
+            _model_config: AdminModelConfig,
+            item: DemoUserORM,
+            payload: dict[str, Any],
+            _user: Any,
+    ) -> dict[str, Any]:
+        next_username = str(payload.get("username") or "").strip()
+        if not next_username:
+            raise ValueError("Username is required.")
+        item.username = next_username
+        return {"username": next_username}
+
     def create_invite_item(_payload: dict[str, Any], _session: AsyncSession, _user: Any) -> DemoInviteORM:
         return DemoInviteORM(secret_key="generated-secret", created_by="admin")
+
+    async def create_proxy_item(
+            _session: AsyncSession,
+            _model_config: AdminModelConfig,
+            payload: dict[str, Any],
+            _user: Any,
+    ) -> DemoProxyORM:
+        raw_proxy = str(payload.get("proxy") or "").strip()
+        scheme = str(payload.get("scheme") or "socks5h").strip()
+        parsed = urlsplit(f"{scheme}://{raw_proxy}")
+        username = parsed.username or ""
+        password = parsed.password or ""
+        host = parsed.hostname or ""
+        port = parsed.port or 0
+        return DemoProxyORM(
+            name=f"{host}:{port}",
+            scheme=scheme,
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+        )
 
     config = AdminConfig(
         locale=locale,
@@ -385,12 +444,38 @@ async def build_test_app(
                         label="Активировать",
                         handler=activate_users,
                     ),
+                    AdminBulkActionConfig(
+                        slug="activate-with-reason",
+                        label="Активировать с причиной",
+                        form=(
+                            AdminFormFieldConfig(
+                                name="reason",
+                                label="Причина",
+                                required=True,
+                                nullable=False,
+                            ),
+                        ),
+                        handler=activate_users_with_reason,
+                    ),
                 ),
                 object_actions=(
                     AdminObjectActionConfig(
                         slug="deactivate",
                         label="Деактивировать",
                         handler=deactivate_user,
+                    ),
+                    AdminObjectActionConfig(
+                        slug="rename",
+                        label="Переименовать",
+                        form=(
+                            AdminFormFieldConfig(
+                                name="username",
+                                label="Имя пользователя",
+                                required=True,
+                                nullable=False,
+                            ),
+                        ),
+                        handler=rename_user,
                     ),
                 ),
             ),
@@ -481,6 +566,31 @@ async def build_test_app(
                 fields={
                     "access_code": AdminFieldConfig(hidden_in_form=True),
                 },
+            ),
+            ModelConfig(
+                model=DemoProxyORM,
+                slug="proxies",
+                title="Proxies",
+                list_display=("id", "name", "scheme", "host", "port"),
+                create_form=(
+                    AdminFormFieldConfig(
+                        name="scheme",
+                        label="Scheme",
+                        input_kind="select",
+                        nullable=False,
+                        options=(
+                            AdminFormFieldOptionConfig(value="http", label="HTTP"),
+                            AdminFormFieldOptionConfig(value="socks5h", label="SOCKS5H"),
+                        ),
+                    ),
+                    AdminFormFieldConfig(
+                        name="proxy",
+                        label="Proxy",
+                        placeholder="login:password@ip:port",
+                        nullable=False,
+                    ),
+                ),
+                create_handler=create_proxy_item,
             ),
         ),
     )

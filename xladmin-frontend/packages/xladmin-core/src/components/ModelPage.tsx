@@ -39,6 +39,7 @@ import type {AdminRouter} from '../router';
 import {AdminRouterProvider, useAdminLocation, useAdminRouter} from '../router';
 import type {AdminFieldMeta} from '../types';
 import {getListFieldWidthPx} from '../utils/adminFields';
+import {ActionFormDialog} from './ActionFormDialog';
 import {DeletePreviewDialog} from './DeletePreviewDialog';
 import {FormDialog} from './FormDialog';
 import {MainHeader} from './layout/MainHeader';
@@ -455,6 +456,22 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
                     meta={meta}
                     client={client}
                 />
+
+                {controller.activeBulkAction?.form ? (
+                    <ActionFormDialog
+                        open={true}
+                        onClose={controller.handleCloseBulkActionForm}
+                        onSuccess={() => undefined}
+                        title={`${controller.activeBulkAction.label}: ${meta.title}`}
+                        submitLabel={controller.activeBulkAction.label}
+                        slug={slug}
+                        locale={meta.locale}
+                        fields={controller.activeBulkAction.form}
+                        client={client}
+                        choiceScope={{kind: 'bulk-action', actionSlug: controller.activeBulkAction.slug}}
+                        onSubmit={controller.handleSubmitBulkActionForm}
+                    />
+                ) : null}
 
                 <Dialog
                     open={controller.filtersOpen}

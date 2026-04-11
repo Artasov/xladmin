@@ -1,5 +1,6 @@
+import dayjs from 'dayjs';
 import {normalizeAdminLocale, translateAdmin} from '@xladmin-core/i18n';
-import type {AdminFieldMeta, AdminLocale} from '@xladmin-core/types';
+import type {AdminEditableFieldMeta, AdminFieldMeta, AdminLocale} from '@xladmin-core/types';
 
 /**
  * Готовит payload для create/patch так, чтобы nullable-поля можно было очищать,
@@ -7,7 +8,7 @@ import type {AdminFieldMeta, AdminLocale} from '@xladmin-core/types';
  */
 export function buildAdminPayload(
     values: Record<string, unknown>,
-    fields: AdminFieldMeta[],
+    fields: AdminEditableFieldMeta[],
 ): Record<string, unknown> {
     const fieldMap = new Map(fields.map((field) => [field.name, field]));
     const payload: Record<string, unknown> = {};
@@ -31,6 +32,34 @@ export function buildAdminPayload(
     }
 
     return payload;
+}
+
+export function buildAdminFormInitialValues(
+    fields: AdminEditableFieldMeta[],
+    initialValues?: Record<string, unknown>,
+): Record<string, unknown> {
+    const values = {...(initialValues ?? {})};
+    for (const field of fields) {
+        if (
+            values[field.name] === undefined
+            && field.required
+            && field.input_kind === 'select'
+            && (field.options?.length ?? 0) > 0
+        ) {
+            values[field.name] = field.options?.[0]?.value;
+        }
+        if (!field.auto_now || values[field.name] !== undefined) {
+            continue;
+        }
+        if (field.input_kind === 'date') {
+            values[field.name] = dayjs().format('YYYY-MM-DD');
+            continue;
+        }
+        if (field.input_kind === 'datetime') {
+            values[field.name] = dayjs().format('YYYY-MM-DD[T]HH:mm:ss');
+        }
+    }
+    return values;
 }
 
 type FormatAdminValueOptions = {

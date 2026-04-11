@@ -10,6 +10,8 @@ export type AdminFieldInputKind =
     | 'date'
     | 'datetime'
     | 'json'
+    | 'select'
+    | 'select-multiple'
     | 'relation'
     | 'relation-multiple';
 
@@ -17,29 +19,49 @@ export type AdminFieldDisplayKind = 'text' | 'image';
 
 export type AdminListFilterInputKind = 'text' | 'select' | 'select-multiple' | 'boolean';
 
-export type AdminFieldMeta = {
+export type AdminFieldOptionMeta = {
+    value: string | number | boolean;
+    label: string;
+};
+
+export type AdminEditableFieldMeta = {
     name: string;
     label: string;
     help_text: string | null;
+    required: boolean;
+    placeholder?: string | null;
+    nullable: boolean;
+    read_only: boolean;
+    type: string;
+    input_kind: AdminFieldInputKind;
+    has_choices: boolean;
+    is_relation_many: boolean;
+    options?: AdminFieldOptionMeta[];
+    auto_now?: boolean;
+};
+
+export type AdminFieldMeta = AdminEditableFieldMeta & {
     width_px?: number | null;
     display_kind: AdminFieldDisplayKind;
     image_url_prefix?: string | null;
-    nullable: boolean;
-    read_only: boolean;
     hidden_in_list: boolean;
     hidden_in_detail: boolean;
     hidden_in_form: boolean;
     hidden_in_create: boolean;
     hidden_in_update: boolean;
-    type: string;
-    input_kind: AdminFieldInputKind;
     is_primary_key: boolean;
     is_virtual: boolean;
-    has_choices: boolean;
     is_relation: boolean;
-    is_relation_many: boolean;
     is_sortable: boolean;
 };
+
+export type AdminCreateFormFieldMeta = AdminEditableFieldMeta & {
+    placeholder: string | null;
+    options: AdminFieldOptionMeta[];
+    auto_now: boolean;
+};
+
+export type AdminFormFieldMeta = AdminCreateFormFieldMeta;
 
 export type AdminListFilterOptionMeta = {
     value: string;
@@ -61,11 +83,13 @@ export type AdminListFilterMeta = {
 export type AdminBulkActionMeta = {
     slug: string;
     label: string;
+    form: AdminFormFieldMeta[] | null;
 };
 
 export type AdminObjectActionMeta = {
     slug: string;
     label: string;
+    form: AdminFormFieldMeta[] | null;
 };
 
 export type AdminModelMeta = {
@@ -80,6 +104,7 @@ export type AdminModelMeta = {
     list_fields: string[];
     detail_fields: string[];
     create_fields: string[];
+    create_form: AdminCreateFormFieldMeta[] | null;
     update_fields: string[];
     bulk_actions: AdminBulkActionMeta[];
     object_actions: AdminObjectActionMeta[];

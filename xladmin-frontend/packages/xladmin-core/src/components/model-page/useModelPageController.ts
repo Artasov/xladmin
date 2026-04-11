@@ -67,6 +67,7 @@ export function useModelPageController({
     const [rowActionMenuAnchor, setRowActionMenuAnchor] = useState<HTMLElement | null>(null);
     const [rowActionMenuId, setRowActionMenuId] = useState<string | number | null>(null);
     const [bulkActionMenuAnchor, setBulkActionMenuAnchor] = useState<HTMLElement | null>(null);
+    const [bulkActionFormSlug, setBulkActionFormSlug] = useState<string | null>(null);
     const [appliedQuery, setAppliedQuery] = useState(initialQuery);
     const [sortValue, setSortValue] = useState(initialSort);
     const [currentPage, setCurrentPage] = useState(initialPage);
@@ -160,6 +161,7 @@ export function useModelPageController({
         setRowActionMenuAnchor(null);
         setRowActionMenuId(null);
         setBulkActionMenuAnchor(null);
+        setBulkActionFormSlug(null);
         setDeletePreviewOpen(false);
         setDeletePreview(null);
         setDeletePreviewError(null);
@@ -416,6 +418,13 @@ export function useModelPageController({
             return;
         }
 
+        const action = bulkActions.find((item) => item.slug === actionSlug);
+        if ((action?.form?.length ?? 0) > 0) {
+            setBulkActionMenuAnchor(null);
+            setBulkActionFormSlug(actionSlug);
+            return;
+        }
+
         try {
             const response = await client.runBulkAction(
                 slug,
@@ -435,6 +444,34 @@ export function useModelPageController({
             message.error(nextError);
         }
     }, [bulkActions, clearSelection, client, hasSelection, isAllMatchingSelected, message, openBulkDeletePreview, refresh, selectedIds, selectionScope, slug, t]);
+
+    const handleSubmitBulkActionForm = useCallback(async (payload: Record<string, unknown>) => {
+        if (!bulkActionFormSlug || !hasSelection) {
+            return;
+        }
+
+        const response = await client.runBulkAction(
+            slug,
+            bulkActionFormSlug,
+            isAllMatchingSelected ? [] : selectedIds,
+            payload,
+            isAllMatchingSelected ? {selectAll: true, selectionScope} : undefined,
+        );
+        setBulkActionFormSlug(null);
+        clearSelection();
+        await refresh();
+        const actionLabel = bulkActions.find((item) => item.slug === bulkActionFormSlug)?.label ?? bulkActionFormSlug;
+        message.success(t('action_success', {action: actionLabel, count: response.processed}));
+    }, [bulkActionFormSlug, bulkActions, clearSelection, client, hasSelection, isAllMatchingSelected, message, refresh, selectedIds, selectionScope, slug, t]);
+
+    const handleCloseBulkActionForm = useCallback(() => {
+        setBulkActionFormSlug(null);
+    }, []);
+
+    const activeBulkAction = useMemo(
+        () => bulkActions.find((item) => item.slug === bulkActionFormSlug) ?? null,
+        [bulkActionFormSlug, bulkActions],
+    );
 
     const handleRowDelete = useCallback(async (rowId: string | number) => {
         setRowActionMenuAnchor(null);
@@ -526,6 +563,7 @@ export function useModelPageController({
         appliedQuery,
         bulkActionMenuAnchor,
         bulkActions,
+        activeBulkAction,
         clearBulkDeleteState,
         createOpen,
         currentPage,
@@ -538,6 +576,7 @@ export function useModelPageController({
         filtersOpen,
         handleClearDeletePreview,
         handleCloseBulkActionMenu,
+        handleCloseBulkActionForm,
         handleCloseRowMenu,
         handleConfirmDelete,
         handleFilterChange,
@@ -547,6 +586,7 @@ export function useModelPageController({
         handleResetFilters,
         handleRowDelete,
         handleRunNamedBulkAction,
+        handleSubmitBulkActionForm,
         handleSearchCommit,
         handleSelectAllMatching,
         handleToggleAllVisible,

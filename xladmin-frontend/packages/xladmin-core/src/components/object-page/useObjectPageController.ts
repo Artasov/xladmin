@@ -48,6 +48,7 @@ export function useObjectPageController({
     const [isDeletePreviewLoading, setIsDeletePreviewLoading] = useState(false);
     const [deletePreviewError, setDeletePreviewError] = useState<string | null>(null);
     const [actionsAnchorEl, setActionsAnchorEl] = useState<HTMLElement | null>(null);
+    const [objectActionFormSlug, setObjectActionFormSlug] = useState<string | null>(null);
 
     useLayoutEffect(() => {
         let isMounted = true;
@@ -118,6 +119,10 @@ export function useObjectPageController({
         [data, id, meta],
     );
     const isActionsMenuOpen = actionsAnchorEl !== null;
+    const activeObjectAction = useMemo(
+        () => objectActions.find((item) => item.slug === objectActionFormSlug) ?? null,
+        [objectActionFormSlug, objectActions],
+    );
     const currentPayload = useMemo(
         () => buildAdminPayload(values, editableFields),
         [editableFields, values],
@@ -187,6 +192,12 @@ export function useObjectPageController({
     }, [listPath, router]);
 
     const handleRunObjectAction = useCallback(async (actionSlug: string) => {
+        const action = objectActions.find((item) => item.slug === actionSlug);
+        if ((action?.form?.length ?? 0) > 0) {
+            setActionsAnchorEl(null);
+            setObjectActionFormSlug(actionSlug);
+            return;
+        }
         setActiveActionSlug(actionSlug);
         setError(null);
         try {
@@ -210,6 +221,35 @@ export function useObjectPageController({
         }
     }, [cacheKey, client, data, id, message, objectActions, slug, t]);
 
+    const handleSubmitObjectActionForm = useCallback(async (payload: Record<string, unknown>) => {
+        if (!objectActionFormSlug) {
+            return;
+        }
+
+        setActiveActionSlug(objectActionFormSlug);
+        setError(null);
+        try {
+            const response = await client.runObjectAction(slug, id, objectActionFormSlug, payload);
+            const nextDetail = data ? {...data, item: response.item} : null;
+            if (nextDetail) {
+                invalidateModelCache(client, slug);
+                setCachedDetailResponse(client, cacheKey, nextDetail);
+            }
+            setData(nextDetail);
+            setValues(response.item);
+            setInitialValues(response.item);
+            const actionLabel = objectActions.find((item) => item.slug === objectActionFormSlug)?.label ?? objectActionFormSlug;
+            message.success(t('action_success', {action: actionLabel, count: 1}));
+            setObjectActionFormSlug(null);
+        } finally {
+            setActiveActionSlug(null);
+        }
+    }, [cacheKey, client, data, id, message, objectActionFormSlug, objectActions, slug, t]);
+
+    const handleCloseObjectActionForm = useCallback(() => {
+        setObjectActionFormSlug(null);
+    }, []);
+
     const handleOpenDeletePreview = useCallback(async () => {
         setActionsAnchorEl(null);
         setDeleteConfirmOpen(true);
@@ -229,6 +269,7 @@ export function useObjectPageController({
     return {
         actionsAnchorEl,
         activeActionSlug,
+        activeObjectAction,
         data,
         deleteConfirmOpen,
         deletePreview,
@@ -243,6 +284,8 @@ export function useObjectPageController({
         handleOpenDeletePreview,
         handleRunObjectAction,
         handleSave,
+        handleCloseObjectActionForm,
+        handleSubmitObjectActionForm,
         initialValues,
         isActionsMenuOpen,
         isDeletePreviewLoading,

@@ -66,6 +66,8 @@ def get_visible_detail_fields(config: AdminModelConfig) -> list[str]:
 
 
 def get_create_fields(config: AdminModelConfig) -> list[str]:
+    if config.create_form is not None:
+        return [field.name for field in config.create_form]
     if config.create_fields is not None:
         return list(config.create_fields)
     mapper = sa_inspect(config.model)
@@ -79,6 +81,9 @@ def get_create_fields(config: AdminModelConfig) -> list[str]:
         if name in column_names:
             column = mapper.columns[name]
             if name == get_pk_field_name(config) and pk_is_generated(column):
+                continue
+        elif name in relationship_names:
+            if not should_include_relationship_in_auto_form(config, name):
                 continue
         elif name not in relationship_names and field_config.value_setter is None:
             continue
@@ -100,7 +105,10 @@ def get_update_fields(config: AdminModelConfig) -> list[str]:
                 and not config.get_field_config(name).hidden_in_update
                 and (
                         name in column_names
-                        or name in relationship_names
+                        or (
+                                name in relationship_names
+                                and should_include_relationship_in_auto_form(config, name)
+                        )
                         or config.get_field_config(name).value_setter is not None
                 )
         )
@@ -180,3 +188,16 @@ def serialize_related_pk(instance: Any) -> Any:
     mapper = sa_inspect(type(instance))
     pk_column = mapper.primary_key[0]
     return getattr(instance, pk_column.key)
+
+
+def should_include_relationship_in_auto_form(config: AdminModelConfig, field_name: str) -> bool:
+    mapper = sa_inspect(config.model)
+    relationship = mapper.relationships[field_name]
+    if relationship.uselist:
+        return False
+
+    local_column_keys = {column.key for column in relationship.local_columns}
+    if any(column_key in mapper.columns and column_key != field_name for column_key in local_column_keys):
+        return False
+
+    return True

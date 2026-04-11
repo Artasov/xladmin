@@ -192,6 +192,41 @@ def _validate_model_config(config: ModelConfig) -> None:
                 f"for model '{config.model.__name__}'.",
             )
 
+    create_form_names: set[str] = set()
+    for form_field in config.create_form or ():
+        _validate_form_field(
+            config,
+            form_field,
+            configured_field_names=configured_field_names,
+            seen_field_names=create_form_names,
+            form_owner="create_form",
+            allow_custom_field_names=config.create_handler is not None,
+        )
+
+    for bulk_action in config.bulk_actions:
+        bulk_action_form_names: set[str] = set()
+        for form_field in bulk_action.form or ():
+            _validate_form_field(
+                config,
+                form_field,
+                configured_field_names=configured_field_names,
+                seen_field_names=bulk_action_form_names,
+                form_owner=f"bulk action '{bulk_action.slug}' form",
+                allow_custom_field_names=True,
+            )
+
+    for object_action in config.object_actions:
+        object_action_form_names: set[str] = set()
+        for form_field in object_action.form or ():
+            _validate_form_field(
+                config,
+                form_field,
+                configured_field_names=configured_field_names,
+                seen_field_names=object_action_form_names,
+                form_owner=f"object action '{object_action.slug}' form",
+                allow_custom_field_names=True,
+            )
+
     sortable_field_names = configured_field_names
     for field_name in config.ordering:
         normalized_field_name = field_name[1:] if field_name.startswith("-") else field_name
@@ -225,6 +260,40 @@ def _get_implicit_list_relationship_fields(config: ModelConfig) -> list[str]:
             continue
         relationship_fields.append(field_name)
     return relationship_fields
+
+
+def _validate_form_field(
+        config: ModelConfig,
+        form_field: Any,
+        *,
+        configured_field_names: set[str],
+        seen_field_names: set[str],
+        form_owner: str,
+        allow_custom_field_names: bool,
+) -> None:
+    if form_field.name in seen_field_names:
+        raise ValueError(
+            f"Duplicate field '{form_field.name}' in {form_owner} for model '{config.model.__name__}'.",
+        )
+    seen_field_names.add(form_field.name)
+    if form_field.options and form_field.relation_model is not None:
+        raise ValueError(
+            f"Field '{form_field.name}' in {form_owner} for model '{config.model.__name__}' "
+            "cannot define both options and relation_model.",
+        )
+    if form_field.name not in configured_field_names and not allow_custom_field_names:
+        raise ValueError(
+            f"Unknown field '{form_field.name}' in {form_owner} for model '{config.model.__name__}'.",
+        )
+    if (
+            form_field.name not in configured_field_names
+            and form_field.input_kind in {"relation", "relation-multiple"}
+            and form_field.relation_model is None
+    ):
+        raise ValueError(
+            f"Custom relation field '{form_field.name}' in {form_owner} for model '{config.model.__name__}' "
+            "must define relation_model.",
+        )
 
 
 AdminRegistry = Registry

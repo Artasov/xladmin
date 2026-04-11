@@ -1,21 +1,30 @@
 'use client';
 
-import {memo, useCallback, useEffect, useMemo, useState} from 'react';
-import {Autocomplete, CircularProgress, FormControlLabel, Switch, TextField,} from '@mui/material';
+import {memo, useCallback, useEffect, useMemo, useState, type MouseEvent} from 'react';
+import {Autocomplete, CircularProgress, FormControlLabel, MenuItem, Switch, TextField,} from '@mui/material';
 import {DatePicker, DateTimePicker} from '@mui/x-date-pickers';
 import dayjs from 'dayjs';
 import type {AdminClient} from '@xladmin-core/client';
 import {useRemoteChoices} from '@xladmin-core/hooks/useRemoteChoices';
 import {useAdminTranslation} from '@xladmin-core/i18n';
-import type {AdminFieldMeta} from '@xladmin-core/types';
+import type {AdminEditableFieldMeta} from '@xladmin-core/types';
 
 type AdminFieldEditorProps = {
-    field: AdminFieldMeta;
+    field: AdminEditableFieldMeta;
     value: unknown;
     onChange: (value: unknown) => void;
     slug: string;
     client: AdminClient;
+    choiceScope?: (
+        | {kind: 'model'}
+        | {kind: 'bulk-action'; actionSlug: string}
+        | {kind: 'object-action'; actionSlug: string; itemId: string | number}
+    );
     readOnly?: boolean;
+    isPickerOpen?: boolean;
+    hasAnotherPickerOpen?: boolean;
+    onRequestPickerOpen?: () => void;
+    onRequestPickerClose?: () => void;
 };
 
 type RelationOption = {
@@ -24,6 +33,20 @@ type RelationOption = {
 };
 
 export type FieldEditorProps = AdminFieldEditorProps;
+const DEFAULT_CHOICE_SCOPE = {kind: 'model'} as const;
+
+function handlePickerButtonMouseDown(
+    event: MouseEvent,
+    hasAnotherPickerOpen: boolean,
+    onRequestPickerOpen?: () => void,
+) {
+    if (!hasAnotherPickerOpen) {
+        return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    onRequestPickerOpen?.();
+}
 
 export const FieldEditor = memo(function FieldEditor({
                                                          field,
@@ -31,25 +54,60 @@ export const FieldEditor = memo(function FieldEditor({
                                                          onChange,
                                                          slug,
                                                          client,
+                                                         choiceScope,
                                                          readOnly = false,
+                                                         isPickerOpen,
+                                                         hasAnotherPickerOpen = false,
+                                                         onRequestPickerOpen,
+                                                         onRequestPickerClose,
                                                      }: FieldEditorProps) {
     const t = useAdminTranslation();
     const [searchValue, setSearchValue] = useState('');
     const [jsonTextValue, setJsonTextValue] = useState(() => stringifyJsonValue(value));
     const [jsonError, setJsonError] = useState<string | null>(null);
+    const resolvedChoiceScope = choiceScope ?? DEFAULT_CHOICE_SCOPE;
     const selectedIds = useMemo(() => normalizeSelectedIds(value, field.is_relation_many), [field.is_relation_many, value]);
     const loadChoices = useCallback(
         async (signal: AbortSignal) => {
-            const response = await client.getChoices(
-                slug,
-                field.name,
-                searchValue || undefined,
-                selectedIds,
-                {signal},
-            );
+            const response = resolvedChoiceScope.kind === 'bulk-action'
+                ? await client.getBulkActionChoices(
+                    slug,
+                    resolvedChoiceScope.actionSlug,
+                    field.name,
+                    searchValue || undefined,
+                    selectedIds,
+                    {signal},
+                )
+                : resolvedChoiceScope.kind === 'object-action'
+                    ? await client.getObjectActionChoices(
+                        slug,
+                        resolvedChoiceScope.itemId,
+                        resolvedChoiceScope.actionSlug,
+                        field.name,
+                        searchValue || undefined,
+                        selectedIds,
+                        {signal},
+                    )
+                    : await client.getChoices(
+                        slug,
+                        field.name,
+                        searchValue || undefined,
+                        selectedIds,
+                        {signal},
+                    );
             return response.items;
         },
-        [client, field.name, searchValue, selectedIds, slug],
+        [
+            client,
+            field.name,
+            resolvedChoiceScope.kind,
+            resolvedChoiceScope.kind === 'bulk-action' ? resolvedChoiceScope.actionSlug : null,
+            resolvedChoiceScope.kind === 'object-action' ? resolvedChoiceScope.actionSlug : null,
+            resolvedChoiceScope.kind === 'object-action' ? resolvedChoiceScope.itemId : null,
+            searchValue,
+            selectedIds,
+            slug,
+        ],
     );
     const {items: choices, isLoading: isLoadingChoices} = useRemoteChoices<RelationOption>({
         enabled: field.has_choices,
@@ -72,6 +130,7 @@ export const FieldEditor = memo(function FieldEditor({
     if (field.input_kind === 'boolean') {
         return (
             <FormControlLabel
+                required={field.required}
                 control={(
                     <Switch
                         checked={Boolean(value)}
@@ -80,6 +139,7 @@ export const FieldEditor = memo(function FieldEditor({
                     />
                 )}
                 label={field.label}
+                sx={buildRequiredLabelSx()}
             />
         );
     }
@@ -89,15 +149,24 @@ export const FieldEditor = memo(function FieldEditor({
             <DatePicker
                 label={field.label}
                 disabled={readOnly}
+                open={isPickerOpen}
                 value={value ? dayjs(String(value)) : null}
+                onOpen={onRequestPickerOpen}
+                onClose={onRequestPickerClose}
                 onChange={(nextValue) => onChange(nextValue ? nextValue.format('YYYY-MM-DD') : null)}
                 slotProps={{
                     popper: {disablePortal: true},
                     desktopPaper: buildPickerPaperProps(),
                     mobilePaper: buildPickerPaperProps(),
+                    openPickerButton: {
+                        onMouseDown: (event) => handlePickerButtonMouseDown(event, hasAnotherPickerOpen, onRequestPickerOpen),
+                    },
                     textField: {
                         fullWidth: true,
                         size: 'small',
+                        required: field.required,
+                        sx: buildRequiredLabelSx(),
+                        placeholder: field.placeholder ?? undefined,
                         helperText: field.help_text ?? undefined,
                         slotProps: {htmlInput: buildHtmlInputProps(field)},
                     },
@@ -111,21 +180,42 @@ export const FieldEditor = memo(function FieldEditor({
             <DateTimePicker
                 label={field.label}
                 disabled={readOnly}
+                open={isPickerOpen}
                 value={value ? dayjs(String(value)) : null}
+                onOpen={onRequestPickerOpen}
+                onClose={onRequestPickerClose}
                 onChange={(nextValue) => onChange(nextValue ? nextValue.format('YYYY-MM-DD[T]HH:mm:ss') : null)}
                 slotProps={{
+                    actionBar: {
+                        actions: ['today', 'cancel', 'accept'],
+                    },
                     popper: {disablePortal: true},
                     desktopPaper: buildPickerPaperProps(),
                     mobilePaper: buildPickerPaperProps(),
+                    openPickerButton: {
+                        onMouseDown: (event) => handlePickerButtonMouseDown(event, hasAnotherPickerOpen, onRequestPickerOpen),
+                    },
                     textField: {
                         fullWidth: true,
                         size: 'small',
+                        required: field.required,
+                        sx: buildRequiredLabelSx(),
+                        placeholder: field.placeholder ?? undefined,
                         helperText: field.help_text ?? undefined,
                         slotProps: {htmlInput: buildHtmlInputProps(field)},
                     },
                 }}
             />
         );
+    }
+
+    if (hasStaticOptions(field)) {
+        return renderStaticChoiceEditor({
+            field,
+            value,
+            onChange,
+            readOnly,
+        });
     }
 
     if (field.has_choices) {
@@ -167,7 +257,10 @@ export const FieldEditor = memo(function FieldEditor({
                 multiline
                 minRows={6}
                 error={jsonError !== null}
+                required={field.required}
+                sx={buildRequiredLabelSx()}
                 helperText={jsonError ?? field.help_text ?? undefined}
+                placeholder={field.placeholder ?? undefined}
                 slotProps={{
                     htmlInput: buildHtmlInputProps(field),
                 }}
@@ -183,7 +276,10 @@ export const FieldEditor = memo(function FieldEditor({
             size="small"
             fullWidth
             disabled={readOnly}
+            required={field.required}
+            sx={buildRequiredLabelSx()}
             helperText={field.help_text ?? undefined}
+            placeholder={field.placeholder ?? undefined}
             type={resolveInputType(field)}
             multiline={field.input_kind === 'textarea' || field.type.toLowerCase().includes('text')}
             minRows={field.input_kind === 'textarea' || field.type.toLowerCase().includes('text') ? 3 : undefined}
@@ -205,7 +301,7 @@ function renderChoiceEditor({
                                 onSearchChange,
                                 searchPlaceholder,
                             }: {
-    field: AdminFieldMeta;
+    field: AdminEditableFieldMeta;
     value: unknown;
     onChange: (value: unknown) => void;
     readOnly: boolean;
@@ -254,7 +350,9 @@ function renderChoiceEditor({
                             <TextField
                                 {...textFieldParams}
                                 label={field.label}
-                                placeholder={searchPlaceholder}
+                                required={field.required}
+                                sx={buildRequiredLabelSx()}
+                                placeholder={field.placeholder ?? searchPlaceholder}
                                 helperText={field.help_text ?? undefined}
                                 slotProps={{
                                     input: {
@@ -312,7 +410,9 @@ function renderChoiceEditor({
                         <TextField
                             {...textFieldParams}
                             label={field.label}
-                            placeholder={searchPlaceholder}
+                            required={field.required}
+                            sx={buildRequiredLabelSx()}
+                            placeholder={field.placeholder ?? searchPlaceholder}
                             helperText={field.help_text ?? undefined}
                             slotProps={{
                                 input: {
@@ -338,6 +438,101 @@ function renderChoiceEditor({
     );
 }
 
+function renderStaticChoiceEditor({
+                                      field,
+                                      value,
+                                      onChange,
+                                      readOnly,
+                                  }: {
+    field: AdminEditableFieldMeta;
+    value: unknown;
+    onChange: (value: unknown) => void;
+    readOnly: boolean;
+}) {
+    const options = field.options ?? [];
+    const optionValueMap = new Map(options.map((option) => [String(option.value), option.value]));
+    const canClear = !field.required;
+
+    if (field.input_kind === 'select-multiple') {
+        const selectedValues = Array.isArray(value) ? value.map((item) => String(item)) : [];
+        return (
+            <TextField
+                select
+                label={field.label}
+                value={selectedValues}
+                onChange={(event) => {
+                    const rawValues = event.target.value;
+                    const nextValues = Array.isArray(rawValues) ? rawValues : [rawValues];
+                    onChange(nextValues.map((item) => optionValueMap.get(String(item)) ?? item));
+                }}
+                size="small"
+                fullWidth
+                disabled={readOnly}
+                required={field.required}
+                sx={buildRequiredLabelSx()}
+                helperText={field.help_text ?? undefined}
+                slotProps={{
+                    htmlInput: buildHtmlInputProps(field),
+                    select: {
+                        multiple: true,
+                        displayEmpty: true,
+                        renderValue: (selected) => {
+                            const selectedItems = Array.isArray(selected) ? selected : [selected];
+                            if (selectedItems.length === 0) {
+                                return field.placeholder ?? '';
+                            }
+                            return selectedItems
+                                .map((item) => options.find((option) => String(option.value) === String(item))?.label ?? String(item))
+                                .join(', ');
+                        },
+                    },
+                }}
+            >
+                {options.map((option) => (
+                    <MenuItem key={String(option.value)} value={String(option.value)}>
+                        {option.label}
+                    </MenuItem>
+                ))}
+            </TextField>
+        );
+    }
+
+    return (
+        <TextField
+            select
+            label={field.label}
+            value={value === null || value === undefined ? '' : String(value)}
+            onChange={(event) => {
+                const nextValue = event.target.value;
+                onChange(nextValue === '' ? null : (optionValueMap.get(String(nextValue)) ?? nextValue));
+            }}
+            size="small"
+            fullWidth
+            disabled={readOnly}
+            required={field.required}
+            sx={buildRequiredLabelSx()}
+            helperText={field.help_text ?? undefined}
+            slotProps={{
+                htmlInput: buildHtmlInputProps(field),
+                select: {
+                    displayEmpty: canClear || Boolean(field.placeholder),
+                },
+            }}
+        >
+            {canClear || field.placeholder ? (
+                <MenuItem value="">
+                    {field.placeholder ?? ''}
+                </MenuItem>
+            ) : null}
+            {options.map((option) => (
+                <MenuItem key={String(option.value)} value={String(option.value)}>
+                    {option.label}
+                </MenuItem>
+            ))}
+        </TextField>
+    );
+}
+
 
 function normalizeSelectedIds(value: unknown, isMultiple: boolean): Array<string | number> {
     if (isMultiple) {
@@ -360,7 +555,22 @@ function mergeChoices(current: RelationOption[], next: RelationOption[]): Relati
     return [...choiceMap.values()];
 }
 
-function resolveInputType(field: AdminFieldMeta): string {
+function hasStaticOptions(field: AdminEditableFieldMeta): boolean {
+    return (field.options?.length ?? 0) > 0 || field.input_kind === 'select' || field.input_kind === 'select-multiple';
+}
+
+function buildRequiredLabelSx() {
+    return {
+        '& .MuiFormLabel-asterisk': {
+            color: 'error.main',
+        },
+        '& .MuiFormControlLabel-asterisk': {
+            color: 'error.main',
+        },
+    };
+}
+
+function resolveInputType(field: AdminEditableFieldMeta): string {
     if (field.input_kind === 'password') {
         return 'password';
     }
@@ -370,7 +580,7 @@ function resolveInputType(field: AdminFieldMeta): string {
     return 'text';
 }
 
-function buildHtmlInputProps(field: AdminFieldMeta) {
+function buildHtmlInputProps(field: AdminEditableFieldMeta) {
     if (field.input_kind === 'password') {
         return {
             autoComplete: 'new-password',

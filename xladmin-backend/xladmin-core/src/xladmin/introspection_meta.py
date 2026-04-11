@@ -39,6 +39,7 @@ def get_model_meta(config: AdminModelConfig, *, locale: str = "ru") -> dict[str,
                 "name": name,
                 "label": field_config.label or name,
                 "help_text": field_config.help_text,
+                "required": _is_field_required(config, name, column),
                 "width_px": field_config.width_px,
                 "display_kind": field_config.display_kind or "text",
                 "image_url_prefix": field_config.image_url_prefix,
@@ -85,16 +86,34 @@ def get_model_meta(config: AdminModelConfig, *, locale: str = "ru") -> dict[str,
         "list_fields": get_visible_list_fields(config),
         "detail_fields": get_visible_detail_fields(config),
         "create_fields": get_create_fields(config),
+        "create_form": [
+            _serialize_form_field(config, form_field, relation_names, column_names)
+            for form_field in (config.create_form or ())
+        ] or None,
         "update_fields": get_update_fields(config),
         "bulk_actions": [
-            {"slug": "delete", "label": translate(normalized_locale, "delete")},
+            {"slug": "delete", "label": translate(normalized_locale, "delete"), "form": None},
             *[
-                {"slug": action.slug, "label": action.label}
+                {
+                    "slug": action.slug,
+                    "label": action.label,
+                    "form": [
+                        _serialize_form_field(config, form_field, relation_names, column_names)
+                        for form_field in (action.form or ())
+                    ] or None,
+                }
                 for action in config.bulk_actions
             ],
         ],
         "object_actions": [
-            {"slug": action.slug, "label": action.label}
+            {
+                "slug": action.slug,
+                "label": action.label,
+                "form": [
+                    _serialize_form_field(config, form_field, relation_names, column_names)
+                    for form_field in (action.form or ())
+                ] or None,
+            }
             for action in config.object_actions
         ],
         "fields": fields,
@@ -233,3 +252,108 @@ def _get_input_kind(config: AdminModelConfig, field_name: str, column: Any | Non
     if str(column.type).lower().startswith("varchar") and "password" in field_name.lower():
         return "password"
     return "text"
+
+
+def _serialize_form_field(
+        config: AdminModelConfig,
+        form_field: Any,
+        relation_names: set[str],
+        column_names: set[str],
+) -> dict[str, Any]:
+    mapper = sa_inspect(config.model)
+    column = mapper.columns[form_field.name] if form_field.name in column_names else None
+    field_config = config.get_field_config(form_field.name)
+    return {
+        "name": form_field.name,
+        "label": form_field.label or field_config.label or form_field.name,
+        "help_text": form_field.help_text if form_field.help_text is not None else field_config.help_text,
+        "placeholder": form_field.placeholder,
+        "required": _is_form_field_required(config, form_field, column),
+        "nullable": (
+            form_field.nullable
+            if form_field.nullable is not None
+            else bool(column.nullable) if column is not None else True
+        ),
+        "read_only": form_field.read_only,
+        "type": _get_form_field_type(config, form_field, column),
+        "input_kind": _get_form_input_kind(config, form_field, relation_names, column),
+        "has_choices": _form_field_has_choices(config, form_field, relation_names),
+        "is_relation_many": _form_field_is_relation_many(config, form_field, relation_names),
+        "options": [
+            {"value": option.value, "label": option.label}
+            for option in form_field.options
+        ],
+        "auto_now": form_field.auto_now,
+    }
+
+
+def _get_form_field_type(config: AdminModelConfig, form_field: Any, column: Any | None) -> str:
+    if form_field.type is not None:
+        return form_field.type
+    if form_field.input_kind in {"select", "select-multiple"}:
+        return form_field.input_kind
+    if form_field.name in sa_inspect(config.model).relationships:
+        return "relationship"
+    if column is None:
+        return form_field.input_kind or "text"
+    return _get_field_type(config, form_field.name, column)
+
+
+def _get_form_input_kind(
+        config: AdminModelConfig,
+        form_field: Any,
+        relation_names: set[str],
+        column: Any | None,
+) -> str:
+    if form_field.input_kind is not None:
+        return form_field.input_kind
+    if form_field.options:
+        return "select"
+    if form_field.relation_model is not None:
+        if form_field.name in relation_names:
+            relationship = sa_inspect(config.model).relationships[form_field.name]
+            return "relation-multiple" if relationship.uselist else "relation"
+        return "relation"
+    return _get_input_kind(config, form_field.name, column)
+
+
+def _form_field_has_choices(config: AdminModelConfig, form_field: Any, relation_names: set[str]) -> bool:
+    mapper = sa_inspect(config.model)
+    input_kind = _get_form_input_kind(
+        config,
+        form_field,
+        relation_names,
+        mapper.columns[form_field.name] if form_field.name in mapper.columns else None,
+    )
+    if form_field.options:
+        return False
+    return input_kind in {"relation", "relation-multiple"} or form_field.relation_model is not None
+
+
+def _form_field_is_relation_many(config: AdminModelConfig, form_field: Any, relation_names: set[str]) -> bool:
+    if form_field.input_kind == "relation-multiple":
+        return True
+    if form_field.name in relation_names:
+        return bool(sa_inspect(config.model).relationships[form_field.name].uselist)
+    return False
+
+
+def _is_field_required(config: AdminModelConfig, field_name: str, column: Any | None) -> bool:
+    field_config = config.get_field_config(field_name)
+    if field_config.required is not None:
+        return field_config.required
+    if column is None:
+        return False
+    if field_config.read_only:
+        return False
+    return not bool(column.nullable)
+
+
+def _is_form_field_required(config: AdminModelConfig, form_field: Any, column: Any | None) -> bool:
+    if form_field.required is not None:
+        return form_field.required
+    if form_field.nullable is not None:
+        return not form_field.nullable
+    if column is not None:
+        return _is_field_required(config, form_field.name, column)
+    return False

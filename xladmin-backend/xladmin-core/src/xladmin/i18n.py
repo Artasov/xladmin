@@ -21,6 +21,7 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "field_has_no_relation_choices": "У поля нет связанных вариантов выбора.",
         "related_model_not_found": "Связанная модель не найдена.",
         "delete_blocked": "Удаление заблокировано связанными объектами.",
+        "integrity_conflict": "Операция конфликтует с уже существующими данными.",
     },
     "en": {
         "delete": "Delete",
@@ -35,6 +36,7 @@ _MESSAGES: dict[str, dict[str, str]] = {
         "field_has_no_relation_choices": "The field has no related choices.",
         "related_model_not_found": "Related model was not found.",
         "delete_blocked": "Deletion is blocked by related objects.",
+        "integrity_conflict": "The operation conflicts with existing data.",
     },
 }
 

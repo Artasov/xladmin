@@ -159,6 +159,10 @@ def resolve_list_filter_input_kind(column: Any, list_filter: Any) -> str:
 
 
 def resolve_relation_model(model_config: ModelConfig, field_name: str, *, locale: str | None = None) -> type[Any]:
+    create_form_field = model_config.get_create_form_field(field_name)
+    if create_form_field is not None and create_form_field.relation_model is not None:
+        return create_form_field.relation_model
+
     configured_model = model_config.get_field_config(field_name).relation_model
     if configured_model is not None:
         return configured_model

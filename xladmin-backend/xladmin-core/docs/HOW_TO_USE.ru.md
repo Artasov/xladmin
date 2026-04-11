@@ -354,9 +354,20 @@ router = create_router(
 
 - поля, доступные при создании
 
+`create_form`
+
+- полностью кастомные поля для create-диалога
+- полезно, когда create payload отличается от ORM-полей
+
 `update_fields`
 
 - поля, доступные при редактировании
+
+`create_handler`
+
+- кастомный create handler для `create_form` или любого другого нестандартного create flow
+- получает `session, model_config, payload, user`
+- должен вернуть созданный ORM instance
 
 `ordering`
 
@@ -398,6 +409,11 @@ router = create_router(
 
 - helper text под полем
 
+`required`
+
+- явное переопределение required-маркера для frontend-форм
+- полезно для виртуальных полей
+
 `read_only`
 
 - видно, но нельзя редактировать
@@ -420,6 +436,8 @@ router = create_router(
   - `password`
   - `date`
   - `datetime`
+  - `select`
+  - `select-multiple`
   - `relation`
   - `relation-multiple`
 
@@ -607,6 +625,87 @@ ListFilterConfig(
 )
 ```
 
+## 8.3. Кастомный create_form
+
+Если для создания нужен полностью кастомный диалог и payload, опишите `create_form` и `create_handler`.
+
+```python
+from xladmin import FormFieldConfig, FormFieldOptionConfig, ModelConfig
+
+
+async def create_proxy(session, model_config, payload, user):
+    del session, model_config, user
+    parsed = ProxyBase.parse_raw(f"{payload['scheme']}://{payload['proxy']}")
+    return ProxyORM(
+        name=parsed.name,
+        scheme=parsed.scheme,
+        host=parsed.host,
+        port=parsed.port,
+        username=parsed.username,
+        password=parsed.password,
+        created_at=ProxyBase.now(),
+        updated_at=ProxyBase.now(),
+    )
+
+
+ModelConfig(
+    model=ProxyORM,
+    create_form=(
+        FormFieldConfig(
+            name="scheme",
+            label="Схема",
+            input_kind="select",
+            required=True,
+            options=(
+                FormFieldOptionConfig(value="http", label="HTTP"),
+                FormFieldOptionConfig(value="socks5h", label="SOCKS5H"),
+            ),
+        ),
+        FormFieldConfig(
+            name="proxy",
+            label="Прокси",
+            placeholder="login:password@ip:port",
+            required=True,
+        ),
+    ),
+    create_handler=create_proxy,
+)
+```
+
+Что умеет `FormFieldConfig`:
+
+- `name` — имя поля в payload
+- `label` — подпись поля
+- `placeholder` — текст пустого поля
+- `help_text` — helper text под полем
+- `required` — принудительный required-маркер во frontend
+- `nullable` — можно ли оставить поле пустым
+- `input_kind` — поддерживает обычные виды полей, включая `select`
+- `options` — статические варианты для select
+- `relation_model` / `relation_label_field` — remote choices
+- `auto_now=True` — автоподстановка текущей даты или времени в диалоге
+- для `datetime` также показывается локализованная кнопка `Today` / `Сегодня` в action bar, она подставляет текущие дату и время
+
+Тот же `FormFieldConfig` можно использовать в:
+
+- `create_form`
+- `ObjectActionConfig(form=...)`
+- `BulkActionConfig(form=...)`
+
+Если у `object action` или `bulk action` задана форма, frontend сначала открывает диалог и отправляет заполненный payload в handler. Если формы нет, действие выполняется сразу, как и раньше.
+
+```python
+ObjectActionConfig(
+    slug="create-proxy",
+    label="Создать прокси",
+    form=(
+        FormFieldConfig(name="scheme", input_kind="select", options=(...)),
+        FormFieldConfig(name="proxy", placeholder="login:password@ip:port", required=True),
+    ),
+    handler=create_proxy_for_list,
+)
+```
+
 ## 9. Что настраивается в ModelsBlock
 
 `slug`
@@ -652,6 +751,8 @@ ListFilterConfig(
 - `/xladmin/models/{slug}/bulk-actions/{action_slug}/`
 - `/xladmin/models/{slug}/items/{id}/actions/{action_slug}/`
 - `/xladmin/models/{slug}/fields/{field_name}/choices/`
+- `/xladmin/models/{slug}/bulk-actions/{action_slug}/fields/{field_name}/choices/`
+- `/xladmin/models/{slug}/items/{id}/actions/{action_slug}/fields/{field_name}/choices/`
 - `/xladmin/models/{slug}/filters/{filter_slug}/choices/`
 
 ## 11. Delete preview
