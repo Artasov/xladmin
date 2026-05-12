@@ -1,14 +1,14 @@
 'use client';
 
 import type {ReactNode} from 'react';
-import {useEffect, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {Box, CssBaseline, Drawer, GlobalStyles, Stack, useMediaQuery} from '@mui/material';
 import {type Theme, ThemeProvider} from '@mui/material/styles';
 import type {AdminClient} from '../client';
 import {AdminLocaleProvider} from '../i18n';
 import type {AdminRouter} from '../router';
 import {AdminRouterProvider, useAdminLocation, useAdminRouter} from '../router';
-import type {AdminModelMeta, AdminModelsBlockMeta} from '../types';
+import type {AdminCurrentUser, AdminModelMeta, AdminModelsBlockMeta} from '../types';
 import {defaultAdminTheme} from '../theme/defaultAdminTheme';
 import {AdminDataProvider} from './layout/AdminDataContext';
 import {AdminMessageProvider} from './layout/AdminMessageContext';
@@ -25,6 +25,9 @@ type AdminShellProps = {
     children: ReactNode;
     theme?: Theme;
     router?: AdminRouter;
+    currentUser?: AdminCurrentUser | string | null;
+    loginPath?: string | null;
+    onLogout?: () => void | Promise<void>;
 };
 
 export type ShellProps = AdminShellProps;
@@ -34,9 +37,19 @@ function normalizeAdminPath(path: string) {
     return normalizedPath.replace(/^\/(ru|en)(?=\/|$)/, '') || '/';
 }
 
-export function Shell({client, models, blocks, basePath, locale, children, theme, router}: ShellProps) {
-    void client;
-
+export function Shell({
+                          client,
+                          models,
+                          blocks,
+                          basePath,
+                          locale,
+                          children,
+                          theme,
+                          router,
+                          currentUser,
+                          loginPath = '/login',
+                          onLogout,
+                      }: ShellProps) {
     const activeTheme = theme ?? defaultAdminTheme;
     const resolvedRouter = useAdminRouter(router);
     const location = useAdminLocation(resolvedRouter);
@@ -45,6 +58,13 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [pendingPath, setPendingPath] = useState<string | null>(null);
     const [pendingView, setPendingView] = useState<'overview' | 'model' | 'generic' | null>(null);
+    const [loadedCurrentUser, setLoadedCurrentUser] = useState<AdminCurrentUser | null>(null);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const sidebarCurrentUser = useMemo(
+        () => normalizeCurrentUser(currentUser === undefined ? loadedCurrentUser : currentUser),
+        [currentUser, loadedCurrentUser],
+    );
 
     useEffect(() => {
         if (isDesktopSidebar) {
@@ -55,6 +75,50 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
     useEffect(() => {
         setIsMobileSidebarOpen(false);
     }, [pathname]);
+
+    useEffect(() => {
+        if (currentUser !== undefined) {
+            return;
+        }
+
+        let isMounted = true;
+        client
+            .getCurrentUser()
+            .then((response) => {
+                if (!isMounted) return;
+                setLoadedCurrentUser(response);
+            })
+            .catch(() => {
+                if (!isMounted) return;
+                setLoadedCurrentUser(null);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [client, currentUser]);
+
+    const handleLogout = useCallback(async () => {
+        if (isLoggingOut) {
+            return;
+        }
+
+        setIsLoggingOut(true);
+        try {
+            if (onLogout) {
+                await onLogout();
+            }
+            else {
+                await client.logout();
+            }
+            if (loginPath) {
+                resolvedRouter.replace(loginPath);
+            }
+        }
+        finally {
+            setIsLoggingOut(false);
+        }
+    }, [client, isLoggingOut, loginPath, onLogout, resolvedRouter]);
 
     const shellContextValue = useMemo(() => ({
         isMobile: !isDesktopSidebar,
@@ -150,7 +214,14 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
                                                 pr: 1,
                                             }}
                                         >
-                                            <Sidebar models={models} blocks={blocks} basePath={basePath}/>
+                                            <Sidebar
+                                                models={models}
+                                                blocks={blocks}
+                                                basePath={basePath}
+                                                currentUser={sidebarCurrentUser}
+                                                isLoggingOut={isLoggingOut}
+                                                onLogout={handleLogout}
+                                            />
                                         </Box>
                                         <Box
                                             sx={{
@@ -188,7 +259,14 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
                                     }}
                                 >
                                     <Box sx={{height: '100%', minHeight: 0, pr: 1.5}}>
-                                        <Sidebar models={models} blocks={blocks} basePath={basePath}/>
+                                        <Sidebar
+                                            models={models}
+                                            blocks={blocks}
+                                            basePath={basePath}
+                                            currentUser={sidebarCurrentUser}
+                                            isLoggingOut={isLoggingOut}
+                                            onLogout={handleLogout}
+                                        />
                                     </Box>
                                 </Drawer>
                             </AdminMessageProvider>
@@ -198,4 +276,15 @@ export function Shell({client, models, blocks, basePath, locale, children, theme
             </ThemeProvider>
         </AdminRouterProvider>
     );
+}
+
+function normalizeCurrentUser(user: AdminCurrentUser | string | null | undefined): AdminCurrentUser | null {
+    if (typeof user === 'string') {
+        const login = user.trim();
+        return login ? {login} : null;
+    }
+    if (!user || !user.login.trim()) {
+        return null;
+    }
+    return user;
 }

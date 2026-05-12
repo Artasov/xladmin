@@ -34,6 +34,7 @@ You also need one router adapter:
 - `createAxiosAdminClient(...)`
 - `createFetchAdminClient(...)`
 - `createBrowserAdminRouter(...)`
+- `AdminCurrentUser`
 - admin types, i18n helpers, and default theme
 
 ## Minimal Example
@@ -66,6 +67,48 @@ export function AdminApp() {
 ```
 
 For framework routing, use one of the adapter packages instead of the default browser router.
+
+## Current User And Logout
+
+`Shell` shows a compact current-user panel pinned to the bottom of the sidebar when a user is available.
+By default it calls:
+
+- `client.getCurrentUser()` -> `GET /xladmin/me/`
+- `client.logout()` -> `POST /xladmin/logout/`
+
+After logout, `Shell` redirects to `/login`.
+
+```tsx
+<Shell
+  client={client}
+  models={models}
+  blocks={blocks}
+  basePath="/admin"
+  loginPath="/login"
+>
+  {content}
+</Shell>
+```
+
+If your application already has the user or a custom logout flow, pass them explicitly:
+
+```tsx
+<Shell
+  client={client}
+  models={models}
+  blocks={blocks}
+  basePath="/admin"
+  currentUser={{login: auth.user.email}}
+  onLogout={async () => {
+    await auth.logout();
+  }}
+  loginPath="/sign-in"
+>
+  {content}
+</Shell>
+```
+
+Set `currentUser={null}` to hide the sidebar user panel.
 
 ## Development
 

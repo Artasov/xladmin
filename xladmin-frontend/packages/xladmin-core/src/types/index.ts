@@ -165,6 +165,13 @@ export type AdminModelsResponse = {
     blocks: AdminModelsBlockMeta[];
 };
 
+export type AdminCurrentUser = {
+    id?: string | number | null;
+    login: string;
+    email?: string | null;
+    name?: string | null;
+};
+
 export type AdminChoicesResponse = {
     items: Array<{ id: string | number; label: string }>;
 };

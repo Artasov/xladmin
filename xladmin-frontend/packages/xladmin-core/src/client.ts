@@ -2,6 +2,7 @@ import type {
     AdminChoicesResponse,
     AdminDeletePreviewResponse,
     AdminDetailResponse,
+    AdminCurrentUser,
     AdminListResponse,
     AdminModelMeta,
     AdminModelsResponse,
@@ -23,6 +24,8 @@ export type AdminSelectionOptions = {
 };
 
 export type AdminClient = {
+    getCurrentUser: () => Promise<AdminCurrentUser>;
+    logout: () => Promise<void>;
     getModels: () => Promise<AdminModelsResponse>;
     getModel: (slug: string) => Promise<AdminModelMeta>;
     getItems: (slug: string, params?: {
@@ -105,6 +108,12 @@ export type AdminFetchClientConfig = {
 
 export function createAdminClient(transport: AdminTransport): AdminClient {
     return {
+        async getCurrentUser() {
+            return await transportGet<AdminCurrentUser>(transport, '/xladmin/me/');
+        },
+        async logout() {
+            await transportPost<void>(transport, '/xladmin/logout/', {});
+        },
         async getModels() {
             return await transportGet<AdminModelsResponse>(transport, '/xladmin/models/');
         },
@@ -292,7 +301,15 @@ async function requestJson<T>(
     signal?: AbortSignal,
 ): Promise<T> {
     const response = await requestRaw(fetchImpl, config, method, url, body, params, signal);
-    return await response.json() as T;
+    if (response.status === 204) {
+        return undefined as T;
+    }
+
+    const text = await response.text();
+    if (!text.trim()) {
+        return undefined as T;
+    }
+    return JSON.parse(text) as T;
 }
 
 async function requestRaw(

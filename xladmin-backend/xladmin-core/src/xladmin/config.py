@@ -200,6 +200,7 @@ class HttpConfig:
     get_db_session_dependency: Callable[..., Any]
     get_current_user_dependency: Callable[..., Any]
     is_allowed: Callable[[Any], bool]
+    logout_dependency: Callable[..., Any] | None = None
 
 
 AdminFieldConfig = FieldConfig

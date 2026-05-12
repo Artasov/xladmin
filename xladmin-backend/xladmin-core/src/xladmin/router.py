@@ -34,6 +34,7 @@ from xladmin.router_schemas import (
     BulkActionPayload,
     ChoiceItemPayload,
     ChoicesResponse,
+    CurrentUserResponse,
     DeletePreviewResponse,
     DeleteResultResponse,
     DetailResponse,
@@ -67,6 +68,33 @@ def create_router(config: HttpConfig) -> APIRouter:
     def check_access(user: Any) -> None:
         if not config.is_allowed(user):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=translate(registry.locale, "forbidden"))
+
+    def get_user_value(user: Any, field_name: str) -> Any:
+        if isinstance(user, dict):
+            return user.get(field_name)
+        return getattr(user, field_name, None)
+
+    def get_current_user_response(user: Any) -> CurrentUserResponse:
+        login_value = next(
+            (
+                value
+                for field_name in ("username", "email", "login", "name")
+                if (value := get_user_value(user, field_name)) not in (None, "")
+            ),
+            None,
+        )
+        raw_user_id = get_user_value(user, "id")
+        user_id = raw_user_id if raw_user_id not in (None, "") else get_user_value(user, "pk")
+        login = str(login_value if login_value not in (None, "") else user_id if user_id not in (None, "") else "User")
+        email = get_user_value(user, "email")
+        name = get_user_value(user, "name")
+
+        return CurrentUserResponse(
+            id=user_id,
+            login=login,
+            email=str(email) if email not in (None, "") else None,
+            name=str(name) if name not in (None, "") else None,
+        )
 
     async def get_model_config(slug: str) -> ModelConfig:
         try:
@@ -149,6 +177,25 @@ def create_router(config: HttpConfig) -> APIRouter:
     async def list_models(user: Any = Depends(config.get_current_user_dependency)) -> ModelsResponse:
         check_access(user)
         return models_response
+
+    @router.get("/me/", response_model=CurrentUserResponse)
+    async def get_current_user(user: Any = Depends(config.get_current_user_dependency)) -> CurrentUserResponse:
+        check_access(user)
+        return get_current_user_response(user)
+
+    if config.logout_dependency is None:
+        @router.post("/logout/", status_code=status.HTTP_204_NO_CONTENT)
+        async def logout(user: Any = Depends(config.get_current_user_dependency)) -> Response:
+            check_access(user)
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+    else:
+        @router.post("/logout/", status_code=status.HTTP_204_NO_CONTENT)
+        async def logout(
+                user: Any = Depends(config.get_current_user_dependency),
+                _result: Any = Depends(config.logout_dependency),
+        ) -> Response:
+            check_access(user)
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.get("/models/{slug}/", response_model=ModelResponse)
     async def get_model(

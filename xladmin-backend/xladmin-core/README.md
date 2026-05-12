@@ -62,6 +62,8 @@ router = create_router(
 ## Features
 
 - list / detail / create / patch / delete endpoints
+- current-user endpoint for frontend sidebar identity: `GET /xladmin/me/`
+- logout endpoint for frontend logout buttons: `POST /xladmin/logout/`
 - bulk actions and object actions
 - relation choices and relation filters
 - single and multi-select relation filters via `ListFilterConfig(..., multiple=True, input_kind="relation-multiple")`
@@ -71,6 +73,53 @@ router = create_router(
 - custom create defaults with `create_item_factory`
 - delete preview for single and bulk delete
 - RU / EN locale metadata for the frontend
+
+## Current User And Logout
+
+The frontend `Shell` can show the current user in the sidebar and call logout from the sidebar action.
+The backend router exposes two endpoints for this:
+
+- `GET /xladmin/me/`
+- `POST /xladmin/logout/`
+
+`/xladmin/me/` uses `get_current_user_dependency` and returns a small payload:
+
+```json
+{
+  "id": 1,
+  "login": "admin@example.com",
+  "email": "admin@example.com",
+  "name": "Admin"
+}
+```
+
+The `login` value is resolved from the first available user attribute in this order:
+`username`, `email`, `login`, `name`, then `id`.
+
+By default `/xladmin/logout/` only checks that the user can access admin and returns `204`.
+Real applications should pass `logout_dependency` to `HttpConfig` to clear cookies, sessions, tokens, or any other auth state.
+
+```python
+from fastapi import Response
+from xladmin import HttpConfig, create_router
+
+
+async def logout_admin_user(response: Response) -> None:
+    response.delete_cookie("session")
+
+
+router = create_router(
+    HttpConfig(
+        registry=admin_config,
+        get_db_session_dependency=get_db_session,
+        get_current_user_dependency=get_current_user,
+        is_allowed=lambda user: bool(user.is_staff),
+        logout_dependency=logout_admin_user,
+    ),
+)
+```
+
+If your auth system needs the current user in the logout handler, add it as a regular FastAPI dependency inside your function.
 
 ## Multi-Select Relation Filters
 

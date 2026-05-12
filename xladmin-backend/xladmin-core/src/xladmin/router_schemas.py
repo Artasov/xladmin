@@ -50,6 +50,13 @@ class ChoicesResponse(BaseModel):
     items: list[ChoiceItemPayload]
 
 
+class CurrentUserResponse(BaseModel):
+    id: Any | None = None
+    login: str
+    email: str | None = None
+    name: str | None = None
+
+
 class ModelsResponse(BaseModel):
     locale: str
     items: list[dict[str, Any]]

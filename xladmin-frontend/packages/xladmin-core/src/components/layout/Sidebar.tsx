@@ -1,10 +1,11 @@
 'use client';
 
 import {memo, useEffect, useRef} from 'react';
-import {Box, ListItemButton, Typography} from '@mui/material';
+import LogoutIcon from '@mui/icons-material/Logout';
+import {Box, IconButton, ListItemButton, Tooltip, Typography} from '@mui/material';
 import {useAdminTranslation} from '@xladmin-core/i18n';
 import {useAdminLocation} from '@xladmin-core/router';
-import type {AdminModelMeta, AdminModelsBlockMeta} from '@xladmin-core/types';
+import type {AdminCurrentUser, AdminModelMeta, AdminModelsBlockMeta} from '@xladmin-core/types';
 import {ModelsBlocks} from '../ModelsBlocks';
 import {NavLink} from '@xladmin-core/components/NavLink';
 import {useShellContext} from './ShellContext';
@@ -13,6 +14,9 @@ type SidebarProps = {
     models: AdminModelMeta[];
     blocks: AdminModelsBlockMeta[];
     basePath: string;
+    currentUser?: AdminCurrentUser | null;
+    isLoggingOut?: boolean;
+    onLogout?: () => void;
 };
 
 function getOffsetTopWithinContainer(element: HTMLElement, container: HTMLElement) {
@@ -27,7 +31,14 @@ function getOffsetTopWithinContainer(element: HTMLElement, container: HTMLElemen
     return offsetTop;
 }
 
-export const Sidebar = memo(function Sidebar({models, blocks, basePath}: SidebarProps) {
+export const Sidebar = memo(function Sidebar({
+                                                 models,
+                                                 blocks,
+                                                 basePath,
+                                                 currentUser,
+                                                 isLoggingOut = false,
+                                                 onLogout,
+                                             }: SidebarProps) {
     const t = useAdminTranslation();
     const {pathname} = useAdminLocation();
     const {pendingPath, startPendingNavigation} = useShellContext();
@@ -132,11 +143,12 @@ export const Sidebar = memo(function Sidebar({models, blocks, basePath}: Sidebar
     }, [activeModelSlug, blocks]);
 
     return (
-        <Box sx={{height: '100%', overflow: 'hidden'}}>
+        <Box sx={{height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0}}>
             <Box
                 ref={scrollContainerRef}
                 sx={{
-                    height: '100%',
+                    flex: 1,
+                    minHeight: 0,
                     overflowY: 'scroll',
                     overflowX: 'hidden',
                     scrollbarGutter: 'stable',
@@ -184,6 +196,75 @@ export const Sidebar = memo(function Sidebar({models, blocks, basePath}: Sidebar
                     />
                 </Box>
             </Box>
+            <SidebarCurrentUser currentUser={currentUser} isLoggingOut={isLoggingOut} onLogout={onLogout}/>
         </Box>
     );
 });
+
+type SidebarCurrentUserProps = {
+    currentUser?: AdminCurrentUser | null;
+    isLoggingOut: boolean;
+    onLogout?: () => void;
+};
+
+function SidebarCurrentUser({currentUser, isLoggingOut, onLogout}: SidebarCurrentUserProps) {
+    if (!currentUser) {
+        return null;
+    }
+
+    return (
+        <Box
+            sx={{
+                flexShrink: 0,
+                ml: 1,
+                mt: 1.25,
+                borderRadius: '8px',
+                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.03)',
+                display: 'flex',
+                alignItems: 'center',
+                minHeight: 44,
+                px: 1,
+                gap: 1,
+            }}
+        >
+            <Typography
+                title={currentUser.login}
+                sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    fontSize: 13,
+                    fontWeight: 650,
+                }}
+            >
+                {currentUser.login}
+            </Typography>
+            {onLogout ? (
+                <Tooltip title="Logout">
+                    <span>
+                        <IconButton
+                            aria-label="Logout"
+                            size="small"
+                            disabled={isLoggingOut}
+                            onClick={onLogout}
+                            sx={{
+                                width: 32,
+                                height: 32,
+                                color: 'text.secondary',
+                                '&:hover': {
+                                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                    color: 'text.primary',
+                                },
+                            }}
+                        >
+                            <LogoutIcon sx={{fontSize: 18}}/>
+                        </IconButton>
+                    </span>
+                </Tooltip>
+            ) : null}
+        </Box>
+    );
+}
