@@ -233,11 +233,12 @@ function SidebarCurrentUser({currentUser, isLoggingOut, onLogout}: SidebarCurren
                 sx={{
                     flex: 1,
                     minWidth: 0,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    overflowWrap: 'anywhere',
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word',
                     fontSize: 13,
                     fontWeight: 650,
+                    lineHeight: 1.25,
                 }}
             >
                 {currentUser.login}

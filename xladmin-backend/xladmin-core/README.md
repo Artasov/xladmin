@@ -98,6 +98,7 @@ The `login` value is resolved from the first available user attribute in this or
 
 By default `/xladmin/logout/` only checks that the user can access admin and returns `204`.
 Real applications should pass `logout_dependency` to `HttpConfig` to clear cookies, sessions, tokens, or any other auth state.
+Headers and cookies set by `logout_dependency` are preserved in the final `204` response.
 
 ```python
 from fastapi import Response

@@ -71,6 +71,7 @@ For framework routing, use one of the adapter packages instead of the default br
 ## Current User And Logout
 
 `Shell` shows a compact current-user panel pinned to the bottom of the sidebar when a user is available.
+Long login values wrap inside the panel instead of overflowing the sidebar.
 By default it calls:
 
 - `client.getCurrentUser()` -> `GET /xladmin/me/`

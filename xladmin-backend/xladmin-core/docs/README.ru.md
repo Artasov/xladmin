@@ -62,12 +62,43 @@ router = create_router(
 ## Что есть в библиотеке
 
 - list / detail / create / patch / delete endpoints
+- current-user endpoint для плашки пользователя во фронтенде: `GET /xladmin/me/`
+- logout endpoint для кнопки выхода: `POST /xladmin/logout/`
 - bulk actions и object actions
 - relation choices и relation filters
 - overview metadata и model blocks
 - `query_for_list` и кастомный `search_query_builder`
 - delete preview для single и bulk delete
 - RU / EN locale metadata для фронтенда
+
+## Текущий пользователь и logout
+
+`/xladmin/me/` использует `get_current_user_dependency` и возвращает короткий payload с `id`, `login`, `email` и `name`.
+`login` берется из первого доступного атрибута пользователя: `username`, `email`, `login`, `name`, затем `id`.
+
+По умолчанию `/xladmin/logout/` проверяет доступ в админку и возвращает `204`.
+В реальном приложении передай `logout_dependency` в `HttpConfig`, чтобы очистить cookies, sessions, tokens или другое auth-состояние.
+Headers и cookies, которые выставляет `logout_dependency`, сохраняются в финальном `204` ответе.
+
+```python
+from fastapi import Response
+from xladmin import HttpConfig, create_router
+
+
+async def logout_admin_user(response: Response) -> None:
+    response.delete_cookie("session")
+
+
+router = create_router(
+    HttpConfig(
+        registry=admin_config,
+        get_db_session_dependency=get_db_session,
+        get_current_user_dependency=get_current_user,
+        is_allowed=lambda user: bool(user.is_staff),
+        logout_dependency=logout_admin_user,
+    ),
+)
+```
 
 ## Совместимость
 

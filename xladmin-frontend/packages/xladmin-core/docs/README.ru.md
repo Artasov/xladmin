@@ -67,6 +67,29 @@ export function AdminApp() {
 
 Если нужен framework router, используй один из адаптеров вместо дефолтного browser router.
 
+## Текущий пользователь и logout
+
+`Shell` показывает компактную плашку текущего пользователя, прибитую к низу сайдбара.
+Длинные логины переносятся внутри плашки и не вылезают за сайдбар.
+По умолчанию `Shell` вызывает:
+
+- `client.getCurrentUser()` -> `GET /xladmin/me/`
+- `client.logout()` -> `POST /xladmin/logout/`
+
+После logout `Shell` перенаправляет на `loginPath`, по умолчанию `/login`.
+
+```tsx
+<Shell
+  client={client}
+  models={models}
+  blocks={blocks}
+  basePath="/admin"
+  loginPath="/login"
+>
+  {content}
+</Shell>
+```
+
 ## Разработка
 
 ```bash

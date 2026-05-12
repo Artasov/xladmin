@@ -185,17 +185,15 @@ def create_router(config: HttpConfig) -> APIRouter:
 
     if config.logout_dependency is None:
         @router.post("/logout/", status_code=status.HTTP_204_NO_CONTENT)
-        async def logout(user: Any = Depends(config.get_current_user_dependency)) -> Response:
+        async def logout(user: Any = Depends(config.get_current_user_dependency)) -> None:
             check_access(user)
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
     else:
         @router.post("/logout/", status_code=status.HTTP_204_NO_CONTENT)
         async def logout(
                 user: Any = Depends(config.get_current_user_dependency),
                 _result: Any = Depends(config.logout_dependency),
-        ) -> Response:
+        ) -> None:
             check_access(user)
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @router.get("/models/{slug}/", response_model=ModelResponse)
     async def get_model(

@@ -231,6 +231,7 @@ async def build_test_app(
         *,
         is_staff: bool = True,
         include_roles_in_user_detail: bool = False,
+        logout_dependency: Any | None = None,
 ) -> tuple[FastAPI, async_sessionmaker[AsyncSession]]:
     engine_kwargs: dict[str, Any] = {}
     if TEST_DATABASE_URL.startswith("sqlite"):
@@ -603,6 +604,7 @@ async def build_test_app(
                 get_db_session_dependency=get_session,
                 get_current_user_dependency=lambda: SimpleNamespace(is_staff=is_staff),
                 is_allowed=lambda user: bool(user.is_staff),
+                logout_dependency=logout_dependency,
             ),
         ),
     )
