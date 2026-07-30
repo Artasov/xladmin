@@ -4,8 +4,10 @@ import type {ReactNode} from 'react';
 import {createContext, useContext} from 'react';
 
 type ShellContextValue = {
-    isMobile: boolean;
-    openMobileSidebar: () => void;
+    hasSidebar: boolean;
+    sidebarId: string;
+    isSidebarOpen: boolean;
+    toggleSidebar: () => void;
     pendingPath: string | null;
     pendingView: 'overview' | 'model' | 'generic' | null;
     startPendingNavigation: (path: string, view?: 'overview' | 'model' | 'generic') => void;
@@ -13,8 +15,10 @@ type ShellContextValue = {
 };
 
 const defaultShellContextValue: ShellContextValue = {
-    isMobile: false,
-    openMobileSidebar: () => {
+    hasSidebar: false,
+    sidebarId: '',
+    isSidebarOpen: false,
+    toggleSidebar: () => {
     },
     pendingPath: null,
     pendingView: null,

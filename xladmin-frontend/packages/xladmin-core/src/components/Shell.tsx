@@ -55,6 +55,7 @@ export function Shell({
     const location = useAdminLocation(resolvedRouter);
     const pathname = location.pathname;
     const isDesktopSidebar = useMediaQuery(activeTheme.breakpoints.up('lg'));
+    const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
     const [pendingPath, setPendingPath] = useState<string | null>(null);
     const [pendingView, setPendingView] = useState<'overview' | 'model' | 'generic' | null>(null);
@@ -121,8 +122,16 @@ export function Shell({
     }, [client, isLoggingOut, loginPath, onLogout, resolvedRouter]);
 
     const shellContextValue = useMemo(() => ({
-        isMobile: !isDesktopSidebar,
-        openMobileSidebar: () => setIsMobileSidebarOpen(true),
+        hasSidebar: true,
+        sidebarId: isDesktopSidebar ? 'xladmin-desktop-sidebar' : 'xladmin-mobile-sidebar',
+        isSidebarOpen: isDesktopSidebar ? isDesktopSidebarOpen : isMobileSidebarOpen,
+        toggleSidebar: () => {
+            if (isDesktopSidebar) {
+                setIsDesktopSidebarOpen((current) => !current);
+                return;
+            }
+            setIsMobileSidebarOpen((current) => !current);
+        },
         pendingPath,
         pendingView,
         startPendingNavigation: (path: string, view: 'overview' | 'model' | 'generic' = 'generic') => {
@@ -142,7 +151,14 @@ export function Shell({
             setPendingPath(null);
             setPendingView(null);
         },
-    }), [isDesktopSidebar, pathname, pendingPath, pendingView]);
+    }), [
+        isDesktopSidebar,
+        isDesktopSidebarOpen,
+        isMobileSidebarOpen,
+        pathname,
+        pendingPath,
+        pendingView,
+    ]);
 
     return (
         <AdminRouterProvider router={resolvedRouter}>
@@ -203,26 +219,29 @@ export function Shell({
                                         spacing={0}
                                         sx={{height: '100%', minHeight: 0, alignItems: 'stretch'}}
                                     >
-                                        <Box
-                                            sx={{
-                                                display: {xs: 'none', lg: 'block'},
-                                                width: 320,
-                                                flexShrink: 0,
-                                                minHeight: 0,
-                                                py: 2,
-                                                pl: 0,
-                                                pr: 1,
-                                            }}
-                                        >
-                                            <Sidebar
-                                                models={models}
-                                                blocks={blocks}
-                                                basePath={basePath}
-                                                currentUser={sidebarCurrentUser}
-                                                isLoggingOut={isLoggingOut}
-                                                onLogout={handleLogout}
-                                            />
-                                        </Box>
+                                        {isDesktopSidebarOpen ? (
+                                            <Box
+                                                id="xladmin-desktop-sidebar"
+                                                sx={{
+                                                    display: {xs: 'none', lg: 'block'},
+                                                    width: 320,
+                                                    flexShrink: 0,
+                                                    minHeight: 0,
+                                                    py: 2,
+                                                    pl: 0,
+                                                    pr: 1,
+                                                }}
+                                            >
+                                                <Sidebar
+                                                    models={models}
+                                                    blocks={blocks}
+                                                    basePath={basePath}
+                                                    currentUser={sidebarCurrentUser}
+                                                    isLoggingOut={isLoggingOut}
+                                                    onLogout={handleLogout}
+                                                />
+                                            </Box>
+                                        ) : null}
                                         <Box
                                             sx={{
                                                 flex: 1,
@@ -241,6 +260,7 @@ export function Shell({
                                     </Stack>
                                 </Box>
                                 <Drawer
+                                    id="xladmin-mobile-sidebar"
                                     anchor="left"
                                     open={isMobileSidebarOpen}
                                     onClose={() => setIsMobileSidebarOpen(false)}

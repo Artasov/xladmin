@@ -33,7 +33,6 @@ type MainHeaderProps = {
  */
 export function MainHeader({title, subtitle, details, error, beforeTitle, beforeSubtitle, actions}: MainHeaderProps) {
     const t = useAdminTranslation();
-    const {isMobile, openMobileSidebar} = useShellContext();
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
     return (
@@ -52,18 +51,7 @@ export function MainHeader({title, subtitle, details, error, beforeTitle, before
             <Stack spacing={0.5}>
                 <Stack direction="row" spacing={1.5} sx={{minWidth: 0, alignItems: 'center', justifyContent: 'space-between'}}>
                     <Stack direction="row" spacing={1} sx={{minWidth: 0, flex: 1, alignItems: 'center'}}>
-                        {isMobile ? (
-                            <Box sx={{display: 'flex', alignItems: 'center', flexShrink: 0}}>
-                                <IconButton
-                                    aria-label={t('menu')}
-                                    onClick={openMobileSidebar}
-                                    size="small"
-                                    sx={{ml: -0.5}}
-                                >
-                                    <MenuIcon fontSize="small"/>
-                                </IconButton>
-                            </Box>
-                        ) : null}
+                        <SidebarMenuButton/>
                         {beforeTitle ? (
                             <Box sx={{display: 'flex', alignItems: 'center', flexShrink: 0}}>
                                 {beforeTitle}
@@ -161,13 +149,16 @@ export function MainHeaderSkeleton({
                 zIndex: 3,
             }}
         >
-            <Stack spacing={1.0}>
-                <Skeleton
-                    variant="rounded"
-                    width={titleWidth}
-                    height={MAIN_HEADER_TITLE_HEIGHT}
-                    sx={{transform: 'none'}}
-                />
+            <Stack spacing={1}>
+                <Stack direction="row" spacing={1} sx={{alignItems: 'center'}}>
+                    <SidebarMenuButton/>
+                    <Skeleton
+                        variant="rounded"
+                        width={titleWidth}
+                        height={MAIN_HEADER_TITLE_HEIGHT}
+                        sx={{transform: 'none'}}
+                    />
+                </Stack>
                 <Skeleton
                     variant="rounded"
                     width={subtitleWidth}
@@ -176,5 +167,29 @@ export function MainHeaderSkeleton({
                 />
             </Stack>
         </Paper>
+    );
+}
+
+function SidebarMenuButton() {
+    const t = useAdminTranslation();
+    const {hasSidebar, sidebarId, isSidebarOpen, toggleSidebar} = useShellContext();
+
+    if (!hasSidebar) {
+        return null;
+    }
+
+    return (
+        <Box sx={{display: 'flex', alignItems: 'center', flexShrink: 0}}>
+            <IconButton
+                aria-label={t('menu')}
+                aria-controls={sidebarId}
+                aria-expanded={isSidebarOpen}
+                onClick={toggleSidebar}
+                size="small"
+                sx={{ml: -0.5}}
+            >
+                <MenuIcon fontSize="small"/>
+            </IconButton>
+        </Box>
     );
 }
