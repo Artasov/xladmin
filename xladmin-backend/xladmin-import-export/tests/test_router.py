@@ -12,7 +12,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from openpyxl import load_workbook
-from sqlalchemy import ForeignKey
+from sqlalchemy import CheckConstraint, ForeignKey
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -64,6 +64,20 @@ class GroupedWidgetORM(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     group_id: Mapped[UUID] = mapped_column(ForeignKey("widget_groups.id"))
+
+
+class ConstrainedWidgetORM(Base):
+    __tablename__ = "constrained_widgets"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('active', 'inactive')",
+            name="ck_constrained_widget_state",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    state: Mapped[str]
 
 
 class DummyUser:
@@ -151,6 +165,16 @@ async def app_bundle() -> AsyncIterator[tuple[FastAPI, async_sessionmaker[AsyncS
             list_display=("id", "name"),
             import_export=ImportExportConfig(
                 export_fields=("id", "name", "widgets"),
+            ),
+        ),
+        ModelConfig(
+            model=ConstrainedWidgetORM,
+            slug="constrained-widgets",
+            title="Constrained widgets",
+            display_field="name",
+            list_display=("id", "name", "state"),
+            import_export=ImportExportConfig(
+                import_fields=("id", "name", "state"),
             ),
         ),
     ))
@@ -305,6 +329,56 @@ async def test_import_commit_generates_uuid_for_new_rows(
         assert len(rows) == 1
         assert rows[0]["name"] == "Imported"
         assert isinstance(rows[0]["id"], UUID)
+
+
+async def test_import_validation_checks_database_constraints_and_commit_returns_400(
+    client: AsyncClient,
+    app_bundle: tuple[FastAPI, async_sessionmaker[AsyncSession]],
+) -> None:
+    _app, session_factory = app_bundle
+    file_bytes = b"name,state\nValid,active\nInvalid,unexpected\n"
+    data = {
+        "format": "csv",
+        "fields": json.dumps(["name", "state"]),
+        "conflict_mode": "auto_generate_pk",
+    }
+
+    validate_response = await client.post(
+        "/xladmin/models/constrained-widgets/import/validate/",
+        files={"file": ("constrained-widgets.csv", file_bytes, "text/csv")},
+        data=data,
+    )
+
+    assert validate_response.status_code == 200
+    validation = validate_response.json()
+    assert validation["summary"] == {
+        "total_rows": 2,
+        "create": 1,
+        "update": 0,
+        "skip": 0,
+        "errors": 1,
+    }
+    assert validation["errors"][0]["row_number"] == 3
+    assert "ck_constrained_widget_state" in validation["errors"][0]["message"]
+
+    async with session_factory() as session:
+        rows_after_validation = list((await session.execute(ConstrainedWidgetORM.__table__.select())).mappings())
+        assert rows_after_validation == []
+
+    commit_response = await client.post(
+        "/xladmin/models/constrained-widgets/import/commit/",
+        files={"file": ("constrained-widgets.csv", file_bytes, "text/csv")},
+        data=data,
+    )
+
+    assert commit_response.status_code == 400
+    commit_error = commit_response.json()["detail"]
+    assert commit_error["summary"]["errors"] == 1
+    assert commit_error["errors"][0]["row_number"] == 3
+
+    async with session_factory() as session:
+        rows_after_commit = list((await session.execute(ConstrainedWidgetORM.__table__.select())).mappings())
+        assert rows_after_commit == []
 
 
 async def test_import_update_existing_creates_when_pk_is_missing(

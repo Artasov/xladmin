@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 from fastapi import HTTPException, UploadFile, status
 from openpyxl import Workbook, load_workbook
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from xladmin.config import AdminModelConfig
 from xladmin.introspection_fields import (
@@ -244,16 +245,17 @@ async def validate_import_rows(
     fields: list[str],
     conflict_mode: ImportConflictMode,
 ) -> ImportValidationResponse:
-    preview = await process_import_rows(
-        session,
-        model_config,
-        rows,
-        fields,
-        conflict_mode,
-        commit=False,
-    )
-    await session.rollback()
-    return preview
+    try:
+        return await process_import_rows(
+            session,
+            model_config,
+            rows,
+            fields,
+            conflict_mode,
+            commit=False,
+        )
+    finally:
+        await session.rollback()
 
 
 async def commit_import_rows(
@@ -303,27 +305,32 @@ async def process_import_rows(
     updated = 0
     skipped = 0
 
-    for row_index, raw_row in enumerate(rows, start=2):
-        try:
-            normalized_row = normalize_import_row(model_config, raw_row, normalized_fields)
-            raw_pk_value = normalized_row.get(pk_field)
-            existing_item = None
-            normalized_pk_value = None
-            if raw_pk_value not in (None, ""):
-                normalized_pk_value = convert_value_for_column(pk_column, raw_pk_value)
-                existing_item = await session.get(model_config.model, normalized_pk_value)
+    # Keep all row savepoints inside a batch-level savepoint. This makes the
+    # whole file atomic and also handles SQLite's deferred BEGIN behaviour: a
+    # standalone row savepoint must not be released before validation decides
+    # whether the complete batch should be persisted.
+    batch_transaction = await session.begin_nested()
 
-            if existing_item is not None:
-                if conflict_mode == "skip_existing":
-                    skipped += 1
-                    skipped_preview.append(
-                        ImportPreviewItem(
-                            row_number=row_index,
-                            label=build_preview_label(model_config, normalized_row, row_index),
-                        )
-                    )
-                    continue
-                if conflict_mode == "update_existing":
+    for row_index, raw_row in enumerate(rows, start=2):
+        row_action: str | None = None
+        preview_item: ImportPreviewItem | None = None
+        try:
+            async with session.begin_nested():
+                normalized_row = normalize_import_row(model_config, raw_row, normalized_fields)
+                preview_item = ImportPreviewItem(
+                    row_number=row_index,
+                    label=build_preview_label(model_config, normalized_row, row_index),
+                )
+                raw_pk_value = normalized_row.get(pk_field)
+                existing_item = None
+                normalized_pk_value = None
+                if raw_pk_value not in (None, ""):
+                    normalized_pk_value = convert_value_for_column(pk_column, raw_pk_value)
+                    existing_item = await session.get(model_config.model, normalized_pk_value)
+
+                if existing_item is not None and conflict_mode == "skip_existing":
+                    row_action = "skip"
+                elif existing_item is not None and conflict_mode == "update_existing":
                     payload = {key: value for key, value in normalized_row.items() if key != pk_field}
                     await apply_payload_to_item(
                         session,
@@ -333,52 +340,54 @@ async def process_import_rows(
                         mode="update",
                         allowed_fields=set(normalized_fields),
                     )
-                    updated += 1
-                    updated_preview.append(
-                        ImportPreviewItem(
-                            row_number=row_index,
-                            label=build_preview_label(model_config, normalized_row, row_index),
-                        )
+                    row_action = "update"
+                else:
+                    item = model_config.model()
+                    payload = dict(normalized_row)
+                    if conflict_mode == "auto_generate_pk":
+                        payload.pop(pk_field, None)
+                        assign_generated_pk(item, pk_field, pk_column)
+                    elif normalized_pk_value is not None:
+                        setattr(item, pk_field, normalized_pk_value)
+                        payload.pop(pk_field, None)
+                    elif supports_auto_generate_pk(model_config):
+                        assign_generated_pk(item, pk_field, pk_column)
+                    await apply_payload_to_item(
+                        session,
+                        model_config,
+                        item,
+                        payload,
+                        mode="create",
+                        allowed_fields=set(normalized_fields),
                     )
-                    continue
+                    missing_required_fields = get_missing_required_columns_for_item(model_config, item)
+                    if missing_required_fields:
+                        raise ValueError(
+                            f"Missing required fields for create: {', '.join(missing_required_fields)}."
+                        )
+                    session.add(item)
+                    row_action = "create"
 
-            item = model_config.model()
-            payload = dict(normalized_row)
-            if conflict_mode == "auto_generate_pk":
-                payload.pop(pk_field, None)
-                assign_generated_pk(item, pk_field, pk_column)
-            elif normalized_pk_value is not None:
-                setattr(item, pk_field, normalized_pk_value)
-                payload.pop(pk_field, None)
-            elif supports_auto_generate_pk(model_config):
-                assign_generated_pk(item, pk_field, pk_column)
-            await apply_payload_to_item(
-                session,
-                model_config,
-                item,
-                payload,
-                mode="create",
-                allowed_fields=set(normalized_fields),
-            )
-            missing_required_fields = get_missing_required_columns_for_item(model_config, item)
-            if missing_required_fields:
-                raise ValueError(
-                    f"Missing required fields for create: {', '.join(missing_required_fields)}."
-                )
-            session.add(item)
-            created += 1
-            created_preview.append(
-                ImportPreviewItem(
-                    row_number=row_index,
-                    label=build_preview_label(model_config, normalized_row, row_index),
-                )
-            )
+                await session.flush()
         except HTTPException as exc:
             errors.append(ImportValidationErrorPayload(row_number=row_index, message=str(exc.detail)))
+        except SQLAlchemyError as exc:
+            errors.append(ImportValidationErrorPayload(row_number=row_index, message=format_database_error(exc)))
         except Exception as exc:  # noqa: BLE001
             errors.append(ImportValidationErrorPayload(row_number=row_index, message=str(exc)))
+        else:
+            if row_action == "create" and preview_item is not None:
+                created += 1
+                created_preview.append(preview_item)
+            elif row_action == "update" and preview_item is not None:
+                updated += 1
+                updated_preview.append(preview_item)
+            elif row_action == "skip" and preview_item is not None:
+                skipped += 1
+                skipped_preview.append(preview_item)
 
     if errors and commit:
+        await batch_transaction.rollback()
         await session.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -395,7 +404,32 @@ async def process_import_rows(
         )
 
     if commit:
-        await session.commit()
+        try:
+            await batch_transaction.commit()
+            await session.commit()
+        except SQLAlchemyError as exc:
+            await session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "summary": {
+                        "total_rows": len(rows),
+                        "create": created,
+                        "update": updated,
+                        "skip": skipped,
+                        "errors": 1,
+                    },
+                    "errors": [
+                        ImportValidationErrorPayload(
+                            row_number=0,
+                            message=format_database_error(exc),
+                        ).model_dump()
+                    ],
+                },
+            ) from exc
+
+    else:
+        await batch_transaction.rollback()
 
     return ImportValidationResponse(
         summary=ImportValidationSummary(
@@ -410,6 +444,13 @@ async def process_import_rows(
         skipped_preview=skipped_preview[:20],
         errors=errors[:50],
     )
+
+
+def format_database_error(exc: SQLAlchemyError) -> str:
+    original_error = getattr(exc, "orig", None)
+    if original_error is not None:
+        return f"Database constraint validation failed: {original_error}"
+    return f"Database constraint validation failed: {exc}"
 
 
 def normalize_import_row(
