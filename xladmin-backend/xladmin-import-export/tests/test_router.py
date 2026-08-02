@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+import csv
 import json
 import sys
 from collections.abc import AsyncIterator
+from io import BytesIO, StringIO
 from pathlib import Path
 from uuid import UUID
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from openpyxl import load_workbook
+from sqlalchemy import ForeignKey
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
@@ -45,6 +49,21 @@ class PasswordWidgetORM(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True)
     username: Mapped[str]
     password: Mapped[str]
+
+
+class WidgetGroupORM(Base):
+    __tablename__ = "widget_groups"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    widgets: Mapped[list[GroupedWidgetORM]] = relationship(lazy="selectin")
+
+
+class GroupedWidgetORM(Base):
+    __tablename__ = "grouped_widgets"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    group_id: Mapped[UUID] = mapped_column(ForeignKey("widget_groups.id"))
 
 
 class DummyUser:
@@ -124,6 +143,16 @@ async def app_bundle() -> AsyncIterator[tuple[FastAPI, async_sessionmaker[AsyncS
             },
             import_export=ImportExportConfig(),
         ),
+        ModelConfig(
+            model=WidgetGroupORM,
+            slug="widget-groups",
+            title="Widget groups",
+            display_field="name",
+            list_display=("id", "name"),
+            import_export=ImportExportConfig(
+                export_fields=("id", "name", "widgets"),
+            ),
+        ),
     ))
 
     app = FastAPI()
@@ -195,6 +224,55 @@ async def test_export_json_includes_custom_list_field(
         "name": "Alpha",
         "code_label": "W-Alpha",
     }]
+
+
+@pytest.mark.parametrize("export_format", ["json", "csv", "xlsx"])
+async def test_export_serializes_uuid_values_inside_to_many_relationships(
+    client: AsyncClient,
+    app_bundle: tuple[FastAPI, async_sessionmaker[AsyncSession]],
+    export_format: str,
+) -> None:
+    _app, session_factory = app_bundle
+    group_id = UUID("00000000-0000-0000-0000-000000000010")
+    widget_id = UUID("00000000-0000-0000-0000-000000000011")
+    async with session_factory() as session:
+        session.add(WidgetGroupORM(
+            id=group_id,
+            name="Grouped",
+            widgets=[GroupedWidgetORM(id=widget_id)],
+        ))
+        await session.commit()
+
+    response = await client.post(
+        "/xladmin/models/widget-groups/export/",
+        json={
+            "format": export_format,
+            "fields": ["id", "name", "widgets"],
+            "ids": [str(group_id)],
+        },
+    )
+
+    assert response.status_code == 200
+    expected_widgets = json.dumps([str(widget_id)])
+    if export_format == "json":
+        assert response.json() == [{
+            "id": str(group_id),
+            "name": "Grouped",
+            "widgets": [str(widget_id)],
+        }]
+    elif export_format == "csv":
+        rows = list(csv.DictReader(StringIO(response.content.decode("utf-8-sig"))))
+        assert rows == [{
+            "id": str(group_id),
+            "name": "Grouped",
+            "widgets": expected_widgets,
+        }]
+    else:
+        workbook = load_workbook(BytesIO(response.content), read_only=True, data_only=True)
+        assert list(workbook.active.iter_rows(values_only=True)) == [
+            ("id", "name", "widgets"),
+            (str(group_id), "Grouped", expected_widgets),
+        ]
 
 
 async def test_import_commit_generates_uuid_for_new_rows(

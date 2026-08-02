@@ -189,7 +189,7 @@ def serialize_export_row(
 
 
 def normalize_export_value(value: Any, export_format: ImportExportFormat) -> Any:
-    scalar_value = serialize_scalar(value)
+    scalar_value = serialize_export_value(value)
     if export_format == "json":
         return scalar_value
     if isinstance(scalar_value, list | dict):
@@ -197,6 +197,17 @@ def normalize_export_value(value: Any, export_format: ImportExportFormat) -> Any
     if isinstance(scalar_value, bool):
         return "true" if scalar_value else "false"
     return scalar_value
+
+
+def serialize_export_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(serialize_scalar(key)): serialize_export_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list | tuple):
+        return [serialize_export_value(item) for item in value]
+    return serialize_scalar(value)
 
 
 async def read_import_rows(upload_file: UploadFile, import_format: ImportExportFormat) -> list[dict[str, Any]]:
