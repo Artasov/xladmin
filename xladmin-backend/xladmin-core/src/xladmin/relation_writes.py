@@ -11,7 +11,9 @@ from xladmin.router_queries import apply_scoped_query, convert_pk
 
 class RelationWriteAccess:
     @staticmethod
-    async def items(session: AsyncSession, registry: Registry, model: type[Any], ids: list[Any], user: Any) -> list[Any]:
+    async def items(
+        session: AsyncSession, registry: Registry, model: type[Any], ids: list[Any], user: Any,
+    ) -> list[Any]:
         """Resolve all requested IDs inside the target model's scope, without identity-map shortcuts."""
         normalized_ids = list(dict.fromkeys(convert_pk(value) for value in ids))
         if not normalized_ids:

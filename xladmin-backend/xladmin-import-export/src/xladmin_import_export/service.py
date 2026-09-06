@@ -24,15 +24,15 @@ from xladmin.introspection_fields import (
     pk_is_generated,
 )
 from xladmin.introspection_values import convert_value_for_column, get_field_value
-from xladmin.router_mutations import apply_payload_to_item
 from xladmin.registry import Registry
+from xladmin.router_mutations import apply_payload_to_item
 from xladmin.router_queries import (
     apply_list_filters,
     apply_ordering,
     apply_search,
     build_model_query,
-    get_items_by_ids,
     get_item_by_pk,
+    get_items_by_ids,
 )
 from xladmin.serializer import serialize_scalar
 
