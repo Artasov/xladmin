@@ -1,6 +1,6 @@
 {
   "name": "xladmin-import-export",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Optional import/export extension for xladmin.",
   "license": "MIT",
   "type": "module",
@@ -43,7 +43,7 @@
     "axios": ">=1.0.0 <2.0.0",
     "react": ">=19.0.0 <20.0.0",
     "react-dom": ">=19.0.0 <20.0.0",
-    "xladmin": ">=0.2.8 <1.0.0"
+    "xladmin": "^0.10.0"
   },
   "peerDependenciesMeta": {
     "axios": {

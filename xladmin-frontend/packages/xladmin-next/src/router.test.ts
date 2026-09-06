@@ -22,6 +22,7 @@ describe('createNextAdminRouter', () => {
         router.push('/admin/users');
         router.replace('/admin/users?page=1');
         router.back();
+        expect(router.resolveHref('/admin/users?tenant_id=10')).toBe('/admin/users?tenant_id=10');
 
         expect(push).toHaveBeenCalledWith('/admin/users');
         expect(replace).toHaveBeenCalledWith('/admin/users?page=1');

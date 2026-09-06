@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect as sa_inspect
 
 from xladmin.config import HttpConfig, ModelConfig
+from xladmin.access import ModelWriteAccess
 from xladmin.delete_preview import build_delete_plan, build_delete_preview
 from xladmin.i18n import translate
 from xladmin.introspection import get_list_filter_input_kind, get_model_blocks_meta, get_model_meta
@@ -260,6 +261,7 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> ItemOnlyResponse:
         check_access(user)
         model_config = await get_model_config(slug)
+        ModelWriteAccess.check(model_config)
         if model_config.create_handler is not None:
             try:
                 item = model_config.create_handler(session, model_config, payload.root, user)
@@ -282,7 +284,7 @@ def create_router(config: HttpConfig) -> APIRouter:
         else:
             item = model_config.model()
         if model_config.create_handler is None:
-            await apply_payload_to_item(session, model_config, item, payload.root, mode="create")
+            await apply_payload_to_item(session, model_config, item, payload.root, mode="create", registry=registry, user=user)
             missing_required_fields = get_missing_required_create_fields(model_config, item)
             if missing_required_fields:
                 raise HTTPException(
@@ -304,7 +306,8 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> ItemOnlyResponse:
         check_access(user)
         model_config, item = await get_existing_item(slug, item_id, session, user)
-        await apply_payload_to_item(session, model_config, item, payload.root, mode="update")
+        ModelWriteAccess.check(model_config)
+        await apply_payload_to_item(session, model_config, item, payload.root, mode="update", registry=registry, user=user)
         await commit_or_raise_conflict(session)
         await session.refresh(item)
         refreshed_item = await get_item_by_pk(session, model_config, item_id, user, mode="detail")
@@ -332,6 +335,7 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> Response:
         check_access(user)
         model_config, item = await get_existing_item(slug, item_id, session, user)
+        ModelWriteAccess.check(model_config)
         await execute_delete_plan(model_config, [item], session)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -349,6 +353,7 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> ObjectActionResponse:
         check_access(user)
         model_config, item = await get_existing_item(slug, item_id, session, user)
+        ModelWriteAccess.check(model_config)
 
         action = model_config.get_object_action(action_slug)
         if action is None:
@@ -383,6 +388,7 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> DeleteResultResponse:
         check_access(user)
         model_config = await get_model_config(slug)
+        ModelWriteAccess.check(model_config)
         items = await get_items_for_selection(
             model_config,
             session=session,
@@ -431,6 +437,7 @@ def create_router(config: HttpConfig) -> APIRouter:
     ) -> FlexibleProcessedResponse:
         check_access(user)
         model_config = await get_model_config(slug)
+        ModelWriteAccess.check(model_config)
         if not payload.ids and not payload.select_all:
             return FlexibleProcessedResponse(processed=0)
         if action_slug == "delete":

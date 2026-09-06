@@ -2,6 +2,7 @@ import type {
     AdminChoicesResponse,
     AdminDeletePreviewResponse,
     AdminDetailResponse,
+    AdminItemResponse,
     AdminCurrentUser,
     AdminListResponse,
     AdminModelMeta,
@@ -35,8 +36,8 @@ export type AdminClient = {
         sort?: string
     } & Record<string, unknown>) => Promise<AdminListResponse>;
     getItem: (slug: string, id: string | number) => Promise<AdminDetailResponse>;
-    createItem: (slug: string, payload: Record<string, unknown>) => Promise<AdminDetailResponse>;
-    patchItem: (slug: string, id: string | number, payload: Record<string, unknown>) => Promise<AdminDetailResponse>;
+    createItem: (slug: string, payload: Record<string, unknown>) => Promise<AdminItemResponse>;
+    patchItem: (slug: string, id: string | number, payload: Record<string, unknown>) => Promise<AdminItemResponse>;
     deleteItem: (slug: string, id: string | number) => Promise<void>;
     getDeletePreview: (slug: string, id: string | number) => Promise<AdminDeletePreviewResponse>;
     bulkDelete: (slug: string, ids: Array<string | number>, options?: AdminSelectionOptions) => Promise<{
@@ -127,10 +128,10 @@ export function createAdminClient(transport: AdminTransport): AdminClient {
             return await transportGet<AdminDetailResponse>(transport, `/xladmin/models/${slug}/items/${id}/`);
         },
         async createItem(slug, payload) {
-            return await transportPost<AdminDetailResponse>(transport, `/xladmin/models/${slug}/items/`, payload);
+            return await transportPost<AdminItemResponse>(transport, `/xladmin/models/${slug}/items/`, payload);
         },
         async patchItem(slug, id, payload) {
-            return await transportPatch<AdminDetailResponse>(transport, `/xladmin/models/${slug}/items/${id}/`, payload);
+            return await transportPatch<AdminItemResponse>(transport, `/xladmin/models/${slug}/items/${id}/`, payload);
         },
         async deleteItem(slug, id) {
             await transport.delete(`/xladmin/models/${slug}/items/${id}/`);

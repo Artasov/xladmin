@@ -66,6 +66,8 @@ def get_visible_detail_fields(config: AdminModelConfig) -> list[str]:
 
 
 def get_create_fields(config: AdminModelConfig) -> list[str]:
+    if config.read_only:
+        return []
     if config.create_form is not None:
         return [field.name for field in config.create_form]
     if config.create_fields is not None:
@@ -92,6 +94,8 @@ def get_create_fields(config: AdminModelConfig) -> list[str]:
 
 
 def get_update_fields(config: AdminModelConfig) -> list[str]:
+    if config.read_only:
+        return []
     if config.update_fields is not None:
         return list(config.update_fields)
     relationship_names = set(get_relationship_names(config))
@@ -154,7 +158,7 @@ def get_sort_column_name(config: AdminModelConfig, field_name: str) -> str | Non
 
 
 def is_read_only(config: AdminModelConfig, field_name: str) -> bool:
-    return config.get_field_config(field_name).read_only
+    return config.read_only or config.get_field_config(field_name).read_only
 
 
 def pk_is_generated(column: Any) -> bool:

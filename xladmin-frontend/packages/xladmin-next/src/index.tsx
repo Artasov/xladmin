@@ -14,6 +14,7 @@ export type NextAdminRouterAdapter = {
 
 export function createNextAdminRouter(adapter: NextAdminRouterAdapter): AdminRouter {
     return {
+        resolveHref: (href) => href,
         getLocation: () => ({
             pathname: adapter.pathname,
             search: adapter.search,

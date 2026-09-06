@@ -10,6 +10,7 @@ type ObjectFieldProps = {
     value: unknown;
     slug: string;
     client: AdminClient;
+    readOnly: boolean;
     onFieldChange: (fieldName: string, nextValue: unknown) => void;
 };
 
@@ -18,6 +19,7 @@ export const ObjectField = memo(function ObjectField({
                                                          value,
                                                          slug,
                                                          client,
+                                                         readOnly,
                                                          onFieldChange,
                                                      }: ObjectFieldProps) {
     const handleChange = useCallback((nextValue: unknown) => {
@@ -30,6 +32,7 @@ export const ObjectField = memo(function ObjectField({
             value={value}
             slug={slug}
             client={client}
+            readOnly={readOnly}
             onChange={handleChange}
         />
     );

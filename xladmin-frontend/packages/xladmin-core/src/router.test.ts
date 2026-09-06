@@ -38,6 +38,7 @@ describe('router helpers', () => {
         let currentLocation: AdminLocation = {pathname: '/admin/users', search: ''};
         const listeners = new Set<() => void>();
         const router: AdminRouter = {
+            resolveHref: (href) => href,
             getLocation: () => ({...currentLocation}),
             subscribe: (listener) => {
                 listeners.add(listener);

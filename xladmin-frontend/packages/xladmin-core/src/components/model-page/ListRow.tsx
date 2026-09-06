@@ -17,6 +17,7 @@ export type ListRowProps = {
     locale: AdminLocale;
     fieldMap: Map<string, AdminFieldMeta>;
     isSelected: boolean;
+    canWrite: boolean;
     onToggleSelection: (rowId: string | number, checked: boolean) => void;
     onOpenMenu: (event: MouseEvent<HTMLElement>, rowId: string | number) => void;
 };
@@ -30,6 +31,7 @@ export const ListRow = memo(function ListRow({
                                                  locale,
                                                  fieldMap,
                                                  isSelected,
+                                                 canWrite,
                                                  onToggleSelection,
                                                  onOpenMenu,
                                              }: ListRowProps) {
@@ -141,9 +143,9 @@ export const ListRow = memo(function ListRow({
                     maxWidth: actionsColumnWidth,
                 }}
             >
-                <IconButton size="small" onClick={(event) => onOpenMenu(event, rowId)}>
+                {canWrite ? <IconButton size="small" onClick={(event) => onOpenMenu(event, rowId)}>
                     <MoreVertIcon fontSize="small"/>
-                </IconButton>
+                </IconButton> : null}
             </TableCell>
         </TableRow>
     );

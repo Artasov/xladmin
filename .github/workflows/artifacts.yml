@@ -1,0 +1,47 @@
+name: XLAdmin Package Artifacts
+
+on:
+  pull_request:
+    paths:
+      - "xladmin-backend/**"
+      - "xladmin-frontend/**"
+      - "scripts/check_backend_artifacts.py"
+      - ".github/workflows/**"
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installed-consumers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: xladmin-frontend/package-lock.json
+      - name: Install Python build tools
+        run: python -m pip install build twine
+      - name: Verify isolated wheel consumers
+        run: python scripts/check_backend_artifacts.py --output-dir "${{ runner.temp }}/xladmin-wheels"
+      - name: Install frontend build dependencies
+        working-directory: xladmin-frontend
+        run: npm ci
+      - name: Verify publication gates
+        working-directory: xladmin-frontend
+        run: node --test scripts/artifact-workflows.test.mjs
+      - name: Build frontend packages
+        working-directory: xladmin-frontend
+        run: npm run build
+      - name: Verify isolated npm consumers
+        working-directory: xladmin-frontend
+        run: npm run check:artifacts -- --output-dir "${{ runner.temp }}/xladmin-npm"
+      - name: Verify Next 16 and React 19 consumer
+        working-directory: xladmin-frontend
+        run: npm run check:artifacts -- --next-version 16.2.12 --react-version 19.2.5 --output-dir "${{ runner.temp }}/xladmin-npm-next16"
