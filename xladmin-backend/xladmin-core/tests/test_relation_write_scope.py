@@ -73,7 +73,8 @@ async def scope_case():
     ))
     app = FastAPI()
     app.include_router(create_admin_router(AdminHTTPConfig(
-        registry=registry, get_db_session_dependency=database, get_current_user_dependency=user, is_allowed=lambda _user: True,
+        registry=registry, get_db_session_dependency=database,
+        get_current_user_dependency=user, is_allowed=lambda _user: True,
     )))
     try:
         async with AsyncClient(transport=ASGITransport(app), base_url="http://test") as client:

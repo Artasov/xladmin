@@ -43,11 +43,11 @@ jobs:
       - name: Typecheck
         run: npm run check
 
-      - name: Run tests
-        run: npm test
-
       - name: Build packages
         run: npm run build
+
+      - name: Run tests
+        run: npm test
 
       - name: Pack packages
         run: npm run pack:dry-run

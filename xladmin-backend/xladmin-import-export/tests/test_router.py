@@ -13,7 +13,6 @@ from openpyxl import load_workbook
 from sqlalchemy import CheckConstraint, ForeignKey, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-
 from xladmin import AdminConfig, AdminHTTPConfig, FieldConfig, ModelConfig
 
 from xladmin_import_export import ImportExportConfig, create_import_export_router
@@ -240,7 +239,9 @@ async def test_read_only_model_keeps_export_available(client):
     assert response.status_code == 200, response.text
     assert response.json()["import_formats"] == response.json()["import_fields"] == []
     assert "json" in response.json()["export_formats"]
-    response = await client.post("/xladmin/models/read-only-widgets/export/", json={"format": "json", "fields": ["id", "name"]})
+    response = await client.post(
+        "/xladmin/models/read-only-widgets/export/", json={"format": "json", "fields": ["id", "name"]},
+    )
     assert response.status_code == 200, response.text
 
 
@@ -538,7 +539,9 @@ async def test_import_validate_reports_hidden_required_fields(client: AsyncClien
 async def test_import_preserves_scoped_targets_and_relations(client, app_bundle, operation, hidden, conflict_mode):
     _, factory = app_bundle
     async with factory() as session:
-        session.add_all([ScopedReferenceORM(id=1, name="Visible"), ScopedReferenceORM(id=2, name="Hidden", is_active=False)])
+        session.add_all([
+            ScopedReferenceORM(id=1, name="Visible"), ScopedReferenceORM(id=2, name="Hidden", is_active=False),
+        ])
         await session.flush()
         session.add_all([ScopedItemORM(id=1, name="Original", reference_id=1),
                          ScopedItemORM(id=2, name="Hidden original", reference_id=1, is_active=False)])
@@ -555,7 +558,9 @@ async def test_import_preserves_scoped_targets_and_relations(client, app_bundle,
     if operation == "validate":
         assert response.json()["summary"]["errors"] == (1 if denied else 0)
     async with factory() as session:
-        saved = list(await session.execute(select(ScopedItemORM.name, ScopedItemORM.reference_id).order_by(ScopedItemORM.id)))
+        saved = list(await session.execute(
+            select(ScopedItemORM.name, ScopedItemORM.reference_id).order_by(ScopedItemORM.id),
+        ))
         committed = not denied and operation == "commit"
         expected = "Changed" if committed and conflict_mode == "update_existing" else "Original"
         expected_rows = [(expected, 1), ("Hidden original", 1)]

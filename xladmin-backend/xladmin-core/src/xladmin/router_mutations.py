@@ -6,8 +6,8 @@ from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.inspection import inspect as sa_inspect
 
-from xladmin.config import ModelConfig
 from xladmin.access import ModelWriteAccess
+from xladmin.config import ModelConfig
 from xladmin.introspection import (
     convert_value_for_column,
     get_column_names,
@@ -51,7 +51,9 @@ async def apply_payload_to_item(
                 continue
 
             if field_name in relationship_names:
-                await assign_relationship_value(session, model_config, item, field_name, value, registry=registry, user=user)
+                await assign_relationship_value(
+                    session, model_config, item, field_name, value, registry=registry, user=user,
+                )
                 continue
 
             if field_name not in column_names:

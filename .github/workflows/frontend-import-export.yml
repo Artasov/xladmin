@@ -43,6 +43,9 @@ jobs:
       - name: Typecheck import/export package
         run: npm run check --workspace ./packages/xladmin-import-export
 
+      - name: Build core dependency
+        run: npm run build --workspace ./packages/xladmin-core
+
       - name: Test import/export package
         run: npm run test --workspace ./packages/xladmin-import-export
 

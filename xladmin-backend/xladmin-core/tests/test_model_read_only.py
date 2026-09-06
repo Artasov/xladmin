@@ -124,7 +124,8 @@ async def test_parent_delete_cannot_cascade_or_clear_read_only_references(readon
     assert preview.status_code == 200, preview.text
     data = preview.json()
     assert data["can_delete"] is False
-    assert {child["model_slug"] for child in data["roots"][0]["children"] if child["effect"] == "protect"} == {"ledger", "references"}
+    protected = {child["model_slug"] for child in data["roots"][0]["children"] if child["effect"] == "protect"}
+    assert protected == {"ledger", "references"}
     response = (await client.post("/xladmin/models/parents/bulk-delete/", json={"ids": [1, 2]})
         if bulk else await client.delete("/xladmin/models/parents/items/1/"))
     assert response.status_code == 409, response.text
@@ -139,5 +140,6 @@ async def test_writable_model_without_protected_dependents_still_supports_crud(r
     created = await client.post("/xladmin/models/parents/items/", json={"id": 3, "name": "new"})
     assert created.status_code == 201, created.text
     identifier = created.json()["item"]["id"]
-    assert (await client.patch(f"/xladmin/models/parents/items/{identifier}/", json={"name": "edited"})).status_code == 200
+    updated = await client.patch(f"/xladmin/models/parents/items/{identifier}/", json={"name": "edited"})
+    assert updated.status_code == 200
     assert (await client.delete(f"/xladmin/models/parents/items/{identifier}/")).status_code == 204
