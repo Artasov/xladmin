@@ -2,22 +2,17 @@ from __future__ import annotations
 
 import csv
 import json
-import sys
 from collections.abc import AsyncIterator
 from io import BytesIO, StringIO
-from pathlib import Path
 from uuid import UUID
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from openpyxl import load_workbook
-from sqlalchemy import CheckConstraint, ForeignKey
+from sqlalchemy import CheckConstraint, ForeignKey, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-
 from xladmin import AdminConfig, AdminHTTPConfig, FieldConfig, ModelConfig
 
 from xladmin_import_export import ImportExportConfig, create_import_export_router
@@ -80,8 +75,30 @@ class ConstrainedWidgetORM(Base):
     state: Mapped[str]
 
 
+class ReadOnlyWidgetORM(Base):
+    __tablename__ = "read_only_widgets"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    name: Mapped[str]
+
+
 class DummyUser:
     is_staff = True
+
+
+class ScopedReferenceORM(Base):
+    __tablename__ = "scoped_references"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str]
+    is_active: Mapped[bool] = mapped_column(default=True)
+
+
+class ScopedItemORM(Base):
+    __tablename__ = "scoped_items"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    name: Mapped[str]
+    reference_id: Mapped[int] = mapped_column(ForeignKey("scoped_references.id"))
+    is_active: Mapped[bool] = mapped_column(default=True)
 
 
 @pytest.fixture
@@ -100,6 +117,13 @@ async def app_bundle() -> AsyncIterator[tuple[FastAPI, async_sessionmaker[AsyncS
         return DummyUser()
 
     config = AdminConfig(models=(
+        ModelConfig(model=ScopedReferenceORM, slug="scoped-references",
+                    query_for_list=lambda query, _session, _user: query.where(ScopedReferenceORM.is_active.is_(True))),
+        ModelConfig(model=ScopedItemORM, slug="scoped-items",
+                    query_for_list=lambda query, _session, _user: query.where(ScopedItemORM.is_active.is_(True)),
+                    import_export=ImportExportConfig(import_fields=("id", "name", "reference_id"))),
+        ModelConfig(model=ReadOnlyWidgetORM, slug="read-only-widgets", read_only=True,
+            import_export=ImportExportConfig(import_fields=("id", "name"))),
         ModelConfig(
             model=WidgetORM,
             slug="widgets",
@@ -198,6 +222,27 @@ async def client(app_bundle: tuple[FastAPI, async_sessionmaker[AsyncSession]]) -
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as http_client:
         yield http_client
+
+
+@pytest.mark.parametrize("operation", ["validate", "commit"])
+async def test_read_only_model_rejects_import(client, app_bundle, operation):
+    response = await client.post(f"/xladmin/models/read-only-widgets/import/{operation}/", data={
+        "format": "json", "fields": json.dumps(["id", "name"]), "conflict_mode": "update_existing",
+    }, files={"file": ("data.json", b'[{"name":"not allowed"}]', "application/json")})
+    assert response.status_code == 403, response.text
+    async with app_bundle[1]() as session:
+        assert list(await session.scalars(ReadOnlyWidgetORM.__table__.select())) == []
+
+
+async def test_read_only_model_keeps_export_available(client):
+    response = await client.get("/xladmin/models/read-only-widgets/import-export/meta/")
+    assert response.status_code == 200, response.text
+    assert response.json()["import_formats"] == response.json()["import_fields"] == []
+    assert "json" in response.json()["export_formats"]
+    response = await client.post(
+        "/xladmin/models/read-only-widgets/export/", json={"format": "json", "fields": ["id", "name"]},
+    )
+    assert response.status_code == 200, response.text
 
 
 async def test_meta_exposes_custom_export_field_and_uuid_conflict_mode(
@@ -486,6 +531,42 @@ async def test_import_validate_reports_hidden_required_fields(client: AsyncClien
         "field": None,
         "message": "Missing required fields for create: hidden_required.",
     }]
+
+
+@pytest.mark.parametrize("operation", ["validate", "commit"])
+@pytest.mark.parametrize("hidden", ["reference", "target", None])
+@pytest.mark.parametrize("conflict_mode", ["update_existing", "skip_existing", "auto_generate_pk"])
+async def test_import_preserves_scoped_targets_and_relations(client, app_bundle, operation, hidden, conflict_mode):
+    _, factory = app_bundle
+    async with factory() as session:
+        session.add_all([
+            ScopedReferenceORM(id=1, name="Visible"), ScopedReferenceORM(id=2, name="Hidden", is_active=False),
+        ])
+        await session.flush()
+        session.add_all([ScopedItemORM(id=1, name="Original", reference_id=1),
+                         ScopedItemORM(id=2, name="Hidden original", reference_id=1, is_active=False)])
+        await session.commit()
+    rows = [{"id": 1, "name": "Changed", "reference_id": 1}]
+    if hidden is not None:
+        rows.append({"id": 2 if hidden == "target" else 3, "name": "Forbidden",
+                     "reference_id": 2 if hidden == "reference" else 1})
+    response = await client.post(f"/xladmin/models/scoped-items/import/{operation}/",
+        files={"file": ("items.json", json.dumps(rows).encode(), "application/json")},
+        data={"format": "json", "fields": json.dumps(["id", "name", "reference_id"]), "conflict_mode": conflict_mode})
+    denied = hidden == "reference" or (hidden == "target" and conflict_mode != "auto_generate_pk")
+    assert response.status_code == (400 if denied and operation == "commit" else 200), response.text
+    if operation == "validate":
+        assert response.json()["summary"]["errors"] == (1 if denied else 0)
+    async with factory() as session:
+        saved = list(await session.execute(
+            select(ScopedItemORM.name, ScopedItemORM.reference_id).order_by(ScopedItemORM.id),
+        ))
+        committed = not denied and operation == "commit"
+        expected = "Changed" if committed and conflict_mode == "update_existing" else "Original"
+        expected_rows = [(expected, 1), ("Hidden original", 1)]
+        if committed and conflict_mode == "auto_generate_pk":
+            expected_rows.extend((row["name"], 1) for row in rows)
+        assert saved == expected_rows
 
 
 async def test_default_import_fields_include_real_password_and_exclude_custom_setter_field(

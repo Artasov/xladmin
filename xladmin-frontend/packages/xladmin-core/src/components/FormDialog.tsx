@@ -1,13 +1,13 @@
 'use client';
 
-import {useEffect, useMemo, useRef, useState} from 'react';
+import {useMemo} from 'react';
 import {Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,} from '@mui/material';
 import {LocalizationProvider} from '@mui/x-date-pickers';
 import {AdapterDayjs} from '@mui/x-date-pickers/AdapterDayjs';
 import type {AdminClient} from '../client';
 import {useAdminTranslation} from '../i18n';
 import type {AdminEditableFieldMeta, AdminModelMeta} from '../types';
-import {buildAdminFormInitialValues, buildAdminPayload} from '../utils/adminFields';
+import {useAdminFormSession} from './form-dialog/useAdminFormSession';
 import {getMuiPickersLocaleText} from '../utils/pickersLocale';
 import {FieldEditor} from './FieldEditor';
 import {useAdminMessage} from './layout/AdminMessageContext';
@@ -41,96 +41,39 @@ export function FormDialog({
                            }: FormDialogProps) {
     const t = useAdminTranslation();
     const message = useAdminMessage();
-    const [values, setValues] = useState<Record<string, unknown>>({});
-    const [error, setError] = useState<string | null>(null);
-    const [isSaving, setIsSaving] = useState(false);
     const editableFields = useMemo(
         (): AdminEditableFieldMeta[] => {
+            if (meta.read_only) return [];
             if (mode === 'create' && meta.create_form && meta.create_form.length > 0) {
                 return meta.create_form;
             }
             const editableFieldNames = mode === 'create' ? meta.create_fields : meta.update_fields;
             return meta.fields.filter((field) => editableFieldNames.includes(field.name));
         },
-        [meta.create_fields, meta.create_form, meta.fields, meta.update_fields, mode],
+        [meta.read_only, meta.create_fields, meta.create_form, meta.fields, meta.update_fields, mode],
     );
-    const [openPickerFieldName, setOpenPickerFieldName] = useState<string | null>(null);
-    const pendingPickerFrameRef = useRef<number | null>(null);
-
-    useEffect(() => {
-        setValues(buildAdminFormInitialValues(editableFields, initialValues));
-        setError(null);
-        setIsSaving(false);
-        setOpenPickerFieldName(null);
-    }, [editableFields, initialValues, open]);
-
-    useEffect(() => {
-        return () => {
-            if (pendingPickerFrameRef.current !== null) {
-                window.cancelAnimationFrame(pendingPickerFrameRef.current);
-                pendingPickerFrameRef.current = null;
-            }
-        };
-    }, []);
-
-    const requestPickerOpen = (fieldName: string) => {
-        if (openPickerFieldName === fieldName) {
-            return;
-        }
-        if (pendingPickerFrameRef.current !== null) {
-            window.cancelAnimationFrame(pendingPickerFrameRef.current);
-            pendingPickerFrameRef.current = null;
-        }
-        if (openPickerFieldName !== null) {
-            setOpenPickerFieldName(null);
-            pendingPickerFrameRef.current = window.requestAnimationFrame(() => {
-                setOpenPickerFieldName(fieldName);
-                pendingPickerFrameRef.current = null;
-            });
-            return;
-        }
-        setOpenPickerFieldName(fieldName);
-    };
-
-    const requestPickerClose = (fieldName: string) => {
-        if (pendingPickerFrameRef.current !== null && openPickerFieldName === fieldName) {
-            window.cancelAnimationFrame(pendingPickerFrameRef.current);
-            pendingPickerFrameRef.current = null;
-        }
-        setOpenPickerFieldName((current) => (current === fieldName ? null : current));
-    };
-
-    const handleSave = async () => {
-        if (isSaving) {
-            return;
-        }
-
-        setIsSaving(true);
-        setError(null);
-        const payload = buildAdminPayload(values, editableFields);
-        try {
-            if (mode === 'create') {
-                await client.createItem(slug, payload);
-                message.success(t('object_created_success'));
-            } else if (itemId !== undefined) {
-                await client.patchItem(slug, itemId, payload);
-                message.success(t('object_saved_success'));
-            }
-            onSuccess();
-            onClose();
-        } catch (reason: unknown) {
-            const nextError = reason instanceof Error ? reason.message : t('object_save_error');
-            setError(nextError);
-            message.error(nextError);
-        } finally {
-            setIsSaving(false);
-        }
+    const canSubmit = open && !meta.read_only && (mode === 'create' || itemId !== undefined);
+    const {values, error, isSubmitting: isSaving, editorVersion, openPickerFieldName, changeField, requestPickerOpen, requestPickerClose, submit, close} = useAdminFormSession({
+        client, identity: JSON.stringify([slug, mode, itemId]), open: open && !meta.read_only,
+        fields: editableFields, initialValues, errorFallback: t('object_save_error'), onClose,
+    });
+    const handleSave = () => {
+        if (!canSubmit) return;
+        return submit(
+            (payload) => mode === 'create'
+                ? client.createItem(slug, payload)
+                : client.patchItem(slug, itemId!, payload),
+            () => {
+                message.success(t(mode === 'create' ? 'object_created_success' : 'object_saved_success'));
+                onSuccess();
+            },
+        );
     };
 
     return (
         <Dialog
-            open={open}
-            onClose={onClose}
+            open={open && !meta.read_only}
+            onClose={close}
             fullWidth
             maxWidth="md"
             slotProps={{
@@ -155,7 +98,7 @@ export function FormDialog({
                     adapterLocale={meta.locale}
                     localeText={getMuiPickersLocaleText(meta.locale)}
                 >
-                    <Box sx={{display: 'grid', gap: 2, pt: 1}}>
+                    <Box key={editorVersion} sx={{display: 'grid', gap: 2, pt: 1}}>
                         {error ? <Alert severity="error">{error}</Alert> : null}
                         {editableFields.map((field) => (
                             <FieldEditor
@@ -164,11 +107,10 @@ export function FormDialog({
                                 value={values[field.name]}
                                 slug={slug}
                                 client={client}
+                                readOnly={isSaving}
                                 isPickerOpen={openPickerFieldName === field.name}
                                 hasAnotherPickerOpen={openPickerFieldName !== null && openPickerFieldName !== field.name}
-                                onChange={(nextValue) => {
-                                    setValues((current) => ({...current, [field.name]: nextValue}));
-                                }}
+                                onChange={(nextValue) => changeField(field.name, nextValue)}
                                 onRequestPickerOpen={() => requestPickerOpen(field.name)}
                                 onRequestPickerClose={() => requestPickerClose(field.name)}
                             />
@@ -177,8 +119,8 @@ export function FormDialog({
                 </LocalizationProvider>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose} disabled={isSaving}>{t('cancel')}</Button>
-                <Button variant="contained" onClick={() => void handleSave()} disabled={isSaving}>
+                <Button onClick={close} disabled={isSaving}>{t('cancel')}</Button>
+                <Button variant="contained" onClick={() => void handleSave()} disabled={isSaving || !canSubmit}>
                     {isSaving ? t('saving') : t('save')}
                 </Button>
             </DialogActions>

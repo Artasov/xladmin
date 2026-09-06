@@ -43,7 +43,7 @@ async def build_delete_plan(
             model_config=model_config,
             item=item,
             relation_name=None,
-            effect="delete",
+            effect="protect" if model_config.read_only else "delete",
             path_seen=set(),
             edges_by_parent=edges_by_parent,
             ordered_items=ordered_items,
@@ -53,7 +53,7 @@ async def build_delete_plan(
     ]
     counts = _count_effects(roots)
     preview = {
-        "can_delete": counts["protect"] == 0,
+        "can_delete": not model_config.read_only and counts["protect"] == 0,
         "summary": {
             "roots": len(roots),
             "delete": counts["delete"],
@@ -132,6 +132,8 @@ async def _build_dependency_graph(
 
                     if related_config is None:
                         continue
+                    if related_config.read_only:
+                        continue
                     if dependent_relation.effect == "set-null":
                         _append_set_null_item(
                             set_null_items,
@@ -163,7 +165,7 @@ def _build_preview_edge(
 
     return _PreviewEdge(
         relation_name=dependent_relation.relation_name,
-        effect=dependent_relation.effect,
+        effect="protect" if model_config.read_only else dependent_relation.effect,
         model_config=model_config,
         item=related_item,
         model_title=_get_model_title(model_config),

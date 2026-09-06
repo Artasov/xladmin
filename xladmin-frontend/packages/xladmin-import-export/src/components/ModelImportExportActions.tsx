@@ -109,24 +109,27 @@ export function ModelImportExportActions({client, context}: ModelImportExportAct
     }
 
     const exportCount = context.selectionCount > 0 ? context.selectionCount : context.total;
+    const canImport = context.meta.slug === context.slug
+        && meta.model_slug === context.slug
+        && context.meta.read_only === false && meta.import_formats.length > 0;
 
     return (
         <>
             <Stack direction="row" spacing={0.5} sx={{alignItems: 'center'}}>
                 <Tooltip title={messages.exportButton}>
                     <span>
-                        <IconButton size="small" onClick={() => setExportOpen(true)} disabled={Boolean(error)}>
+                        <IconButton size="small" aria-label={messages.exportButton} onClick={() => setExportOpen(true)} disabled={Boolean(error)}>
                             <DownloadIcon fontSize="small"/>
                         </IconButton>
                     </span>
                 </Tooltip>
-                <Tooltip title={messages.importButton}>
+                {canImport ? <Tooltip title={messages.importButton}>
                     <span>
-                        <IconButton size="small" onClick={() => setImportOpen(true)} disabled={Boolean(error)}>
+                        <IconButton size="small" aria-label={messages.importButton} onClick={() => setImportOpen(true)} disabled={Boolean(error)}>
                             <UploadIcon fontSize="small"/>
                         </IconButton>
                     </span>
-                </Tooltip>
+                </Tooltip> : null}
             </Stack>
 
             <Dialog open={exportOpen} onClose={() => !isExporting && setExportOpen(false)} fullWidth maxWidth="md">
@@ -179,7 +182,7 @@ export function ModelImportExportActions({client, context}: ModelImportExportAct
                 </DialogActions>
             </Dialog>
 
-            <Dialog open={importOpen} onClose={() => !isValidating && !isImporting && setImportOpen(false)} fullWidth
+            <Dialog open={importOpen && canImport} onClose={() => !isValidating && !isImporting && setImportOpen(false)} fullWidth
                     maxWidth="md">
                 <DialogTitle sx={{px: 3, pt: 3, pb: 1}}>{messages.importTitle}</DialogTitle>
                 <DialogContent sx={{px: 3, pb: 3, pt: 0.5}}>
@@ -260,7 +263,7 @@ export function ModelImportExportActions({client, context}: ModelImportExportAct
                         <Stack direction="row" spacing={1} sx={{alignItems: 'center'}}>
                             <Button
                                 variant="outlined"
-                                onClick={() => void handleValidateImport({
+                                onClick={() => canImport && void handleValidateImport({
                                     client,
                                     slug: context.slug,
                                     file: importFile,
@@ -271,7 +274,7 @@ export function ModelImportExportActions({client, context}: ModelImportExportAct
                                     setValidationResult,
                                     setValidationError,
                                 })}
-                                disabled={!importFile || selectedImportFields.length === 0 || isValidating || isImporting}
+                                disabled={!canImport || !importFile || selectedImportFields.length === 0 || isValidating || isImporting}
                             >
                                 {messages.validate}
                             </Button>
@@ -285,7 +288,7 @@ export function ModelImportExportActions({client, context}: ModelImportExportAct
                             disabled={isValidating || isImporting}>{messages.cancel}</Button>
                     <Button
                         variant="contained"
-                        onClick={() => void handleCommitImport({
+                        onClick={() => canImport && void handleCommitImport({
                             client,
                             slug: context.slug,
                             file: importFile,
@@ -302,7 +305,7 @@ export function ModelImportExportActions({client, context}: ModelImportExportAct
                             },
                             messages,
                         })}
-                        disabled={!importFile || !validationResult || validationResult.summary.errors > 0 || isImporting}
+                        disabled={!canImport || !importFile || !validationResult || validationResult.summary.errors > 0 || isImporting}
                     >
                         {isImporting ? messages.importing : messages.confirmImport}
                     </Button>

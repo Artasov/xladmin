@@ -14,6 +14,7 @@ export type ReactRouterAdminAdapter = {
 
 export function createReactRouterAdminRouter(adapter: ReactRouterAdminAdapter): AdminRouter {
     return {
+        resolveHref: (href) => href,
         getLocation: () => ({
             pathname: adapter.pathname,
             search: adapter.search,

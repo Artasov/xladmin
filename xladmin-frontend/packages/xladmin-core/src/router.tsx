@@ -9,6 +9,7 @@ export type AdminLocation = {
 };
 
 export type AdminRouter = {
+    resolveHref: (href: string) => string;
     getLocation: () => AdminLocation;
     subscribe: (listener: () => void) => () => void;
     push: (href: string) => void;
@@ -40,6 +41,7 @@ export function AdminRouterProvider({router, children}: AdminRouterProviderProps
 
 export function createBrowserAdminRouter(browserWindow: Window = window): AdminRouter {
     return {
+        resolveHref: (href) => href,
         getLocation: () => ({
             pathname: browserWindow.location.pathname,
             search: browserWindow.location.search,

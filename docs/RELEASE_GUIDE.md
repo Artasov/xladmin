@@ -1,5 +1,7 @@
 # Release Guide
 
+Release prerequisite: [isolated artifact checks and candidate compatibility](./ARTIFACT_CHECKS.ru.md). These checks do not publish packages or authorize git mutations. Follow the repository's approved PR process before creating release tags; the historical helper below creates commits/tags directly and is not a substitute for that process.
+
 ## Tags
 
 The monorepo uses separate release tags:

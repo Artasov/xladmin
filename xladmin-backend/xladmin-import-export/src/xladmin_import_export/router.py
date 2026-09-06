@@ -6,6 +6,7 @@ from typing import Any, cast
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from xladmin.access import ModelWriteAccess
 from xladmin.config import HttpConfig, ModelConfig
 from xladmin.i18n import translate
 from xladmin.introspection_fields import get_pk_field_name
@@ -79,7 +80,7 @@ def create_import_export_router(config: HttpConfig) -> APIRouter:
         return ImportExportMetaResponse(
             model_slug=cast(str, model_config.slug),
             export_formats=list(import_export_config.export_formats),
-            import_formats=list(import_export_config.import_formats),
+            import_formats=[] if model_config.read_only else list(import_export_config.import_formats),
             export_fields=[
                 ImportExportFieldMeta(
                     name=field_name,
@@ -140,12 +141,14 @@ def create_import_export_router(config: HttpConfig) -> APIRouter:
     ) -> ImportValidationResponse:
         check_access(user)
         model_config = await get_model_config(slug)
+        ModelWriteAccess.check(model_config)
         import_export_config = get_enabled_import_export_config(model_config)
         import_format = validate_import_format(format, import_export_config)
         normalized_conflict_mode = validate_conflict_mode(conflict_mode, model_config, import_export_config)
         selected_fields = parse_fields_json(fields)
         rows = await parse_import_rows(file, import_format)
-        return await validate_import_rows(session, model_config, rows, selected_fields, normalized_conflict_mode)
+        return await validate_import_rows(session, model_config, rows, selected_fields, normalized_conflict_mode,
+                                          registry=registry, user=user)
 
     @router.post("/models/{slug}/import/commit/")
     async def commit_import(
@@ -159,12 +162,14 @@ def create_import_export_router(config: HttpConfig) -> APIRouter:
     ) -> JSONResponse:
         check_access(user)
         model_config = await get_model_config(slug)
+        ModelWriteAccess.check(model_config)
         import_export_config = get_enabled_import_export_config(model_config)
         import_format = validate_import_format(format, import_export_config)
         normalized_conflict_mode = validate_conflict_mode(conflict_mode, model_config, import_export_config)
         selected_fields = parse_fields_json(fields)
         rows = await parse_import_rows(file, import_format)
-        result = await commit_import_rows(session, model_config, rows, selected_fields, normalized_conflict_mode)
+        result = await commit_import_rows(session, model_config, rows, selected_fields, normalized_conflict_mode,
+                                          registry=registry, user=user)
         return JSONResponse(content=result.model_dump(mode="json"))
 
     return router

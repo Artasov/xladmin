@@ -65,6 +65,7 @@ export type ModelPageToolbarContext = {
     meta: {
         slug: string;
         title: string;
+        read_only: boolean;
     };
     selectedIds: Array<string | number>;
     isAllMatchingSelected: boolean;
@@ -131,6 +132,7 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
         meta: {
             slug: meta.slug,
             title: meta.title,
+            read_only: meta.read_only,
         },
         selectedIds: controller.selectedIds,
         isAllMatchingSelected: controller.isAllMatchingSelected,
@@ -147,7 +149,7 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
             <Stack spacing={1.5} sx={{height: '100%', minHeight: 0}}>
                 <MainHeader
                     title={controller.meta.title}
-                    actions={(
+                    actions={controller.canWrite ? (
                         <Tooltip title={t('create')}>
                             <IconButton
                                 aria-label={t('create')}
@@ -166,7 +168,7 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
                                 <AddIcon fontSize="small"/>
                             </IconButton>
                         </Tooltip>
-                    )}
+                    ) : undefined}
                     subtitle={`${controller.meta.slug} | ${t('objects_count', {count: controller.total})}`}
                     details={controller.meta.description ? (
                         <Typography color="text.secondary" sx={{fontSize: 14, lineHeight: 1.45}}>
@@ -196,13 +198,14 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
                             />
                             {controller.hasSelection ? (
                                 <Stack direction="row" spacing={1} sx={{minWidth: 0, flexWrap: 'wrap', alignItems: 'center'}}>
-                                    <Button
+                                    {controller.bulkActions.length > 0 ? <Button
                                         variant="outlined"
                                         endIcon={<ExpandMoreIcon/>}
+                                        disabled={controller.isBulkSubmitting || controller.isDeleteSubmitting}
                                         onClick={(event) => controller.setBulkActionMenuAnchor(event.currentTarget)}
                                     >
                                         {t('actions')}
-                                    </Button>
+                                    </Button> : null}
                                     {!controller.isAllMatchingSelected && controller.selectionCount < controller.total ? (
                                         <Button
                                             variant="text"
@@ -392,6 +395,7 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
                                                     locale={locale}
                                                     fieldMap={controller.fieldMap}
                                                     isSelected={controller.selectedIdSet.has(String(rowId))}
+                                                    canWrite={controller.canWrite}
                                                     onToggleSelection={controller.handleToggleSelection}
                                                     onOpenMenu={controller.handleOpenRowMenu}
                                                 />
@@ -418,11 +422,11 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
 
                 <Menu
                     anchorEl={controller.bulkActionMenuAnchor}
-                    open={Boolean(controller.bulkActionMenuAnchor)}
+                    open={controller.canWrite && Boolean(controller.bulkActionMenuAnchor)}
                     onClose={controller.handleCloseBulkActionMenu}
                 >
                     {controller.bulkActions.map((action) => (
-                        <MenuItem key={action.slug}
+                        <MenuItem key={action.slug} disabled={controller.isBulkSubmitting || controller.isDeleteSubmitting}
                                   onClick={() => void controller.handleRunNamedBulkAction(action.slug)}>
                             {action.label}
                         </MenuItem>
@@ -431,7 +435,7 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
 
                 <Menu
                     anchorEl={controller.rowActionMenuAnchor}
-                    open={Boolean(controller.rowActionMenuAnchor)}
+                    open={controller.canWrite && Boolean(controller.rowActionMenuAnchor)}
                     onClose={controller.handleCloseRowMenu}
                 >
                     <MenuItem
@@ -446,7 +450,7 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
                 </Menu>
 
                 <FormDialog
-                    open={controller.createOpen}
+                    open={controller.createOpen && controller.canWrite}
                     onClose={() => controller.setCreateOpen(false)}
                     onSuccess={() => void controller.refresh()}
                     title={`${t('create')}: ${meta.title}`}
@@ -458,7 +462,7 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
 
                 {controller.activeBulkAction?.form ? (
                     <ActionFormDialog
-                        open={true}
+                        open={controller.bulkActionFormOpen && controller.canWrite}
                         onClose={controller.handleCloseBulkActionForm}
                         onSuccess={() => undefined}
                         title={`${controller.activeBulkAction.label}: ${meta.title}`}
@@ -508,7 +512,7 @@ export function ModelPage({client, basePath, slug, router, renderBeforePaginatio
                 </Dialog>
 
                 <DeletePreviewDialog
-                    open={controller.deletePreviewOpen}
+                    open={controller.deletePreviewOpen && controller.canWrite}
                     title={controller.pendingDeleteMode === 'single' ? t('delete_object_title') : t('delete_bulk_title')}
                     preview={controller.deletePreview}
                     error={controller.deletePreviewError}

@@ -93,6 +93,7 @@ export type AdminObjectActionMeta = {
 };
 
 export type AdminModelMeta = {
+    read_only: boolean;
     locale: AdminLocale;
     slug: string;
     title: string;
@@ -127,9 +128,12 @@ export type AdminListResponse = {
     items: Record<string, unknown>[];
 };
 
-export type AdminDetailResponse = {
-    meta: AdminModelMeta;
+export type AdminItemResponse = {
     item: Record<string, unknown>;
+};
+
+export type AdminDetailResponse = AdminItemResponse & {
+    meta: AdminModelMeta;
 };
 
 export type AdminDeletePreviewNode = {

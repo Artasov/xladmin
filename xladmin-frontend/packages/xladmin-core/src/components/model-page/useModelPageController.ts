@@ -4,9 +4,7 @@ import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from
 import {
     buildListCacheKey,
     getClientCacheBucket,
-    getModelCacheVersion,
     invalidateModelCache,
-    setCachedListResponse,
 } from '../../cache';
 import type {AdminClient} from '@xladmin-core/client';
 import type {AdminTranslationKey} from '@xladmin-core/i18n';
@@ -14,6 +12,7 @@ import type {AdminRouter} from '@xladmin-core/router';
 import {buildUrlWithParams} from '@xladmin-core/router';
 import type {AdminDeletePreviewResponse, AdminListResponse} from '@xladmin-core/types';
 import {useAdminMessage} from '../layout/AdminMessageContext';
+import {requestListItems} from './listRequests';
 
 const DEFAULT_PAGE_SIZE = 50;
 
@@ -26,14 +25,6 @@ type UseModelPageControllerOptions = {
     t: (key: AdminTranslationKey, params?: Record<string, string | number>) => string;
 };
 
-type AdminListRequestParams = {
-    limit?: number;
-    offset?: number;
-    q?: string;
-    sort?: string;
-    [key: string]: unknown;
-};
-
 export function useModelPageController({
                                            client,
                                            slug,
@@ -43,6 +34,10 @@ export function useModelPageController({
                                            t,
                                        }: UseModelPageControllerOptions) {
     const message = useAdminMessage();
+    const lifetime = useMemo(() => ({
+        client, slug, active: false, canWrite: false, busy: false,
+        previewVersion: 0, formVersion: 0, selectionVersion: 0,
+    }), [client, slug]);
     const searchParams = useMemo(() => new URLSearchParams(locationSearch), [locationSearch]);
     const initialQuery = searchParams.get('q') ?? '';
     const initialSort = searchParams.get('sort') ?? '';
@@ -68,6 +63,8 @@ export function useModelPageController({
     const [rowActionMenuId, setRowActionMenuId] = useState<string | number | null>(null);
     const [bulkActionMenuAnchor, setBulkActionMenuAnchor] = useState<HTMLElement | null>(null);
     const [bulkActionFormSlug, setBulkActionFormSlug] = useState<string | null>(null);
+    const [bulkActionFormOpen, setBulkActionFormOpen] = useState(false);
+    const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
     const [appliedQuery, setAppliedQuery] = useState(initialQuery);
     const [sortValue, setSortValue] = useState(initialSort);
     const [currentPage, setCurrentPage] = useState(initialPage);
@@ -86,11 +83,13 @@ export function useModelPageController({
     const requestIdRef = useRef(0);
     const dataRef = useRef<AdminListResponse | null>(initialCachedResponse);
     const pageSizeRef = useRef<number>(initialCachedResponse?.meta.page_size ?? DEFAULT_PAGE_SIZE);
-    const previousSlugRef = useRef(slug);
+    const previousScopeRef = useRef(lifetime);
+    const refreshRef = useRef<(() => Promise<void>) | null>(null);
 
     const sortFields = useMemo(() => sortValue.split(',').filter(Boolean), [sortValue]);
     const meta = data?.meta ?? null;
-    const rows = data?.items ?? [];
+    const canWrite = meta?.slug === slug && meta.read_only === false;
+    const rows = useMemo(() => data?.items ?? [], [data?.items]);
     const total = data?.pagination.total ?? 0;
     const pageSize = meta?.page_size ?? pageSizeRef.current;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -101,7 +100,7 @@ export function useModelPageController({
     const listFields = meta?.list_fields ?? [];
     const listFilters = meta?.list_filters ?? [];
     const hasListFilters = listFilters.length > 0;
-    const bulkActions = meta?.bulk_actions ?? [];
+    const bulkActions = useMemo(() => canWrite ? meta.bulk_actions : [], [canWrite, meta]);
     const selectionScope = useMemo(
         () => ({
             q: appliedQuery || undefined,
@@ -109,6 +108,23 @@ export function useModelPageController({
         }),
         [appliedFilters, appliedQuery],
     );
+    const selectionKey = buildListCacheKey(slug, {q: appliedQuery, ...appliedFilters});
+    const previousSelectionKey = useRef(selectionKey);
+    const selectionLifetime = useMemo(() => ({selectedIds, isAllMatchingSelected, selectionKey, active: false}), [selectedIds, isAllMatchingSelected, selectionKey]);
+    const previewLifetime = useMemo(() => ({lifetime, pendingDeleteIds, deletePreviewOpen, active: false}), [lifetime, pendingDeleteIds, deletePreviewOpen]);
+    const formLifetime = useMemo(() => ({lifetime, bulkActionFormSlug, bulkActionFormOpen, active: false}), [lifetime, bulkActionFormSlug, bulkActionFormOpen]);
+    useLayoutEffect(() => {
+        selectionLifetime.active = true;
+        return () => {selectionLifetime.active = false;};
+    }, [selectionLifetime]);
+    useLayoutEffect(() => {
+        formLifetime.active = bulkActionFormOpen;
+        return () => {formLifetime.active = false;};
+    }, [formLifetime, bulkActionFormOpen]);
+    useLayoutEffect(() => {
+        previewLifetime.active = deletePreviewOpen;
+        return () => {previewLifetime.active = false;};
+    }, [previewLifetime, deletePreviewOpen]);
     const selectedIdSet = useMemo(() => {
         if (isAllMatchingSelected) {
             return new Set(rows.map((row) => String(row[meta?.pk_field ?? 'id'])));
@@ -122,7 +138,13 @@ export function useModelPageController({
     const hasSelection = isAllMatchingSelected || selectedIds.length > 0;
     const selectionCount = isAllMatchingSelected ? total : selectedIds.length;
 
-    useEffect(() => {
+    useLayoutEffect(() => {
+        lifetime.active = true;
+        lifetime.canWrite = canWrite;
+        return () => {lifetime.active = false;};
+    }, [lifetime, canWrite]);
+
+    useLayoutEffect(() => {
         dataRef.current = data;
     }, [data]);
 
@@ -131,11 +153,15 @@ export function useModelPageController({
     }, [currentPage]);
 
     useLayoutEffect(() => {
-        if (previousSlugRef.current === slug) {
+        if (previousScopeRef.current === lifetime) {
             return;
         }
 
-        previousSlugRef.current = slug;
+        previousScopeRef.current = lifetime;
+        requestIdRef.current += 1;
+        setCreateOpen(false);
+        setBulkActionFormOpen(false);
+        setIsBulkSubmitting(false);
         const nextSearchParams = new URLSearchParams(locationSearch);
         const nextQuery = nextSearchParams.get('q') ?? '';
         const nextSort = nextSearchParams.get('sort') ?? '';
@@ -171,7 +197,7 @@ export function useModelPageController({
         setPendingDeleteSelectAll(false);
         setPendingDeleteScope(null);
         setPendingDeleteMode('single');
-    }, [client, locationSearch, slug]);
+    }, [client, lifetime, locationSearch, slug]);
 
     useLayoutEffect(() => {
         const nextSearchParams = new URLSearchParams(locationSearch);
@@ -187,11 +213,29 @@ export function useModelPageController({
     }, [locationSearch]);
 
     const clearSelection = useCallback(() => {
+        if (!lifetime.active) return;
+        lifetime.selectionVersion += 1;
         setSelectedIds([]);
         setIsAllMatchingSelected(false);
-    }, []);
+    }, [lifetime]);
+
+    useLayoutEffect(() => {
+        if (previousSelectionKey.current === selectionKey) return;
+        previousSelectionKey.current = selectionKey;
+        clearSelection();
+        lifetime.formVersion += 1;
+        lifetime.previewVersion += 1;
+        setBulkActionFormOpen(false);
+        setDeletePreviewOpen(false);
+        setDeletePreview(null);
+        setIsDeletePreviewLoading(false);
+        setPendingDeleteIds([]);
+        setPendingDeleteSelectAll(false);
+        setPendingDeleteScope(null);
+    }, [clearSelection, lifetime, selectionKey]);
 
     const loadItems = useCallback(async () => {
+        if (!lifetime.active) return;
         const activeRequestId = requestIdRef.current + 1;
         requestIdRef.current = activeRequestId;
         setError(null);
@@ -208,9 +252,6 @@ export function useModelPageController({
         const cachedResponse = getClientCacheBucket(client).listResponseCache.get(requestKey) ?? null;
         if (cachedResponse) {
             setData(cachedResponse);
-            if (!isAllMatchingSelected) {
-                setSelectedIds([]);
-            }
             setIsLoading(false);
             return;
         }
@@ -222,38 +263,44 @@ export function useModelPageController({
 
         try {
             const response = await requestListItems(client, slug, requestParams, requestKey);
-            if (activeRequestId !== requestIdRef.current) {
+            if (!lifetime.active || activeRequestId !== requestIdRef.current) {
                 return;
             }
 
             pageSizeRef.current = response.meta.page_size;
             setData(response);
-            if (!isAllMatchingSelected) {
-                setSelectedIds([]);
-            }
         } catch (reason: unknown) {
+            if (!lifetime.active || activeRequestId !== requestIdRef.current) return;
             setError(reason instanceof Error ? reason.message : t('model_load_error'));
         } finally {
-            if (activeRequestId === requestIdRef.current) {
+            if (lifetime.active && activeRequestId === requestIdRef.current) {
                 setIsLoading(false);
             }
         }
-    }, [appliedFilters, appliedQuery, client, currentPage, isAllMatchingSelected, slug, sortValue, t]);
+    }, [appliedFilters, appliedQuery, client, currentPage, lifetime, slug, sortValue, t]);
 
     useEffect(() => {
         void loadItems();
     }, [loadItems]);
 
     const refresh = useCallback(async () => {
+        if (!lifetime.active) return;
         invalidateModelCache(client, slug);
         await loadItems();
-    }, [client, loadItems, slug]);
+    }, [client, lifetime, loadItems, slug]);
+
+    useLayoutEffect(() => {refreshRef.current = refresh;}, [refresh]);
+
+    // Retire pending reads before effects start loading a different page/query.
+    useLayoutEffect(() => {requestIdRef.current += 1;}, [lifetime, appliedFilters, appliedQuery, currentPage, sortValue]);
 
     const replaceLocation = useCallback((nextQuery: string, nextSort: string, nextPage: number, nextFilters: Record<string, string>) => {
+        if (!lifetime.active) return;
         router.replace(buildUrlWithParams(pathname, nextQuery, nextSort, nextPage, nextFilters));
-    }, [pathname, router]);
+    }, [lifetime, pathname, router]);
 
     const handleSearchCommit = useCallback((nextQuery: string) => {
+        if (!lifetime.active) return;
         if (nextQuery === appliedQuery) {
             return;
         }
@@ -262,21 +309,24 @@ export function useModelPageController({
         setCurrentPage(1);
         setPageInput('1');
         replaceLocation(nextQuery, sortValue, 1, appliedFilters);
-    }, [appliedFilters, appliedQuery, clearSelection, replaceLocation, sortValue]);
+    }, [appliedFilters, appliedQuery, clearSelection, replaceLocation, sortValue, lifetime]);
 
     const handlePageChange = useCallback((nextPage: number) => {
+        if (!lifetime.active) return;
         const safePage = Math.min(Math.max(nextPage, 1), totalPages);
         setCurrentPage(safePage);
         setPageInput(String(safePage));
         replaceLocation(appliedQuery, sortValue, safePage, appliedFilters);
-    }, [appliedFilters, appliedQuery, replaceLocation, sortValue, totalPages]);
+    }, [appliedFilters, appliedQuery, replaceLocation, sortValue, totalPages, lifetime]);
 
     const handlePageInputCommit = useCallback(() => {
+        if (!lifetime.active) return;
         const parsedPage = parsePageParam(pageInput);
         handlePageChange(parsedPage);
-    }, [handlePageChange, pageInput]);
+    }, [handlePageChange, pageInput, lifetime]);
 
     const toggleSort = useCallback((fieldName: string) => {
+        if (!lifetime.active) return;
         const nextSortFields = sortFields.filter((item) => item !== fieldName && item !== `-${fieldName}`);
         const currentSort = sortFields.find((item) => item === fieldName || item === `-${fieldName}`);
 
@@ -293,9 +343,10 @@ export function useModelPageController({
         setCurrentPage(1);
         setPageInput('1');
         replaceLocation(appliedQuery, nextSortValue, 1, appliedFilters);
-    }, [appliedFilters, appliedQuery, replaceLocation, sortFields]);
+    }, [appliedFilters, appliedQuery, replaceLocation, sortFields, lifetime]);
 
     const handleFilterChange = useCallback((filterSlug: string, value: string) => {
+        if (!lifetime.active) return;
         const nextFilters = {
             ...appliedFilters,
             [filterSlug]: value,
@@ -308,9 +359,10 @@ export function useModelPageController({
         setCurrentPage(1);
         setPageInput('1');
         replaceLocation(appliedQuery, sortValue, 1, nextFilters);
-    }, [appliedFilters, appliedQuery, clearSelection, replaceLocation, sortValue]);
+    }, [appliedFilters, appliedQuery, clearSelection, replaceLocation, sortValue, lifetime]);
 
     const handleResetFilters = useCallback(() => {
+        if (!lifetime.active) return;
         if (Object.keys(appliedFilters).length === 0) {
             return;
         }
@@ -319,9 +371,13 @@ export function useModelPageController({
         setCurrentPage(1);
         setPageInput('1');
         replaceLocation(appliedQuery, sortValue, 1, {});
-    }, [appliedFilters, appliedQuery, clearSelection, replaceLocation, sortValue]);
+    }, [appliedFilters, appliedQuery, clearSelection, replaceLocation, sortValue, lifetime]);
 
     const openSingleDeletePreview = useCallback(async (rowId: string | number) => {
+        if (!lifetime.active || !lifetime.canWrite) return;
+        if (lifetime.busy) return;
+        previewLifetime.active = false;
+        const previewVersion = ++lifetime.previewVersion;
         setPendingDeleteIds([rowId]);
         setPendingDeleteSelectAll(false);
         setPendingDeleteScope(null);
@@ -332,18 +388,23 @@ export function useModelPageController({
         setIsDeletePreviewLoading(true);
         try {
             const preview = await client.getDeletePreview(slug, rowId);
+            if (!lifetime.active || !lifetime.canWrite || previewVersion !== lifetime.previewVersion) return;
             setDeletePreview(preview);
         } catch (reason: unknown) {
+            if (!lifetime.active || previewVersion !== lifetime.previewVersion) return;
             setDeletePreviewError(reason instanceof Error ? reason.message : t('delete_preview_error'));
         } finally {
-            setIsDeletePreviewLoading(false);
+            if (lifetime.active && previewVersion === lifetime.previewVersion) setIsDeletePreviewLoading(false);
         }
-    }, [client, slug, t]);
+    }, [client, slug, t, lifetime, previewLifetime]);
 
     const openBulkDeletePreview = useCallback(async () => {
-        if (!hasSelection) {
+        if (!lifetime.active || !lifetime.canWrite || !selectionLifetime.active || !hasSelection) {
             return;
         }
+        if (lifetime.busy) return;
+        previewLifetime.active = false;
+        const previewVersion = ++lifetime.previewVersion;
         setPendingDeleteIds(isAllMatchingSelected ? [] : selectedIds);
         setPendingDeleteSelectAll(isAllMatchingSelected);
         setPendingDeleteScope(isAllMatchingSelected ? selectionScope : null);
@@ -358,16 +419,19 @@ export function useModelPageController({
                 isAllMatchingSelected ? [] : selectedIds,
                 isAllMatchingSelected ? {selectAll: true, selectionScope} : undefined,
             );
+            if (!lifetime.active || !lifetime.canWrite || previewVersion !== lifetime.previewVersion) return;
             setDeletePreview(preview);
         } catch (reason: unknown) {
+            if (!lifetime.active || previewVersion !== lifetime.previewVersion) return;
             setDeletePreviewError(reason instanceof Error ? reason.message : t('delete_preview_error'));
         } finally {
-            setIsDeletePreviewLoading(false);
-            setBulkActionMenuAnchor(null);
+            if (lifetime.active && previewVersion === lifetime.previewVersion) setIsDeletePreviewLoading(false);
+            if (lifetime.active && previewVersion === lifetime.previewVersion) setBulkActionMenuAnchor(null);
         }
-    }, [client, hasSelection, isAllMatchingSelected, selectedIds, selectionScope, slug, t]);
+    }, [client, hasSelection, isAllMatchingSelected, selectedIds, selectionScope, slug, t, lifetime, selectionLifetime, previewLifetime]);
 
     const handleConfirmDelete = useCallback(async () => {
+        if (!lifetime.active || !lifetime.canWrite) return;
         if (pendingDeleteMode === 'single' && pendingDeleteIds.length === 0) {
             return;
         }
@@ -375,12 +439,17 @@ export function useModelPageController({
             return;
         }
 
+        if (!previewLifetime.active || lifetime.busy || !deletePreviewOpen || isDeletePreviewLoading || !deletePreview?.can_delete || deletePreviewError) return;
+        lifetime.busy = true;
+        const previewVersion = lifetime.previewVersion;
+        const selectionVersion = lifetime.selectionVersion;
         setIsDeleteSubmitting(true);
         setError(null);
         try {
+            let successMessage: string;
             if (pendingDeleteMode === 'single') {
                 await client.deleteItem(slug, pendingDeleteIds[0]);
-                message.success(t('object_deleted_success'));
+                successMessage = t('object_deleted_success');
             } else {
                 const response = await client.bulkDelete(
                     slug,
@@ -389,27 +458,33 @@ export function useModelPageController({
                         ? {selectAll: true, selectionScope: pendingDeleteScope}
                         : undefined,
                 );
-                message.success(t('delete_success', {count: response.deleted}));
+                successMessage = t('delete_success', {count: response.deleted});
             }
+            invalidateModelCache(client, slug);
+            if (!lifetime.active) return;
+            await refreshRef.current?.();
+            if (!lifetime.active || previewVersion !== lifetime.previewVersion) return;
+            message.success(successMessage);
             setDeletePreviewOpen(false);
             setDeletePreview(null);
             setDeletePreviewError(null);
             setPendingDeleteIds([]);
             setPendingDeleteSelectAll(false);
             setPendingDeleteScope(null);
-            clearSelection();
-            await refresh();
+            if (selectionVersion === lifetime.selectionVersion) clearSelection();
         } catch (reason: unknown) {
+            if (!lifetime.active || previewVersion !== lifetime.previewVersion) return;
             const nextError = reason instanceof Error ? reason.message : t('object_delete_error');
             setDeletePreviewError(nextError);
             message.error(nextError);
         } finally {
-            setIsDeleteSubmitting(false);
+            lifetime.busy = false;
+            if (lifetime.active) setIsDeleteSubmitting(false);
         }
-    }, [clearSelection, client, message, pendingDeleteIds, pendingDeleteMode, pendingDeleteScope, pendingDeleteSelectAll, refresh, slug, t]);
+    }, [clearSelection, client, message, pendingDeleteIds, pendingDeleteMode, pendingDeleteScope, pendingDeleteSelectAll, slug, t, lifetime, deletePreviewOpen, isDeletePreviewLoading, deletePreview, deletePreviewError, previewLifetime]);
 
     const handleRunNamedBulkAction = useCallback(async (actionSlug: string) => {
-        if (!actionSlug || !hasSelection) {
+        if (!lifetime.active || !lifetime.canWrite || !selectionLifetime.active || lifetime.busy || !actionSlug || !hasSelection) {
             return;
         }
 
@@ -421,10 +496,16 @@ export function useModelPageController({
         const action = bulkActions.find((item) => item.slug === actionSlug);
         if ((action?.form?.length ?? 0) > 0) {
             setBulkActionMenuAnchor(null);
+            lifetime.formVersion += 1;
             setBulkActionFormSlug(actionSlug);
+            setBulkActionFormOpen(true);
             return;
         }
 
+        if (!action) return;
+        lifetime.busy = true;
+        const selectionVersion = lifetime.selectionVersion;
+        setIsBulkSubmitting(true);
         try {
             const response = await client.runBulkAction(
                 slug,
@@ -433,40 +514,61 @@ export function useModelPageController({
                 undefined,
                 isAllMatchingSelected ? {selectAll: true, selectionScope} : undefined,
             );
+            invalidateModelCache(client, slug);
+            if (!lifetime.active) return;
             setBulkActionMenuAnchor(null);
-            clearSelection();
-            await refresh();
+            await refreshRef.current?.();
+            if (!lifetime.active) return;
+            if (selectionVersion === lifetime.selectionVersion) clearSelection();
             const actionLabel = bulkActions.find((item) => item.slug === actionSlug)?.label ?? actionSlug;
             message.success(t('action_success', {action: actionLabel, count: response.processed}));
         } catch (reason: unknown) {
+            if (!lifetime.active) return;
             const nextError = reason instanceof Error ? reason.message : t('object_action_error');
             setError(nextError);
             message.error(nextError);
+        } finally {
+            lifetime.busy = false;
+            if (lifetime.active) setIsBulkSubmitting(false);
         }
-    }, [bulkActions, clearSelection, client, hasSelection, isAllMatchingSelected, message, openBulkDeletePreview, refresh, selectedIds, selectionScope, slug, t]);
+    }, [bulkActions, clearSelection, client, hasSelection, isAllMatchingSelected, message, openBulkDeletePreview, selectedIds, selectionScope, slug, t, lifetime, selectionLifetime]);
 
     const handleSubmitBulkActionForm = useCallback(async (payload: Record<string, unknown>) => {
-        if (!bulkActionFormSlug || !hasSelection) {
+        if (!lifetime.active || !lifetime.canWrite || !selectionLifetime.active || !formLifetime.active || lifetime.busy || !bulkActionFormOpen || !bulkActionFormSlug || !hasSelection) {
             return;
         }
 
-        const response = await client.runBulkAction(
-            slug,
-            bulkActionFormSlug,
-            isAllMatchingSelected ? [] : selectedIds,
-            payload,
-            isAllMatchingSelected ? {selectAll: true, selectionScope} : undefined,
-        );
-        setBulkActionFormSlug(null);
-        clearSelection();
-        await refresh();
-        const actionLabel = bulkActions.find((item) => item.slug === bulkActionFormSlug)?.label ?? bulkActionFormSlug;
-        message.success(t('action_success', {action: actionLabel, count: response.processed}));
-    }, [bulkActionFormSlug, bulkActions, clearSelection, client, hasSelection, isAllMatchingSelected, message, refresh, selectedIds, selectionScope, slug, t]);
+        lifetime.busy = true;
+        const formVersion = lifetime.formVersion;
+        const selectionVersion = lifetime.selectionVersion;
+        setIsBulkSubmitting(true);
+        try {
+            const response = await client.runBulkAction(
+                slug, bulkActionFormSlug, isAllMatchingSelected ? [] : selectedIds, payload,
+                isAllMatchingSelected ? {selectAll: true, selectionScope} : undefined,
+            );
+            invalidateModelCache(client, slug);
+            if (!lifetime.active) return;
+            await refreshRef.current?.();
+            if (!lifetime.active || formVersion !== lifetime.formVersion) return;
+            setBulkActionFormOpen(false);
+            if (selectionVersion === lifetime.selectionVersion) clearSelection();
+            const actionLabel = bulkActions.find((item) => item.slug === bulkActionFormSlug)?.label ?? bulkActionFormSlug;
+            message.success(t('action_success', {action: actionLabel, count: response.processed}));
+        } catch (reason: unknown) {
+            if (lifetime.active && formVersion === lifetime.formVersion) throw reason;
+        } finally {
+            lifetime.busy = false;
+            if (lifetime.active) setIsBulkSubmitting(false);
+        }
+    }, [bulkActionFormSlug, bulkActions, clearSelection, client, hasSelection, isAllMatchingSelected, message, selectedIds, selectionScope, slug, t, lifetime, bulkActionFormOpen, selectionLifetime, formLifetime]);
 
     const handleCloseBulkActionForm = useCallback(() => {
-        setBulkActionFormSlug(null);
-    }, []);
+        if (!lifetime.active) return;
+        lifetime.formVersion += 1;
+        formLifetime.active = false;
+        setBulkActionFormOpen(false);
+    }, [formLifetime, lifetime]);
 
     const activeBulkAction = useMemo(
         () => bulkActions.find((item) => item.slug === bulkActionFormSlug) ?? null,
@@ -474,12 +576,17 @@ export function useModelPageController({
     );
 
     const handleRowDelete = useCallback(async (rowId: string | number) => {
+        if (!lifetime.active) return;
         setRowActionMenuAnchor(null);
         setRowActionMenuId(null);
         await openSingleDeletePreview(rowId);
-    }, [openSingleDeletePreview]);
+    }, [openSingleDeletePreview, lifetime]);
 
     const handleToggleSelection = useCallback((rowId: string | number, checked: boolean) => {
+        if (!lifetime.active) return;
+        lifetime.selectionVersion += 1;
+        lifetime.formVersion += 1;
+        setBulkActionFormOpen(false);
         if (isAllMatchingSelected) {
             if (checked) {
                 return;
@@ -506,9 +613,13 @@ export function useModelPageController({
             }
             return current.filter((item) => String(item) !== rowKey);
         });
-    }, [isAllMatchingSelected, meta, rows]);
+    }, [isAllMatchingSelected, meta, rows, lifetime]);
 
     const handleToggleAllVisible = useCallback((checked: boolean) => {
+        if (!lifetime.active) return;
+        lifetime.selectionVersion += 1;
+        lifetime.formVersion += 1;
+        setBulkActionFormOpen(false);
         if (!meta) {
             return;
         }
@@ -520,44 +631,59 @@ export function useModelPageController({
         }
 
         clearSelection();
-    }, [clearSelection, meta, rows]);
+    }, [clearSelection, meta, rows, lifetime]);
 
     const handleSelectAllMatching = useCallback(() => {
+        if (!lifetime.active) return;
+        lifetime.selectionVersion += 1;
+        lifetime.formVersion += 1;
+        setBulkActionFormOpen(false);
         if (!hasSelection || total === 0) {
             return;
         }
         setSelectedIds([]);
         setIsAllMatchingSelected(true);
-    }, [hasSelection, total]);
+    }, [hasSelection, total, lifetime]);
 
     const clearBulkDeleteState = useCallback(() => {
+        if (!lifetime.active) return;
         setPendingDeleteIds([]);
         setPendingDeleteSelectAll(false);
         setPendingDeleteScope(null);
-    }, []);
+    }, [lifetime]);
 
     const handleClearDeletePreview = useCallback(() => {
+        if (!lifetime.active || lifetime.busy) return;
+        lifetime.previewVersion += 1;
+        previewLifetime.active = false;
+        setIsDeletePreviewLoading(false);
         setDeletePreviewOpen(false);
         setDeletePreview(null);
         setDeletePreviewError(null);
         clearBulkDeleteState();
-    }, [clearBulkDeleteState]);
+    }, [clearBulkDeleteState, lifetime, previewLifetime]);
 
     const handleOpenRowMenu = useCallback((event: { currentTarget: HTMLElement }, rowId: string | number) => {
+        if (!lifetime.active || !lifetime.canWrite) return;
         setRowActionMenuAnchor(event.currentTarget as HTMLElement);
         setRowActionMenuId(rowId);
-    }, []);
+    }, [lifetime]);
 
     const handleCloseRowMenu = useCallback(() => {
+        if (!lifetime.active) return;
         setRowActionMenuAnchor(null);
         setRowActionMenuId(null);
-    }, []);
+    }, [lifetime]);
 
     const handleCloseBulkActionMenu = useCallback(() => {
+        if (!lifetime.active) return;
         setBulkActionMenuAnchor(null);
-    }, []);
+    }, [lifetime]);
 
     return {
+        canWrite,
+        bulkActionFormOpen,
+        isBulkSubmitting,
         allVisibleSelected,
         appliedFilters,
         appliedQuery,
@@ -626,34 +752,6 @@ export function useModelPageController({
     };
 }
 
-
-function requestListItems(client: AdminClient, slug: string, params: AdminListRequestParams, requestKey: string) {
-    const bucket = getClientCacheBucket(client);
-    const cachedResponse = bucket.listResponseCache.get(requestKey);
-    if (cachedResponse) {
-        return Promise.resolve(cachedResponse);
-    }
-
-    const existingRequest = bucket.inFlightListRequests.get(requestKey);
-    if (existingRequest) {
-        return existingRequest;
-    }
-
-    const cacheVersion = getModelCacheVersion(client, slug);
-    const request = client.getItems(slug, params)
-        .then((response) => {
-            if (getModelCacheVersion(client, slug) === cacheVersion) {
-                setCachedListResponse(client, requestKey, response);
-            }
-            return response;
-        })
-        .finally(() => {
-            bucket.inFlightListRequests.delete(requestKey);
-        });
-
-    bucket.inFlightListRequests.set(requestKey, request);
-    return request;
-}
 
 function parsePageParam(value: string | null): number {
     const parsedValue = Number(value);

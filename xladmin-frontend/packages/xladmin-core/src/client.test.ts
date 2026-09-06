@@ -1,5 +1,6 @@
-import {describe, expect, it, vi} from 'vitest';
-import {createFetchAdminClient} from './client';
+import {describe, expect, expectTypeOf, it, vi} from 'vitest';
+import {createFetchAdminClient, type AdminClient} from './client';
+import type {AdminItemResponse} from './types';
 
 describe('fetch client', () => {
     it('passes query params and unwraps json payloads', async () => {
@@ -85,5 +86,27 @@ describe('fetch client', () => {
             'http://localhost:8000/xladmin/models/users/items/42/actions/assign-role/fields/role_id/choices/?q=own&ids=7',
             expect.objectContaining({method: 'GET'}),
         );
+    });
+});
+
+describe('mutation response contract', () => {
+    it.each(['createItem', 'patchItem'] as const)('%s returns only the item sent by the HTTP API', async (method) => {
+        const payload = {name: 'Changed'};
+        const response: AdminItemResponse = {item: {id: 17, ...payload}};
+        const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(Response.json(response));
+        const client = createFetchAdminClient({baseUrl: 'http://admin.test/api', fetch});
+        const result = method === 'createItem'
+            ? await client.createItem('ledger', payload)
+            : await client.patchItem('ledger', 17, payload);
+        expect(result).toEqual(response);
+        expect(result).not.toHaveProperty('meta');
+        expect(fetch).toHaveBeenCalledTimes(1);
+        expect(fetch.mock.calls[0][1]?.method).toBe(method === 'createItem' ? 'POST' : 'PATCH');
+        expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual(payload);
+    });
+
+    it('does not promise metadata absent from mutation responses', () => {
+        expectTypeOf<Awaited<ReturnType<AdminClient['createItem']>>>().toEqualTypeOf<AdminItemResponse>();
+        expectTypeOf<Awaited<ReturnType<AdminClient['patchItem']>>>().toEqualTypeOf<AdminItemResponse>();
     });
 });

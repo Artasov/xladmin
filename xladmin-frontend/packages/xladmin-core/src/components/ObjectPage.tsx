@@ -104,7 +104,7 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                                 <ArrowBackIcon fontSize="small"/>
                             </IconButton>
                         )}
-                        actions={isPhone ? (
+                        actions={isPhone && controller.canWrite ? (
                             <IconButton
                                 aria-label={t('actions')}
                                 onClick={(event) => controller.setActionsAnchorEl(event.currentTarget)}
@@ -148,6 +148,7 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                                                     value={controller.values[field.name]}
                                                     slug={slug}
                                                     client={client}
+                                                    readOnly={controller.isMutating}
                                                     onFieldChange={controller.handleFieldChange}
                                                 />
                                             );
@@ -172,7 +173,7 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                             </Box>
                         </Paper>
 
-                        <Paper
+                        {controller.canWrite ? <Paper
                             sx={{
                                 width: {xs: '100%', lg: 280},
                                 flexShrink: 0,
@@ -190,7 +191,7 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                                 </Typography>
                                 {controller.isDirty ? (
                                     <Button variant="contained" onClick={() => void controller.handleSave()}
-                                            disabled={controller.isSaving}>
+                                            disabled={controller.isMutating}>
                                         {controller.isSaving ? t('saving') : t('save')}
                                     </Button>
                                 ) : null}
@@ -198,7 +199,7 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                                     variant="outlined"
                                     color="error"
                                     onClick={() => void controller.handleOpenDeletePreview()}
-                                    disabled={controller.isDeleting}
+                                    disabled={controller.isMutating}
                                 >
                                     {t('delete')}
                                 </Button>
@@ -207,13 +208,13 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                                         key={action.slug}
                                         variant="outlined"
                                         onClick={() => void controller.handleRunObjectAction(action.slug)}
-                                        disabled={controller.activeActionSlug !== null}
+                                        disabled={controller.isMutating}
                                     >
                                         {controller.activeActionSlug === action.slug ? t('executing') : action.label}
                                     </Button>
                                 ))}
                             </Stack>
-                        </Paper>
+                        </Paper> : null}
                     </Stack>
                 </Stack>
 
@@ -237,14 +238,14 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                                 controller.setActionsAnchorEl(null);
                                 void controller.handleSave();
                             }}
-                            disabled={controller.isSaving}
+                            disabled={controller.isMutating}
                         >
                             {controller.isSaving ? t('saving') : t('save')}
                         </MenuItem>
                     ) : null}
                     <MenuItem
                         onClick={() => void controller.handleOpenDeletePreview()}
-                        disabled={controller.isDeleting}
+                        disabled={controller.isMutating}
                         sx={{color: 'error.main'}}
                     >
                         {t('delete')}
@@ -256,7 +257,7 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                                 controller.setActionsAnchorEl(null);
                                 void controller.handleRunObjectAction(action.slug);
                             }}
-                            disabled={controller.activeActionSlug !== null}
+                            disabled={controller.isMutating}
                         >
                             {controller.activeActionSlug === action.slug ? t('executing') : action.label}
                         </MenuItem>
@@ -264,26 +265,19 @@ export function ObjectPage({client, slug, id, router}: ObjectPageProps) {
                 </Menu>
 
                 <DeletePreviewDialog
-                    open={controller.deleteConfirmOpen}
+                    open={controller.deleteConfirmOpen && controller.canWrite}
                     title={t('delete_object_title')}
                     preview={controller.deletePreview}
                     error={controller.deletePreviewError}
                     isLoading={controller.isDeletePreviewLoading}
                     isSubmitting={controller.isDeleting}
-                    onClose={() => {
-                        if (controller.isDeleting) {
-                            return;
-                        }
-                        controller.setDeleteConfirmOpen(false);
-                        controller.setDeletePreview(null);
-                        controller.setDeletePreviewError(null);
-                    }}
+                    onClose={controller.handleCloseDeletePreview}
                     onConfirm={() => void controller.handleDelete()}
                 />
 
                 {controller.activeObjectAction?.form ? (
                     <ActionFormDialog
-                        open={true}
+                        open={controller.objectActionFormOpen && controller.canWrite}
                         onClose={controller.handleCloseObjectActionForm}
                         onSuccess={() => undefined}
                         title={`${controller.activeObjectAction.label}: ${controller.objectTitle}`}

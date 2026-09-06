@@ -31,6 +31,22 @@ Compatibility aliases are kept:
 - `Admin*` config names
 - `create_admin_router(...)`
 
+## Read-only models
+
+Set `ModelConfig(..., read_only=True)` for records that may only be changed through application domain commands. This is a model-level write restriction, separate from `FieldConfig.read_only` and from user authentication.
+
+The admin rejects create, PATCH, delete, bulk delete, object actions and bulk actions with HTTP 403 before invoking their write handlers. List/detail and relation reads remain available. Metadata includes `read_only`, removes writable fields and write actions, and marks fields as read-only even when explicit create/update field lists were configured.
+
+Deleting a writable parent is also rejected if the deletion plan would delete a registered read-only child or clear its foreign key. Delete previews expose those dependencies as protected. Custom handlers registered on other writable models are trusted application code; this setting is not a database-wide authorization mechanism for arbitrary SQL issued by them.
+
+The matching import/export extension rejects both import validation and commit, advertises no import formats, and preserves exports. Consumers must update the backend core and extension together. Frontend consumers should use model metadata to hide write controls; hiding controls alone is not the protection.
+
+## Scoped relationship writes
+
+`ModelConfig.query_for_list(query, session, user)` also defines the available IDs for registered relation targets. Standard create/PATCH validates scalar foreign keys, single relationships and every ID in a relationship collection against this scope, even when an unavailable object is already cached in the session. An unavailable ID produces HTTP 400 without committing the parent edit; duplicate collection IDs are deduplicated in request order. Models without a configured scope retain their ordinary relation selection semantics.
+
+Internal mutation helpers now require the runtime `registry` and authenticated `user` as keyword arguments. Upgrade the matching import/export extension together: its validation and commit pass the same context, and imported existing targets must also be visible. Custom setters/handlers remain trusted application code. This is assignment validation, not automatic database routing or row-level security for arbitrary SQL.
+
 ## Minimal Example
 
 ```python

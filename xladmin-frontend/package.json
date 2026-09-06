@@ -11,6 +11,7 @@
   "scripts": {
     "build": "npm run build --workspace ./packages/xladmin-core && npm run build --workspace ./packages/xladmin-next && npm run build --workspace ./packages/xladmin-react-router && npm run build --workspace ./packages/xladmin-import-export",
     "check": "npm run check --workspaces --if-present",
+    "check:artifacts": "node scripts/check-artifacts.mjs",
     "test": "npm run test --workspaces --if-present",
     "pack:dry-run": "cd packages/xladmin-core && npm pack --dry-run && cd ../xladmin-next && npm pack --dry-run && cd ../xladmin-react-router && npm pack --dry-run && cd ../xladmin-import-export && npm pack --dry-run"
   },

@@ -22,6 +22,8 @@ Optional backend extension for `xladmin` that adds import/export endpoints.
 
 ## Install
 
+Import validation and commit use the current user's model scope for existing targets and assigned foreign keys. Hidden targets cannot be updated or treated as an existing row to skip; any invalid row makes commit roll back the batch. `auto_generate_pk` ignores the input primary key and does not resolve it as an existing target, but still validates assigned relations. Internal service calls require keyword `registry` and `user`; update the core and extension together.
+
 ```bash
 pip install xladmin xladmin-import-export
 ```

@@ -66,6 +66,7 @@ def get_model_meta(config: AdminModelConfig, *, locale: str = "ru") -> dict[str,
         "slug": config.slug,
         "title": config.title,
         "description": config.description,
+        "read_only": config.read_only,
         "pk_field": get_pk_field_name(config),
         "display_field": config.display_field,
         "page_size": config.page_size,
@@ -86,12 +87,12 @@ def get_model_meta(config: AdminModelConfig, *, locale: str = "ru") -> dict[str,
         "list_fields": get_visible_list_fields(config),
         "detail_fields": get_visible_detail_fields(config),
         "create_fields": get_create_fields(config),
-        "create_form": [
+        "create_form": None if config.read_only else [
             _serialize_form_field(config, form_field, relation_names, column_names)
             for form_field in (config.create_form or ())
         ] or None,
         "update_fields": get_update_fields(config),
-        "bulk_actions": [
+        "bulk_actions": [] if config.read_only else [
             {"slug": "delete", "label": translate(normalized_locale, "delete"), "form": None},
             *[
                 {
@@ -105,7 +106,7 @@ def get_model_meta(config: AdminModelConfig, *, locale: str = "ru") -> dict[str,
                 for action in config.bulk_actions
             ],
         ],
-        "object_actions": [
+        "object_actions": [] if config.read_only else [
             {
                 "slug": action.slug,
                 "label": action.label,

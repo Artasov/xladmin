@@ -17,16 +17,17 @@ export type NavLinkProps = AdminNavLinkProps;
 
 export function NavLink({href, children, style, title, onClick, router}: NavLinkProps) {
     const resolvedRouter = useAdminRouter(router);
+    const resolvedHref = resolvedRouter.resolveHref(href);
 
     return (
         <a
-            href={href}
+            href={resolvedHref}
             style={{
                 color: 'inherit',
                 ...style,
             }}
             title={title}
-            onClick={(event) => handleNavLinkClick(event, {href, onClick, router: resolvedRouter})}
+            onClick={(event) => handleNavLinkClick(event, {href: resolvedHref, onClick, router: resolvedRouter})}
         >
             {children}
         </a>

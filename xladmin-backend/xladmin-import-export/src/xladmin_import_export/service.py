@@ -13,6 +13,7 @@ from openpyxl import Workbook, load_workbook
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+from xladmin.access import ModelWriteAccess
 from xladmin.config import AdminModelConfig
 from xladmin.introspection_fields import (
     get_all_field_names,
@@ -23,12 +24,14 @@ from xladmin.introspection_fields import (
     pk_is_generated,
 )
 from xladmin.introspection_values import convert_value_for_column, get_field_value
+from xladmin.registry import Registry
 from xladmin.router_mutations import apply_payload_to_item
 from xladmin.router_queries import (
     apply_list_filters,
     apply_ordering,
     apply_search,
     build_model_query,
+    get_item_by_pk,
     get_items_by_ids,
 )
 from xladmin.serializer import serialize_scalar
@@ -80,6 +83,8 @@ def resolve_default_export_fields(model_config: AdminModelConfig, config: Import
 
 
 def resolve_import_fields(model_config: AdminModelConfig, config: ImportExportConfig) -> list[str]:
+    if model_config.read_only:
+        return []
     if config.import_fields is not None:
         return list(dict.fromkeys(config.import_fields))
 
@@ -244,6 +249,9 @@ async def validate_import_rows(
     rows: list[dict[str, Any]],
     fields: list[str],
     conflict_mode: ImportConflictMode,
+    *,
+    registry: Registry,
+    user: Any,
 ) -> ImportValidationResponse:
     try:
         return await process_import_rows(
@@ -253,6 +261,8 @@ async def validate_import_rows(
             fields,
             conflict_mode,
             commit=False,
+            registry=registry,
+            user=user,
         )
     finally:
         await session.rollback()
@@ -264,6 +274,9 @@ async def commit_import_rows(
     rows: list[dict[str, Any]],
     fields: list[str],
     conflict_mode: ImportConflictMode,
+    *,
+    registry: Registry,
+    user: Any,
 ) -> ImportCommitResponse:
     preview = await process_import_rows(
         session,
@@ -272,6 +285,8 @@ async def commit_import_rows(
         fields,
         conflict_mode,
         commit=True,
+        registry=registry,
+        user=user,
     )
     return ImportCommitResponse(
         created=preview.summary.create,
@@ -288,7 +303,10 @@ async def process_import_rows(
     conflict_mode: ImportConflictMode,
     *,
     commit: bool,
+    registry: Registry,
+    user: Any,
 ) -> ImportValidationResponse:
+    ModelWriteAccess.check(model_config)
     mapper = sa_inspect(model_config.model)
     pk_field = get_pk_field_name(model_config)
     pk_column = mapper.columns[pk_field]
@@ -324,9 +342,11 @@ async def process_import_rows(
                 raw_pk_value = normalized_row.get(pk_field)
                 existing_item = None
                 normalized_pk_value = None
-                if raw_pk_value not in (None, ""):
+                if conflict_mode != "auto_generate_pk" and raw_pk_value not in (None, ""):
                     normalized_pk_value = convert_value_for_column(pk_column, raw_pk_value)
-                    existing_item = await session.get(model_config.model, normalized_pk_value)
+                    existing_item = await get_item_by_pk(session, model_config, normalized_pk_value, user)
+                    if existing_item is None and await session.get(model_config.model, normalized_pk_value) is not None:
+                        raise ValueError("Unknown or unavailable import target.")
 
                 if existing_item is not None and conflict_mode == "skip_existing":
                     row_action = "skip"
@@ -338,6 +358,8 @@ async def process_import_rows(
                         existing_item,
                         payload,
                         mode="update",
+                        registry=registry,
+                        user=user,
                         allowed_fields=set(normalized_fields),
                     )
                     row_action = "update"
@@ -358,6 +380,8 @@ async def process_import_rows(
                         item,
                         payload,
                         mode="create",
+                        registry=registry,
+                        user=user,
                         allowed_fields=set(normalized_fields),
                     )
                     missing_required_fields = get_missing_required_columns_for_item(model_config, item)
